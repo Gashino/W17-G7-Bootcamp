@@ -1,6 +1,10 @@
 package server
 
 import (
+	"app/internal/handler"
+	"app/internal/loader"
+	"app/internal/repository"
+	"app/internal/service"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -49,17 +53,33 @@ func (a *ServerChi) Run() (err error) {
 	// dependencies
 	// - loader
 
+	ldWarehouse := loader.NewWarehouseJSONFile("docs/db/warehouse_500.json")
+	dbWarehouse, err := ldWarehouse.Load()
+	if err != nil {
+		return
+	}
+
 	// - repository
+	rpWarehouse := repository.NewWarehouseMap(dbWarehouse)
 
 	// - service
+	svWarehouse := service.NewVehicleDefault(rpWarehouse)
 
 	// - handler
+	hdWarehouse := handler.NewVehicleDefault(svWarehouse)
+
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
 	rt.Use(middleware.Logger)
 	rt.Use(middleware.Recoverer)
 	// - endpoints
+	rt.Route("/api/v1", func(rt chi.Router) {
+		rt.Route("/warehouses", func(rt chi.Router) {
+			// - GET /warehouses
+			rt.Get("/", hdWarehouse.GetAll())
+		})
+	})
 
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
