@@ -1,10 +1,6 @@
 package server
 
 import (
-	"app/internal/handler"
-	"app/internal/loader"
-	"app/internal/repository"
-	"app/internal/service"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -52,28 +48,18 @@ type ServerChi struct {
 func (a *ServerChi) Run() (err error) {
 	// dependencies
 	// - loader
-	ld := loader.NewVehicleJSONFile(a.loaderFilePath)
-	db, err := ld.Load()
-	if err != nil {
-		return
-	}
+
 	// - repository
-	rp := repository.NewVehicleMap(db)
+
 	// - service
-	sv := service.NewVehicleDefault(rp)
+
 	// - handler
-	hd := handler.NewVehicleDefault(sv)
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
 	rt.Use(middleware.Logger)
 	rt.Use(middleware.Recoverer)
 	// - endpoints
-	rt.Route("/vehicles", func(rt chi.Router) {
-		// - GET /vehicles
-		rt.Get("/", hd.GetAll())
-		rt.Patch("/{id}/update_speed", hd.UpdateSpeed())
-	})
 
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
