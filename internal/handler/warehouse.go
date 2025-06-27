@@ -4,8 +4,10 @@ import (
 	"app/internal/service"
 	"app/pkg/models"
 	"net/http"
+	"strconv"
 
 	"github.com/bootcamp-go/web/response"
+	"github.com/go-chi/chi/v5"
 )
 
 // NewVehicleDefault is a function that returns a new instance of VehicleDefault
@@ -39,6 +41,42 @@ func (h *WarehouseDefault) GetAll() http.HandlerFunc {
 				MinTemperature: value.MinTemperature,
 			}
 		}
+		response.JSON(w, http.StatusOK, map[string]any{
+			"message": "success",
+			"data":    data,
+		})
+	}
+}
+
+func (h *WarehouseDefault) GetOne() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+
+		idInt, err := strconv.Atoi(id)
+
+		if err != nil {
+			response.JSON(w, http.StatusNotFound, "warehouse not found")
+			return
+		}
+
+		value, err := h.sv.FindOne(idInt)
+
+		if err != nil {
+			response.JSON(w, http.StatusNotFound, err.Error())
+			return
+		}
+
+		// response
+
+		data := models.WarehouseDoc{
+			Id:             value.Id,
+			WarehouseCode:  value.WarehouseCode,
+			Address:        value.Address,
+			Telephone:      value.Telephone,
+			MinCapacity:    value.MinCapacity,
+			MinTemperature: value.MinTemperature,
+		}
+
 		response.JSON(w, http.StatusOK, map[string]any{
 			"message": "success",
 			"data":    data,

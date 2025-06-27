@@ -78,6 +78,7 @@ func (a *ServerChi) Run() (err error) {
 		rt.Route("/warehouses", func(rt chi.Router) {
 			// - GET /warehouses
 			rt.Get("/", hdWarehouse.GetAll())
+			rt.Get("/{id}", hdWarehouse.GetOne())
 		})
 	})
 

@@ -20,3 +20,8 @@ func (s *WarehouseDefault) FindAll() (v map[int]models.Warehouse, err error) {
 	return
 
 }
+
+func (s *WarehouseDefault) FindOne(id int) (v models.Warehouse, err error) {
+	v, err = s.rp.FindOne(id)
+	return
+}

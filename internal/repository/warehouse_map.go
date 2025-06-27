@@ -1,6 +1,9 @@
 package repository
 
-import "app/pkg/models"
+import (
+	"app/pkg/models"
+	"errors"
+)
 
 // NewVehicleMap is a function that returns a new instance of VehicleMap
 func NewWarehouseMap(db map[int]models.Warehouse) *WarehouseMap {
@@ -26,5 +29,16 @@ func (r *WarehouseMap) FindAll() (v map[int]models.Warehouse, err error) {
 		v[key] = value
 	}
 
+	return
+}
+
+func (r *WarehouseMap) FindOne(id int) (v models.Warehouse, err error) {
+	for _, value := range r.db {
+		if value.Id == id {
+			return value, err
+		}
+
+	}
+	err = errors.New("warehouse not found")
 	return
 }
