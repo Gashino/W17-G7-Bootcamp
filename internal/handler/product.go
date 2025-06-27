@@ -28,20 +28,7 @@ func (d ProductDefault) GetAll() http.HandlerFunc {
 
 		dataResponse := make(map[int]models.ProductDoc)
 		for key, value := range result {
-			dataResponse[key] = models.ProductDoc{
-				ID:                             value.ID,
-				Description:                    value.Description,
-				ExpirationRate:                 value.ExpirationRate,
-				FreezingRate:                   value.FreezingRate,
-				Height:                         value.Height,
-				Length:                         value.Length,
-				NetWeight:                      value.NetWeight,
-				ProductCode:                    value.ProductCode,
-				RecommendedFreezingTemperature: value.RecommendedFreezingTemperature,
-				Width:                          value.Width,
-				ProductTypeId:                  value.ProductTypeId,
-				SellerId:                       value.SellerId,
-			}
+			dataResponse[key] = value.ToJSON()
 		}
 
 		response.JSON(writer, http.StatusOK, dataResponse)
@@ -59,7 +46,7 @@ func (d ProductDefault) GetById() http.HandlerFunc {
 			return
 		}
 
-		response.JSON(writer, http.StatusOK, result)
+		response.JSON(writer, http.StatusOK, result.ToJSON())
 	}
 }
 
