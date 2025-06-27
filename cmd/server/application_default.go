@@ -16,8 +16,8 @@ import (
 type ConfigServerChi struct {
 	// ServerAddress is the address where the server will be listening
 	ServerAddress string
-	// LoaderFilePath is the path to the file that contains the vehicles
-	LoaderFilePath string
+	// BuyerLoaderFilePath is the path to the file that contains the buyers
+	BuyerLoaderFilePath string
 }
 
 // NewServerChi is a function that returns a new instance of ServerChi
@@ -30,14 +30,14 @@ func NewServerChi(cfg *ConfigServerChi) *ServerChi {
 		if cfg.ServerAddress != "" {
 			defaultConfig.ServerAddress = cfg.ServerAddress
 		}
-		if cfg.LoaderFilePath != "" {
-			defaultConfig.LoaderFilePath = cfg.LoaderFilePath
+		if cfg.BuyerLoaderFilePath != "" {
+			defaultConfig.BuyerLoaderFilePath = cfg.BuyerLoaderFilePath
 		}
 	}
 
 	return &ServerChi{
-		serverAddress:  defaultConfig.ServerAddress,
-		loaderFilePath: defaultConfig.LoaderFilePath,
+		serverAddress:       defaultConfig.ServerAddress,
+		buyerLoaderFilePath: defaultConfig.BuyerLoaderFilePath,
 	}
 }
 
@@ -45,8 +45,8 @@ func NewServerChi(cfg *ConfigServerChi) *ServerChi {
 type ServerChi struct {
 	// serverAddress is the address where the server will be listening
 	serverAddress string
-	// loaderFilePath is the path to the file that contains the vehicles
-	loaderFilePath string
+	// buyerLoaderFilePath is the path to the file that contains the buyers
+	buyerLoaderFilePath string
 }
 
 // Run is a method that runs the server
@@ -60,6 +60,12 @@ func (a *ServerChi) Run() (err error) {
 	// dependencies
 	// - loader
 
+	// dependencies for buyers
+	buyerLd := loader.NewBuyerJSONFile(a.buyerLoaderFilePath)
+	buyerDb, err := buyerLd.Load()
+	if err != nil {
+		return
+	}
 	// - repository
 	employeeHandler, err := a.BuildemployeeHandler()
 	if err != nil {
@@ -71,6 +77,11 @@ func (a *ServerChi) Run() (err error) {
 	if err != nil {
 		return err
 	}
+	buyerRp := repository.NewBuyerMap(buyerDb)
+	// - service
+	buyerSv := service.NewBuyerDefault(buyerRp)
+	// - handler
+	buyerHd := handler.NewBuyerDefault(buyerSv)
 
 	// - handler
 	sectionHd, err := a.BuildSectionHandler()
@@ -99,6 +110,13 @@ func (a *ServerChi) Run() (err error) {
 		rt.Post("/", hdSeller.Create())
 		rt.Patch("/{id}", hdSeller.Update())
 		rt.Delete("/{id}", hdSeller.Delete())
+	})
+	rt.Route("/buyers", func(r chi.Router) {
+		r.Get("/", buyerHd.GetAll())
+		r.Get("/{id}", buyerHd.GetByID())
+		r.Post("/", buyerHd.Create())
+		r.Patch("/{id}", buyerHd.Update())
+		r.Delete("/{id}", buyerHd.Delete())
 	})
 
 	rt.Route("/sections", func(rt chi.Router) {
