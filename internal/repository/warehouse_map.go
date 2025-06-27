@@ -76,3 +76,8 @@ func (r *WarehouseMap) FindAvailableID() (id int, err error) {
 	id = maxID + 1
 	return
 }
+
+func (r *WarehouseMap) Delete(id int) (err error) {
+	delete(r.db, id)
+	return
+}

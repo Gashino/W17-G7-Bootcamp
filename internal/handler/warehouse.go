@@ -156,3 +156,25 @@ func (h *WarehouseDefault) Update() http.HandlerFunc {
 		return
 	}
 }
+
+func (h *WarehouseDefault) Delete() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		idInt, err := strconv.Atoi(id)
+		if err != nil {
+			response.JSON(w, http.StatusNotFound, "warehouse not found")
+		}
+		err = h.sv.Delete(idInt)
+
+		if err != nil {
+			response.JSON(w, http.StatusNotFound, err.Error())
+		}
+
+		response.JSON(w, http.StatusNoContent, map[string]any{
+			"message": "success",
+			"data":    "Deleted",
+		})
+		return
+
+	}
+}

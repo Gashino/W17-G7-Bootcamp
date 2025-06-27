@@ -9,4 +9,5 @@ type WarehouseRepository interface {
 	Add(v models.Warehouse) (err error)
 	FindAvailableID() (id int, err error)
 	FindWarehouseByCode(code string) (v models.Warehouse, err error)
+	Delete(id int) (err error)
 }

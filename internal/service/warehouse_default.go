@@ -101,3 +101,14 @@ func (s *WarehouseDefault) Update(id int, v models.WarehouseDoc) (err error) {
 
 	return
 }
+
+func (s *WarehouseDefault) Delete(id int) (err error) {
+	// Obtengo el elemento
+	_, err = s.rp.FindOne(id)
+	if err != nil {
+		return
+	}
+
+	err = s.rp.Delete(id)
+	return
+}

@@ -7,4 +7,5 @@ type WarehouseService interface {
 	FindOne(id int) (v models.Warehouse, err error)
 	Add(v models.WarehouseDoc) (err error)
 	Update(id int, v models.WarehouseDoc) (err error)
+	Delete(id int) (err error)
 }
