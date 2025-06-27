@@ -8,6 +8,8 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // writeResponse is a helper function to write JSON responses with status code
@@ -38,6 +40,13 @@ func validateRequest(employee models.Employee, validateID bool) error {
 	return nil
 }
 
+func validateRequestUpdatePatch(employee models.EmployeeDTO) bool {
+	if employee.CardNumberID == "" && employee.FirstName == "" && employee.LastName == "" && employee.WarehouseID == 0 {
+		return false
+	}
+	return true
+}
+
 type EmployeeHandler struct {
 	service service.EmployeeService
 }
@@ -50,11 +59,15 @@ func NewEmployeeHandler(service service.EmployeeService) *EmployeeHandler {
 
 func (h *EmployeeHandler) GetAllEmployees(w http.ResponseWriter, r *http.Request) {
 	employees, err := h.service.FindAll()
+	var serviceErr pkg.ServiceError
 	if err != nil {
-		writeResponse(w, http.StatusInternalServerError, nil, err)
+		if errors.As(err, &serviceErr) {
+			writeResponse(w, serviceErr.ResponseCode, nil, err)
+		} else {
+			writeResponse(w, http.StatusInternalServerError, nil, pkg.ServiceErrors[pkg.ErrInternalServer])
+		}
 		return
 	}
-
 	var responses []models.EmployeeResponse
 	for _, e := range employees {
 		responses = append(responses, models.EmployeeResponse{
@@ -70,7 +83,7 @@ func (h *EmployeeHandler) GetAllEmployees(w http.ResponseWriter, r *http.Request
 }
 
 func (h *EmployeeHandler) GetEmployee(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Query().Get("id")
+	idStr := chi.URLParam(r, "id")
 	if idStr == "" {
 		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
 			Code:         100,
@@ -91,11 +104,12 @@ func (h *EmployeeHandler) GetEmployee(w http.ResponseWriter, r *http.Request) {
 	}
 
 	employee, err := h.service.FindById(id)
+	var serviceErr pkg.ServiceError
 	if err != nil {
-		if err == pkg.ServiceErrors[pkg.ErrNotFound] {
-			writeResponse(w, http.StatusNotFound, nil, err)
+		if errors.As(err, &serviceErr) {
+			writeResponse(w, serviceErr.ResponseCode, nil, err)
 		} else {
-			writeResponse(w, http.StatusInternalServerError, nil, err)
+			writeResponse(w, http.StatusInternalServerError, nil, pkg.ServiceErrors[pkg.ErrInternalServer])
 		}
 		return
 	}
@@ -142,11 +156,12 @@ func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request)
 	}
 
 	newEmployee, err := h.service.Save(employeeModel)
+	var serviceErr pkg.ServiceError
 	if err != nil {
-		if err.Error() == "Card ID already exists" {
-			writeResponse(w, http.StatusConflict, nil, err)
+		if errors.As(err, &serviceErr) {
+			writeResponse(w, serviceErr.ResponseCode, nil, err)
 		} else {
-			writeResponse(w, http.StatusInternalServerError, nil, err)
+			writeResponse(w, http.StatusInternalServerError, nil, pkg.ServiceErrors[pkg.ErrInternalServer])
 		}
 		return
 	}
@@ -165,7 +180,7 @@ func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *EmployeeHandler) UpdateEmployee(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Query().Get("id")
+	idStr := chi.URLParam(r, "id")
 	if idStr == "" {
 		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
 			Code:         404,
@@ -181,7 +196,7 @@ func (h *EmployeeHandler) UpdateEmployee(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var employee models.EmployeeUpdateDTO
+	var employee models.EmployeeDTO
 	if err := json.NewDecoder(r.Body).Decode(&employee); err != nil {
 		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
 			Code:         404,
@@ -190,28 +205,24 @@ func (h *EmployeeHandler) UpdateEmployee(w http.ResponseWriter, r *http.Request)
 		})
 		return
 	}
+
+	if !validateRequestUpdatePatch(employee) {
+		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceErrors[pkg.ErrBadRequest])
+		return
+	}
 	employeeModel := models.Employee{
 		CardNumberID: employee.CardNumberID,
 		FirstName:    employee.FirstName,
 		LastName:     employee.LastName,
 		WarehouseID:  employee.WarehouseID,
-		ID:           employee.ID,
 	}
-	if err := validateRequest(employeeModel, true); err != nil {
-		var serviceErr pkg.ServiceError
+	updatedEmployee, err := h.service.Update(employeeModel, id)
+	var serviceErr pkg.ServiceError
+	if err != nil {
 		if errors.As(err, &serviceErr) {
 			writeResponse(w, serviceErr.ResponseCode, nil, err)
 		} else {
 			writeResponse(w, http.StatusInternalServerError, nil, pkg.ServiceErrors[pkg.ErrInternalServer])
-		}
-		return
-	}
-	updatedEmployee, err := h.service.Update(employeeModel, id)
-	if err != nil {
-		if err == pkg.ServiceErrors[pkg.ErrNotFound] {
-			writeResponse(w, http.StatusNotFound, nil, err)
-		} else {
-			writeResponse(w, http.StatusInternalServerError, nil, err)
 		}
 		return
 	}
@@ -251,11 +262,12 @@ func (h *EmployeeHandler) DeleteEmployee(w http.ResponseWriter, r *http.Request)
 	}
 
 	err = h.service.Delete(id)
+	var serviceErr pkg.ServiceError
 	if err != nil {
-		if err == pkg.ServiceErrors[pkg.ErrNotFound] {
-			writeResponse(w, http.StatusNotFound, nil, err)
+		if errors.As(err, &serviceErr) {
+			writeResponse(w, serviceErr.ResponseCode, nil, err)
 		} else {
-			writeResponse(w, http.StatusInternalServerError, nil, err)
+			writeResponse(w, http.StatusInternalServerError, nil, pkg.ServiceErrors[pkg.ErrInternalServer])
 		}
 		return
 	}

@@ -24,6 +24,7 @@ func (e ServiceError) Error() string {
 const (
 	ErrBadRequest = 1 + iota
 	ErrNotFound
+	ErrConflict
 	ErrInternalServer
 )
 
@@ -37,6 +38,11 @@ var ServiceErrors = map[int]ServiceError{
 		Code:         ErrNotFound,
 		ResponseCode: http.StatusNotFound,
 		Message:      "Not found",
+	},
+	ErrConflict: {
+		Code:         ErrConflict,
+		ResponseCode: http.StatusConflict,
+		Message:      "Resource conflict",
 	},
 	ErrInternalServer: {
 		Code:         ErrInternalServer,

@@ -1,6 +1,11 @@
 package server
 
 import (
+	"app/internal/handler"
+	"app/internal/loader"
+	"app/internal/repository"
+	"app/internal/service"
+	"app/pkg/models"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -48,19 +53,30 @@ type ServerChi struct {
 func (a *ServerChi) Run() (err error) {
 	// dependencies
 	// - loader
-
+	loaderEmployee := loader.NewLoaderGeneric[models.EmployeeDocument]()
+	employees, err := loaderEmployee.LoadFromJSON("./docs/db/employees.json")
+	if err != nil {
+		return err
+	}
 	// - repository
-
+	employeeRepository := repository.NewEmployeeMapRepository(employees)
 	// - service
-
+	employeeService := service.NewEmployeeServiceDefault(employeeRepository)
 	// - handler
+	employeeHandler := handler.NewEmployeeHandler(employeeService)
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
 	rt.Use(middleware.Logger)
 	rt.Use(middleware.Recoverer)
 	// - endpoints
-
+	rt.Route("/employees", func(r chi.Router) {
+		r.Get("/", employeeHandler.GetAllEmployees)
+		r.Get("/{id}", employeeHandler.GetEmployee)
+		r.Post("/", employeeHandler.CreateEmployee)
+		r.Patch("/{id}", employeeHandler.UpdateEmployee)
+		r.Delete("/{id}", employeeHandler.DeleteEmployee)
+	})
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
 	return

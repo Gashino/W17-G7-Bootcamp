@@ -10,17 +10,25 @@ type EmployeeRepositoryMap struct {
 	maxId int
 }
 
-func NewEmployeeMapRepository(db map[int]models.Employee) EmployeeRepository {
+func NewEmployeeMapRepository(db []models.EmployeeDocument) EmployeeRepository {
 	// Calculate initial maxId
 	var maxId int
-	for id := range db {
-		if id > maxId {
-			maxId = id
+	dbMap := make(map[int]models.Employee)
+	for _, e := range db {
+		if e.ID > maxId {
+			maxId = e.ID
+		}
+		dbMap[e.ID] = models.Employee{
+			ID:           e.ID,
+			CardNumberID: e.CardNumberID,
+			FirstName:    e.FirstName,
+			LastName:     e.LastName,
+			WarehouseID:  e.WarehouseID,
 		}
 	}
 
 	return &EmployeeRepositoryMap{
-		db:    db,
+		db:    dbMap,
 		maxId: maxId,
 	}
 }
@@ -45,7 +53,7 @@ func (r *EmployeeRepositoryMap) Save(employee models.Employee) (models.Employee,
 	for _, existingEmployee := range r.db {
 		if existingEmployee.CardNumberID == employee.CardNumberID {
 			return models.Employee{}, pkg.ServiceError{
-				Code:         100,
+				Code:         400,
 				ResponseCode: 400,
 				Message:      "Card ID already exists",
 			}
@@ -54,7 +62,7 @@ func (r *EmployeeRepositoryMap) Save(employee models.Employee) (models.Employee,
 
 	r.maxId++
 	newId := r.maxId
-
+	employee.ID = newId
 	r.db[newId] = employee
 
 	return employee, nil
@@ -62,7 +70,18 @@ func (r *EmployeeRepositoryMap) Save(employee models.Employee) (models.Employee,
 
 func (r *EmployeeRepositoryMap) Update(employee models.Employee, id int) (models.Employee, error) {
 	if _, ok := r.db[id]; !ok {
-		return models.Employee{}, nil
+		return models.Employee{}, pkg.ServiceErrors[pkg.ErrNotFound]
+	}
+
+	currentEmployee := r.db[id]
+
+	if currentEmployee.CardNumberID != employee.CardNumberID {
+
+		for existingID, existingEmployee := range r.db {
+			if existingID != id && existingEmployee.CardNumberID == employee.CardNumberID {
+				return models.Employee{}, pkg.ServiceErrors[pkg.ErrConflict]
+			}
+		}
 	}
 
 	r.db[id] = employee

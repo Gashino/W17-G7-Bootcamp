@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -10,31 +9,39 @@ import (
 // This struct will be used as a map in the database
 // swagger:model Employee
 type Employee struct {
-	ID           string
+	ID           int
 	CardNumberID string
 	FirstName    string
 	LastName     string
-	WarehouseID  string
+	WarehouseID  int
+}
+
+type EmployeeDocument struct {
+	ID           int    `json:"id"`
+	CardNumberID string `json:"card_number_id"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	WarehouseID  int    `json:"warehouse_id"`
 }
 
 type EmployeeDTO struct {
 	CardNumberID string `json:"card_number_id"`
 	FirstName    string `json:"first_name"`
 	LastName     string `json:"last_name"`
-	WarehouseID  string `json:"warehouse_id"`
+	WarehouseID  int    `json:"warehouse_id"`
 }
 
 type EmployeeUpdateDTO struct {
 	EmployeeDTO
-	ID string `json:"id"`
+	ID int `json:"id"`
 }
 
 type EmployeeResponse struct {
-	ID           string `json:"id"`
+	ID           int    `json:"id"`
 	CardNumberID string `json:"card_number_id"`
 	FirstName    string `json:"first_name"`
 	LastName     string `json:"last_name"`
-	WarehouseID  string `json:"warehouse_id"`
+	WarehouseID  int    `json:"warehouse_id"`
 }
 
 type EmployeesResponse struct {
@@ -59,12 +66,12 @@ func ValidateEmployee(employee Employee, validateID bool) error {
 		return fmt.Errorf("last_name is required")
 	}
 
-	if _, err := strconv.Atoi(employee.WarehouseID); err != nil {
+	if employee.WarehouseID == 0 {
 		return fmt.Errorf("warehouse_id must be a valid number")
 	}
 
 	if validateID {
-		if len(strings.TrimSpace(employee.ID)) == 0 {
+		if employee.ID == 0 {
 			return fmt.Errorf("id is required")
 		}
 	}
