@@ -3,6 +3,7 @@ package handler
 import (
 	"app/internal/service"
 	"app/pkg/models"
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -81,5 +82,43 @@ func (h *WarehouseDefault) GetOne() http.HandlerFunc {
 			"message": "success",
 			"data":    data,
 		})
+	}
+}
+
+func (h *WarehouseDefault) Add() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Almaceno la del body
+		var data models.WarehouseDoc
+		decoder := json.NewDecoder(r.Body)
+		err := decoder.Decode(&data)
+		defer r.Body.Close()
+
+		// Si no se puede hacer cancelo
+		if err != nil {
+			response.JSON(w, http.StatusUnprocessableEntity, "Malformed or incomplete warehouse data.")
+			return
+		}
+
+		// Si algun campo esta vacio cancelo
+		valid := data.AreFieldsValid()
+		if !valid {
+			response.JSON(w, http.StatusUnprocessableEntity, "Malformed or incomplete warehouse data.")
+			return
+		}
+
+		// Llamo al service
+		err = h.sv.Add(data)
+
+		if err != nil {
+			response.JSON(w, http.StatusInternalServerError, err.Error())
+			return
+
+		}
+
+		response.JSON(w, http.StatusOK, map[string]any{
+			"message": "success",
+			"data":    "Created",
+		})
+		return
 	}
 }

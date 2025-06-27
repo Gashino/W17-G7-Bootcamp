@@ -42,3 +42,37 @@ func (r *WarehouseMap) FindOne(id int) (v models.Warehouse, err error) {
 	err = errors.New("warehouse not found")
 	return
 }
+
+func (r *WarehouseMap) Add(v models.Warehouse) (err error) {
+	r.db[v.Id] = v
+	return
+}
+
+func (r *WarehouseMap) FindWarehouseByCode(code string) (v models.Warehouse, err error) {
+	for _, value := range r.db {
+		if value.WarehouseCode == code {
+			return value, err
+		}
+
+	}
+	err = errors.New("warehouse not found")
+	return
+}
+
+func (r *WarehouseMap) FindAvailableID() (id int, err error) {
+	if len(r.db) == 0 {
+		// Si el mapa está vacío
+		id = 1
+		return
+	}
+
+	maxID := 0
+	for id := range r.db {
+		if id > maxID {
+			maxID = id
+		}
+	}
+
+	id = maxID + 1
+	return
+}

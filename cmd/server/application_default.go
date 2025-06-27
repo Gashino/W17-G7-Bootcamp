@@ -79,6 +79,7 @@ func (a *ServerChi) Run() (err error) {
 			// - GET /warehouses
 			rt.Get("/", hdWarehouse.GetAll())
 			rt.Get("/{id}", hdWarehouse.GetOne())
+			rt.Post("/", hdWarehouse.Add())
 		})
 	})
 
