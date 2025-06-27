@@ -5,10 +5,12 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 )
 
+// writeResponse is a helper function to write JSON responses with status code
 func writeResponse(w http.ResponseWriter, status int, data interface{}, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -24,6 +26,16 @@ func writeResponse(w http.ResponseWriter, status int, data interface{}, err erro
 	}
 
 	json.NewEncoder(w).Encode(data)
+}
+
+func validateRequest(employee models.Employee, validateID bool) error {
+	if err := models.ValidateEmployee(employee, validateID); err != nil {
+		errorR := pkg.ServiceErrors[pkg.ErrBadRequest]
+		errorR.Message = err.Error()
+		return errorR
+
+	}
+	return nil
 }
 
 type EmployeeHandler struct {
@@ -112,12 +124,24 @@ func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	newEmployee, err := h.service.Save(models.Employee{
+	employeeModel := models.Employee{
 		CardNumberID: employee.CardNumberID,
 		FirstName:    employee.FirstName,
 		LastName:     employee.LastName,
 		WarehouseID:  employee.WarehouseID,
-	})
+	}
+
+	if err := validateRequest(employeeModel, false); err != nil {
+		var serviceErr pkg.ServiceError
+		if errors.As(err, &serviceErr) {
+			writeResponse(w, serviceErr.ResponseCode, nil, err)
+		} else {
+			writeResponse(w, http.StatusInternalServerError, nil, pkg.ServiceErrors[pkg.ErrInternalServer])
+		}
+		return
+	}
+
+	newEmployee, err := h.service.Save(employeeModel)
 	if err != nil {
 		if err.Error() == "Card ID already exists" {
 			writeResponse(w, http.StatusConflict, nil, err)
@@ -144,7 +168,7 @@ func (h *EmployeeHandler) UpdateEmployee(w http.ResponseWriter, r *http.Request)
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
 		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
-			Code:         103,
+			Code:         404,
 			ResponseCode: http.StatusBadRequest,
 			Message:      "ID is required",
 		})
@@ -153,30 +177,36 @@ func (h *EmployeeHandler) UpdateEmployee(w http.ResponseWriter, r *http.Request)
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
-			Code:         104,
-			ResponseCode: http.StatusBadRequest,
-			Message:      "Invalid ID format",
-		})
+		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceErrors[pkg.ErrBadRequest])
 		return
 	}
 
-	var employee models.EmployeeDTO
+	var employee models.EmployeeUpdateDTO
 	if err := json.NewDecoder(r.Body).Decode(&employee); err != nil {
-		writeResponse(w, http.StatusUnprocessableEntity, nil, pkg.ServiceError{
-			Code:         105,
-			ResponseCode: http.StatusUnprocessableEntity,
+		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
+			Code:         404,
+			ResponseCode: http.StatusBadRequest,
 			Message:      "Invalid request body",
 		})
 		return
 	}
-
-	updatedEmployee, err := h.service.Update(models.Employee{
+	employeeModel := models.Employee{
 		CardNumberID: employee.CardNumberID,
 		FirstName:    employee.FirstName,
 		LastName:     employee.LastName,
 		WarehouseID:  employee.WarehouseID,
-	}, id)
+		ID:           employee.ID,
+	}
+	if err := validateRequest(employeeModel, true); err != nil {
+		var serviceErr pkg.ServiceError
+		if errors.As(err, &serviceErr) {
+			writeResponse(w, serviceErr.ResponseCode, nil, err)
+		} else {
+			writeResponse(w, http.StatusInternalServerError, nil, pkg.ServiceErrors[pkg.ErrInternalServer])
+		}
+		return
+	}
+	updatedEmployee, err := h.service.Update(employeeModel, id)
 	if err != nil {
 		if err == pkg.ServiceErrors[pkg.ErrNotFound] {
 			writeResponse(w, http.StatusNotFound, nil, err)
