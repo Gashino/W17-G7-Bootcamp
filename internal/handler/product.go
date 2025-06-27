@@ -58,7 +58,16 @@ func (d ProductDefault) Create() http.HandlerFunc {
 
 func (d ProductDefault) Delete() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
+		id, _ := strconv.Atoi(chi.URLParam(request, "id"))
 
+		result := d.sv.Delete(id)
+
+		if result != nil {
+			response.Error(writer, http.StatusNotFound, result.Error())
+			return
+		}
+
+		response.JSON(writer, http.StatusNoContent, nil)
 	}
 }
 

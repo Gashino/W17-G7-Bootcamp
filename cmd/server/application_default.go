@@ -77,7 +77,7 @@ func (a *ServerChi) Run() (err error) {
 		r.Get("/", prodHandler.GetAll())
 		r.Get("/{id}", prodHandler.GetById())
 		r.Post("/", prodHandler.Create())
-		r.Delete("/", prodHandler.Delete())
+		r.Delete("/{id}", prodHandler.Delete())
 		r.Patch("/{id}", prodHandler.Patch())
 	})
 

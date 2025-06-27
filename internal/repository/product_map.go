@@ -9,7 +9,17 @@ type ProductMap struct {
 	db map[int]models.Product
 }
 
-func (p ProductMap) GetById(id int) (*models.Product, error) {
+func (p *ProductMap) Delete(id int) error {
+	if _, exist := p.db[id]; exist {
+		delete(p.db, id)
+	} else {
+		return pkg.ServiceErrors[pkg.ErrNotFound]
+	}
+
+	return nil
+}
+
+func (p *ProductMap) GetById(id int) (*models.Product, error) {
 	if value, exist := p.db[id]; exist {
 		return &value, nil
 	} else {
@@ -17,7 +27,7 @@ func (p ProductMap) GetById(id int) (*models.Product, error) {
 	}
 }
 
-func (p ProductMap) GetAll() map[int]models.Product {
+func (p *ProductMap) GetAll() map[int]models.Product {
 	return p.db
 }
 
