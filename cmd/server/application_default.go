@@ -1,6 +1,10 @@
 package server
 
 import (
+	"app/internal/handler"
+	"app/internal/loader"
+	"app/internal/repository"
+	"app/internal/service"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -48,18 +52,34 @@ type ServerChi struct {
 func (a *ServerChi) Run() (err error) {
 	// dependencies
 	// - loader
-
+	productLoader := loader.NewProductJSONFile("docs/db/products.json")
+	productDb, err := productLoader.Load()
+	if err != nil {
+		return
+	}
 	// - repository
+	productRp := repository.NewProductMap(productDb)
 
 	// - service
+	productSv := service.NewProductDefault(productRp)
 
 	// - handler
+	prodHandler := handler.NewProductDefault(productSv)
+
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
 	rt.Use(middleware.Logger)
 	rt.Use(middleware.Recoverer)
 	// - endpoints
+
+	rt.Route("/products", func(r chi.Router) {
+		r.Get("/", prodHandler.GetAll())
+		r.Get("/{id}", prodHandler.GetById())
+		r.Post("/", prodHandler.Create())
+		r.Delete("/", prodHandler.Delete())
+		r.Patch("/{id}", prodHandler.Patch())
+	})
 
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
