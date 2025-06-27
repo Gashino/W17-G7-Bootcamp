@@ -1,6 +1,11 @@
 package server
 
 import (
+	"app/internal/handler"
+	"app/internal/loader"
+	"app/internal/repository"
+	"app/internal/service"
+	"app/pkg/models"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -48,20 +53,44 @@ type ServerChi struct {
 func (a *ServerChi) Run() (err error) {
 	// dependencies
 	// - loader
+	ldSeller := loader.NewSellerJSONFile(a.loaderFilePath)
+	dbSeller, err := ldSeller.Load()
+	if err != nil {
+		return
+	}
 
-	// - repository
+	// create seller handler with dependences
+	hdSeller := a.BuildSellerHandler(dbSeller)
 
-	// - service
-
-	// - handler
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
 	rt.Use(middleware.Logger)
 	rt.Use(middleware.Recoverer)
+
 	// - endpoints
+	// Grupo de endpoints para sellers
+	rt.Route("/sellers", func(rt chi.Router) {
+		// - GET /sellers
+		rt.Get("/", hdSeller.GetAll())
+		rt.Get("/{id}", hdSeller.GetById())
+		rt.Post("/", hdSeller.Create())
+	})
 
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
 	return
+}
+
+func (*ServerChi) BuildSellerHandler(dbSeller map[int]models.Seller) *handler.SellerDefault {
+	// - repository
+	rpSeller := repository.NewSellerMap(dbSeller)
+
+	// - service
+	svSeller := service.NewSellerDefault(rpSeller)
+
+	// - handler
+	hdSeller := handler.NewSellerDefault(svSeller)
+
+	return hdSeller
 }

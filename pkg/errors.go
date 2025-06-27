@@ -25,6 +25,8 @@ const (
 	ErrBadRequest = 1 + iota
 	ErrNotFound
 	ErrInternalServer
+	ErrConflict
+	ErrUnprocessableEntity
 )
 
 var ServiceErrors = map[int]ServiceError{
@@ -42,5 +44,15 @@ var ServiceErrors = map[int]ServiceError{
 		Code:         ErrInternalServer,
 		ResponseCode: http.StatusInternalServerError,
 		Message:      "Internal server error",
+	},
+	ErrConflict: {
+		Code:         ErrConflict,
+		ResponseCode: http.StatusConflict,
+		Message:      "Resource already exists",
+	},
+	ErrUnprocessableEntity: {
+		Code:         ErrUnprocessableEntity,
+		ResponseCode: http.StatusUnprocessableEntity,
+		Message:      "Validation error",
 	},
 }
