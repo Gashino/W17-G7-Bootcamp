@@ -4,6 +4,7 @@ import (
 	"app/internal/repository"
 	"app/pkg/models"
 	"errors"
+	"fmt"
 )
 
 func NewVehicleDefault(rp repository.WarehouseRepository) *WarehouseDefault {
@@ -51,6 +52,52 @@ func (s *WarehouseDefault) Add(v models.WarehouseDoc) (err error) {
 		MinTemperature: v.MinTemperature,
 	}
 	err = s.rp.Add(warehouse)
+
+	return
+}
+
+func (s *WarehouseDefault) Update(id int, v models.WarehouseDoc) (err error) {
+	// Obtengo el elemento
+	warehouse, err := s.rp.FindOne(id)
+	if err != nil {
+		return
+	}
+	total_changes := 0
+	fmt.Println(v.WarehouseCode, "-", warehouse.WarehouseCode)
+	if v.WarehouseCode != "" && warehouse.WarehouseCode != v.WarehouseCode {
+		// Verfico que el codigo sea unico
+		_, err = s.rp.FindWarehouseByCode(v.WarehouseCode)
+		if err == nil {
+			err = errors.New("Warehouse Code is not unique")
+			return
+		}
+		warehouse.WarehouseCode = v.WarehouseCode
+		total_changes++
+	}
+
+	if v.Address != "" && warehouse.Address != v.Address {
+		warehouse.Address = v.Address
+		total_changes++
+	}
+
+	if v.Telephone != "" && warehouse.Telephone != v.Telephone {
+		warehouse.Telephone = v.Telephone
+		total_changes++
+	}
+
+	if v.MinCapacity != 0 && warehouse.MinCapacity != v.MinCapacity {
+		warehouse.MinCapacity = v.MinCapacity
+		total_changes++
+	}
+
+	if v.MinTemperature != 0 && warehouse.MinTemperature != v.MinTemperature {
+		warehouse.MinTemperature = v.MinTemperature
+		total_changes++
+	}
+
+	if total_changes > 0 {
+		err = s.rp.Add(warehouse)
+	}
 
 	return
 }

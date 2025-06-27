@@ -115,9 +115,43 @@ func (h *WarehouseDefault) Add() http.HandlerFunc {
 
 		}
 
-		response.JSON(w, http.StatusOK, map[string]any{
+		response.JSON(w, http.StatusCreated, map[string]any{
 			"message": "success",
 			"data":    "Created",
+		})
+		return
+	}
+}
+
+func (h *WarehouseDefault) Update() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		idInt, err := strconv.Atoi(id)
+
+		// Almaceno la del body
+		var data models.WarehouseDoc
+		decoder := json.NewDecoder(r.Body)
+		err = decoder.Decode(&data)
+		defer r.Body.Close()
+
+		// Si no se puede hacer cancelo
+		if err != nil {
+			response.JSON(w, http.StatusUnprocessableEntity, "Malformed or incomplete warehouse data.")
+			return
+		}
+
+		// Llamo al service
+		err = h.sv.Update(idInt, data)
+
+		if err != nil {
+			response.JSON(w, http.StatusNotFound, err.Error())
+			return
+
+		}
+
+		response.JSON(w, http.StatusOK, map[string]any{
+			"message": "success",
+			"data":    "Updated",
 		})
 		return
 	}

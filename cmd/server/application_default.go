@@ -80,6 +80,7 @@ func (a *ServerChi) Run() (err error) {
 			rt.Get("/", hdWarehouse.GetAll())
 			rt.Get("/{id}", hdWarehouse.GetOne())
 			rt.Post("/", hdWarehouse.Add())
+			rt.Patch("/{id}", hdWarehouse.Update())
 		})
 	})
 
