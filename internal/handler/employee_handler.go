@@ -241,7 +241,7 @@ func (h *EmployeeHandler) UpdateEmployee(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *EmployeeHandler) DeleteEmployee(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Query().Get("id")
+	idStr := chi.URLParam(r, "id")
 	if idStr == "" {
 		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
 			Code:         106,
