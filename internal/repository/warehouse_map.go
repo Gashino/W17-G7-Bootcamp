@@ -17,3 +17,14 @@ type WarehouseMap struct {
 	// db is a map of warehouse
 	db map[int]models.Warehouse
 }
+
+func (r *WarehouseMap) FindAll() (v map[int]models.Warehouse, err error) {
+	v = make(map[int]models.Warehouse)
+
+	// copy db
+	for key, value := range r.db {
+		v[key] = value
+	}
+
+	return
+}
