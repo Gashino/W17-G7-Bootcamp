@@ -163,11 +163,13 @@ func (h *WarehouseDefault) Delete() http.HandlerFunc {
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
 			response.JSON(w, http.StatusNotFound, "warehouse not found")
+			return
 		}
 		err = h.sv.Delete(idInt)
 
 		if err != nil {
 			response.JSON(w, http.StatusNotFound, err.Error())
+			return
 		}
 
 		response.JSON(w, http.StatusNoContent, map[string]any{
