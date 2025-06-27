@@ -34,15 +34,16 @@ func (r *SellerMap) FindAll() (v map[int]models.Seller, err error) {
 }
 
 // Create is a method that create a Seller if not exists
-func (r *SellerMap) Create(seller models.Seller) error {
+func (r *SellerMap) Create(seller models.Seller) (models.Seller, error) {
 
 	largo := len(r.db) + 1
 	_, find := r.db[seller.Id]
 	if find {
-		return pkg.ServiceErrors[pkg.ErrConflict]
+		return models.Seller{}, pkg.ServiceErrors[pkg.ErrConflict]
 	}
+	seller.Id = largo
 	r.db[largo] = seller
-	return nil
+	return seller, nil
 }
 
 // GetById is a method that returns a Seller if exists

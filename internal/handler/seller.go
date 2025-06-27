@@ -105,7 +105,7 @@ func (h *SellerDefault) Create() http.HandlerFunc {
 		// process
 		var seller = models.FromCreateRequest(inputSeller)
 
-		err = h.sv.Create(seller)
+		data, err := h.sv.Create(seller)
 		if err != nil {
 			srvErr := pkg.ServiceErrors[pkg.ErrNotFound]
 			response.JSON(w, srvErr.ResponseCode, map[string]any{
@@ -115,7 +115,7 @@ func (h *SellerDefault) Create() http.HandlerFunc {
 		}
 
 		// response
-		var result = models.ToSellerDoc(seller)
+		var result = models.ToSellerDoc(data)
 
 		response.JSON(w, http.StatusCreated, map[string]any{
 			"message": "success",

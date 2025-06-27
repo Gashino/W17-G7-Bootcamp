@@ -19,10 +19,10 @@ type SellerDoc struct {
 
 // SellerCreateRequest is a struct that represents a Seller in JSON format (Request)
 type SellerCreateRequest struct {
-	CId         *string `json:"cid"`
-	CompanyName *string `json:"company_name"`
-	Address     *string `json:"address"`
-	Telephone   *string `json:"telephone"`
+	CId         *string `json:"cid,omitempty"`
+	CompanyName *string `json:"company_name,omitempty"`
+	Address     *string `json:"address,omitempty"`
+	Telephone   *string `json:"telephone,omitempty"`
 }
 
 // Seller is a struct that represents a Seller

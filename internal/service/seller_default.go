@@ -22,7 +22,7 @@ func (s *SellerDefault) FindAll() (v map[int]models.Seller, err error) {
 	return
 }
 
-func (s *SellerDefault) Create(seller models.Seller) error {
+func (s *SellerDefault) Create(seller models.Seller) (models.Seller, error) {
 	return s.rp.Create(seller)
 }
 
