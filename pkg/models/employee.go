@@ -11,8 +11,6 @@ type Employee struct {
 	WarehouseID  string
 }
 
-// EmployeeDTO is the DTO for creating a new employee
-// swagger:model EmployeeDTO
 type EmployeeDTO struct {
 	CardNumberID string `json:"card_number_id"`
 	FirstName    string `json:"first_name"`
@@ -20,8 +18,6 @@ type EmployeeDTO struct {
 	WarehouseID  string `json:"warehouse_id"`
 }
 
-// EmployeeResponse is the DTO for responding with employee data
-// swagger:model EmployeeResponse
 type EmployeeResponse struct {
 	ID           string `json:"id"`
 	CardNumberID string `json:"card_number_id"`
@@ -30,12 +26,10 @@ type EmployeeResponse struct {
 	WarehouseID  string `json:"warehouse_id"`
 }
 
-// EmployeesResponse is the DTO for responding with multiple employees
 type EmployeesResponse struct {
 	Data []EmployeeResponse `json:"data"`
 }
 
-// EmployeeDataResponse is the DTO for responding with a single employee
 type EmployeeDataResponse struct {
 	Data EmployeeResponse `json:"data"`
 }
