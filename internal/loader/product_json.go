@@ -34,19 +34,19 @@ func (p *ProductJsonFile) Load() (v map[int]models.Product, err error) {
 		v[pd.ID] = models.Product{
 			ID: pd.ID,
 			ProductAttributes: models.ProductAttributes{
-				ProductCode:                    pd.ProductCode,
-				Description:                    pd.Description,
-				NetWeight:                      pd.NetWeight,
-				ExpirationRate:                 pd.ExpirationRate,
-				RecommendedFreezingTemperature: pd.RecommendedFreezingTemperature,
-				FreezingRate:                   pd.FreezingRate,
-				ProductTypeId:                  pd.ProductTypeId,
-				SellerId:                       pd.SellerId,
+				ProductCode:                    *pd.ProductCode,
+				Description:                    *pd.Description,
+				NetWeight:                      *pd.NetWeight,
+				ExpirationRate:                 *pd.ExpirationRate,
+				RecommendedFreezingTemperature: *pd.RecommendedFreezingTemperature,
+				FreezingRate:                   *pd.FreezingRate,
+				ProductTypeId:                  *pd.ProductTypeId,
+				SellerId:                       *pd.SellerId,
 			},
 			Dimensions: models.Dimensions{
-				Width:  pd.Width,
-				Height: pd.Height,
-				Length: pd.Length,
+				Width:  *pd.Width,
+				Height: *pd.Height,
+				Length: *pd.Length,
 			},
 		}
 	}

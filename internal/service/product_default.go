@@ -13,6 +13,10 @@ type ProductService struct {
 	rp repository.ProductRepository
 }
 
+func (p ProductService) Create(product models.Product) error {
+	return p.rp.Create(product)
+}
+
 func (p ProductService) Delete(id int) error {
 	return p.rp.Delete(id)
 }

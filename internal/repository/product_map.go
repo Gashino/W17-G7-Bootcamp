@@ -3,10 +3,31 @@ package repository
 import (
 	"app/pkg"
 	"app/pkg/models"
+	"net/http"
+	"strings"
 )
 
 type ProductMap struct {
-	db map[int]models.Product
+	db     map[int]models.Product
+	lastId int
+}
+
+func (p *ProductMap) Create(product models.Product) error {
+	for _, value := range p.db {
+		if strings.ToLower(value.ProductCode) == strings.ToLower(product.ProductCode) {
+			return pkg.ServiceError{
+				Code:         0,
+				ResponseCode: http.StatusConflict,
+				Message:      "Product code already exist",
+			}
+		}
+	}
+
+	product.ID = p.lastId
+	p.db[product.ID] = product
+	p.lastId++
+
+	return nil
 }
 
 func (p *ProductMap) Delete(id int) error {
@@ -36,5 +57,5 @@ func NewProductMap(db map[int]models.Product) *ProductMap {
 	if db != nil {
 		defaultDb = db
 	}
-	return &ProductMap{db: defaultDb}
+	return &ProductMap{db: defaultDb, lastId: len(db) + 1}
 }

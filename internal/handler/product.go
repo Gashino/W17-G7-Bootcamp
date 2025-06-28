@@ -3,6 +3,7 @@ package handler
 import (
 	"app/internal/service"
 	"app/pkg/models"
+	"github.com/bootcamp-go/web/request"
 	"github.com/bootcamp-go/web/response"
 	"github.com/go-chi/chi/v5"
 	"net/http"
@@ -51,8 +52,28 @@ func (d ProductDefault) GetById() http.HandlerFunc {
 }
 
 func (d ProductDefault) Create() http.HandlerFunc {
-	return func(writer http.ResponseWriter, request *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var productDoc models.ProductDoc
 
+		errParsing := request.JSON(r, &productDoc)
+		if errParsing != nil {
+			response.Error(w, http.StatusInternalServerError, errParsing.Error())
+			return
+		}
+
+		if isValid := productDoc.Validate(); !isValid {
+			response.Error(w, http.StatusUnprocessableEntity, "some field is not valid for product")
+			return
+		}
+
+		result := d.sv.Create(productDoc.ToStruct())
+
+		if result != nil {
+			response.Error(w, http.StatusConflict, result.Error())
+			return
+		}
+
+		response.JSON(w, http.StatusCreated, "product successfully created")
 	}
 }
 
