@@ -50,21 +50,11 @@ type ServerChi struct {
 
 // Run is a method that runs the server
 func (a *ServerChi) Run() (err error) {
-	// dependencies
-	// - loader
-	productLoader := loader.NewProductJSONFile("docs/db/products.json")
-	productDb, err := productLoader.Load()
+	// create product handler with dependences
+	prodHandler, err := a.BuildProductHandler()
 	if err != nil {
-		return
+		return err
 	}
-	// - repository
-	productRp := repository.NewProductMap(productDb)
-
-	// - service
-	productSv := service.NewProductDefault(productRp)
-
-	// - handler
-	prodHandler := handler.NewProductDefault(productSv)
 
 	// router
 	rt := chi.NewRouter()
@@ -84,4 +74,25 @@ func (a *ServerChi) Run() (err error) {
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
 	return
+}
+
+func (a *ServerChi) BuildProductHandler() (*handler.ProductDefault, error) {
+
+	// - loader
+	productLoader := loader.NewProductJSONFile("docs/db/products.json")
+	productDb, err := productLoader.Load()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// - repository
+	productRp := repository.NewProductMap(productDb)
+
+	// - service
+	productSv := service.NewProductDefault(productRp)
+
+	// - handler
+	prodHandler := handler.NewProductDefault(productSv)
+	return prodHandler, nil
 }
