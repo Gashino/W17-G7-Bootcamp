@@ -7,4 +7,5 @@ type ProductRepository interface {
 	GetById(id int) (*models.Product, error)
 	Delete(id int) error
 	Create(product models.Product) error
+	Update(id int, product models.Product) error
 }

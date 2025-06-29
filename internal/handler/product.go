@@ -93,7 +93,24 @@ func (d ProductDefault) Delete() http.HandlerFunc {
 }
 
 func (d ProductDefault) Patch() http.HandlerFunc {
-	return func(writer http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, req *http.Request) {
+		var productJson models.ProductDoc
+		id, _ := strconv.Atoi(chi.URLParam(req, "id"))
+
+		err := request.JSON(req, &productJson)
+		if err != nil {
+			response.Error(writer, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		result, errServ := d.sv.Update(id, productJson)
+
+		if errServ != nil {
+			response.Error(writer, http.StatusConflict, errServ.Error())
+			return
+		}
+
+		response.JSON(writer, http.StatusOK, result.ToJSON())
 
 	}
 }

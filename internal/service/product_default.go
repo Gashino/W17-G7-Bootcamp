@@ -13,6 +13,16 @@ type ProductService struct {
 	rp repository.ProductRepository
 }
 
+func (p ProductService) Update(id int, product models.ProductDoc) (*models.Product, error) {
+	productToUpdate, errId := p.rp.GetById(id)
+	if errId != nil {
+		return nil, errId
+	}
+	product.MapDataToStruct(productToUpdate)
+
+	return productToUpdate, p.rp.Update(id, *productToUpdate)
+}
+
 func (p ProductService) Create(product models.Product) error {
 	return p.rp.Create(product)
 }

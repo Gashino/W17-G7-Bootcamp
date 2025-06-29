@@ -12,15 +12,19 @@ type ProductMap struct {
 	lastId int
 }
 
+func (p *ProductMap) Update(id int, product models.Product) error {
+
+	if err := p.validateProductCode(product); err != nil {
+		return err
+	}
+	p.db[id] = product
+
+	return nil
+}
+
 func (p *ProductMap) Create(product models.Product) error {
-	for _, value := range p.db {
-		if strings.ToLower(value.ProductCode) == strings.ToLower(product.ProductCode) {
-			return pkg.ServiceError{
-				Code:         0,
-				ResponseCode: http.StatusConflict,
-				Message:      "Product code already exist",
-			}
-		}
+	if err := p.validateProductCode(product); err != nil {
+		return err
 	}
 
 	product.ID = p.lastId
@@ -58,4 +62,21 @@ func NewProductMap(db map[int]models.Product) *ProductMap {
 		defaultDb = db
 	}
 	return &ProductMap{db: defaultDb, lastId: len(db) + 1}
+}
+
+func (p *ProductMap) validateProductCode(product models.Product) error {
+	for _, value := range p.db {
+		if value.ID == product.ID {
+			continue
+		}
+
+		if strings.ToLower(value.ProductCode) == strings.ToLower(product.ProductCode) {
+			return pkg.ServiceError{
+				Code:         0,
+				ResponseCode: http.StatusConflict,
+				Message:      "Product code already exist",
+			}
+		}
+	}
+	return nil
 }
