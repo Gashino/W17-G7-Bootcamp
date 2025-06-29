@@ -23,89 +23,31 @@ type Dimensions struct {
 	Length float64
 }
 
-type ProductDoc struct {
-	ID                             int      `json:"id,omitempty"`
-	Description                    *string  `json:"description,omitempty"`
-	ExpirationRate                 *int     `json:"expiration_rate,omitempty"`
-	FreezingRate                   *int     `json:"freezing_rate,omitempty"`
-	Height                         *float64 `json:"height,omitempty"`
-	Length                         *float64 `json:"length,omitempty"`
-	NetWeight                      *float64 `json:"net_weight,omitempty"`
-	ProductCode                    *string  `json:"product_code,omitempty"`
-	RecommendedFreezingTemperature *float64 `json:"recommended_freezing_temperature,omitempty"`
-	Width                          *float64 `json:"width,omitempty"`
-	ProductTypeId                  *int     `json:"product_type_id,omitempty"`
-	SellerId                       *int     `json:"seller_id,omitempty"`
-}
-
-func (data *ProductDoc) ToStruct() Product {
-	return Product{
-		ID: data.ID,
-		ProductAttributes: ProductAttributes{
-			ProductCode:                    *data.ProductCode,
-			Description:                    *data.Description,
-			NetWeight:                      *data.NetWeight,
-			ExpirationRate:                 *data.ExpirationRate,
-			RecommendedFreezingTemperature: *data.RecommendedFreezingTemperature,
-			FreezingRate:                   *data.FreezingRate,
-			ProductTypeId:                  *data.ProductTypeId,
-			SellerId:                       *data.SellerId,
-		},
-		Dimensions: Dimensions{
-			Width:  *data.Width,
-			Height: *data.Height,
-			Length: *data.Length,
-		},
-	}
-}
-
 func (data *Product) ToJSON() ProductDoc {
+	desc := data.Description
+	exp := data.ExpirationRate
+	frz := data.FreezingRate
+	h := data.Height
+	l := data.Length
+	w := data.Width
+	nw := data.NetWeight
+	pc := data.ProductCode
+	rft := data.RecommendedFreezingTemperature
+	pt := data.ProductTypeId
+	si := data.SellerId
+
 	return ProductDoc{
 		ID:                             data.ID,
-		Description:                    &data.Description,
-		ExpirationRate:                 &data.ExpirationRate,
-		FreezingRate:                   &data.FreezingRate,
-		Height:                         &data.Height,
-		Length:                         &data.Length,
-		NetWeight:                      &data.NetWeight,
-		ProductCode:                    &data.ProductCode,
-		RecommendedFreezingTemperature: &data.RecommendedFreezingTemperature,
-		Width:                          &data.Width,
-		ProductTypeId:                  &data.ProductTypeId,
-		SellerId:                       &data.SellerId,
+		Description:                    &desc,
+		ExpirationRate:                 &exp,
+		FreezingRate:                   &frz,
+		Height:                         &h,
+		Length:                         &l,
+		NetWeight:                      &nw,
+		ProductCode:                    &pc,
+		RecommendedFreezingTemperature: &rft,
+		Width:                          &w,
+		ProductTypeId:                  &pt,
+		SellerId:                       &si,
 	}
-}
-
-func (data *ProductDoc) Validate() bool {
-	if data.Description == nil {
-		return false
-	}
-	if data.ExpirationRate == nil {
-		return false
-	}
-	if data.FreezingRate == nil {
-		return false
-	}
-	if data.Height == nil {
-		return false
-	}
-	if data.Length == nil {
-		return false
-	}
-	if data.NetWeight == nil {
-		return false
-	}
-	if data.ProductCode == nil {
-		return false
-	}
-	if data.RecommendedFreezingTemperature == nil {
-		return false
-	}
-	if data.Width == nil {
-		return false
-	}
-	if data.ProductTypeId == nil {
-		return false
-	}
-	return true
 }
