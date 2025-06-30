@@ -59,11 +59,7 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 	// - repository
-	employeeRepository := repository.NewEmployeeMapRepository(employees)
-	// - service
-	employeeService := service.NewEmployeeServiceDefault(employeeRepository)
-	// - handler
-	employeeHandler := handler.NewEmployeeHandler(employeeService)
+	employeeHandler := a.employeeHandler(employees)
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
@@ -80,4 +76,13 @@ func (a *ServerChi) Run() (err error) {
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
 	return
+}
+
+func (*ServerChi) employeeHandler(employees []models.EmployeeDocument) *handler.EmployeeHandler {
+	employeeRepository := repository.NewEmployeeMapRepository(employees)
+	// - service
+	employeeService := service.NewEmployeeServiceDefault(employeeRepository)
+	// - handler
+	employeeHandler := handler.NewEmployeeHandler(employeeService)
+	return employeeHandler
 }
