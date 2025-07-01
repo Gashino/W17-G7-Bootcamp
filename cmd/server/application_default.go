@@ -58,6 +58,13 @@ func (a *ServerChi) Run() (err error) {
 	}
 
 	// dependencies
+	// - loader
+
+	// - repository
+	employeeHandler, err := a.BuildemployeeHandler()
+	if err != nil {
+		return err
+	}
 	// - handler
 	sectionHd, err := a.BuildSectionHandler()
 	if err != nil {
@@ -91,6 +98,13 @@ func (a *ServerChi) Run() (err error) {
 		r.Patch("/{id}", prodHandler.Patch())
 	})
 
+	rt.Route("/employees", func(r chi.Router) {
+		r.Get("/", employeeHandler.GetAllEmployees)
+		r.Get("/{id}", employeeHandler.GetEmployee)
+		r.Post("/", employeeHandler.CreateEmployee)
+		r.Patch("/{id}", employeeHandler.UpdateEmployee)
+		r.Delete("/{id}", employeeHandler.DeleteEmployee)
+	})
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
 	return
@@ -130,4 +144,18 @@ func (a *ServerChi) BuildProductHandler() (*handler.ProductDefault, error) {
 	// - handler
 	prodHandler := handler.NewProductDefault(productSv)
 	return prodHandler, nil
+}
+
+func (*ServerChi) BuildemployeeHandler() (*handler.EmployeeHandler, error) {
+	loaderEmployee := loader.NewLoaderGeneric[models.EmployeeDocument]()
+	employees, err := loaderEmployee.LoadFromJSON("./docs/db/employees.json")
+	if err != nil {
+		return nil, err
+	}
+	employeeRepository := repository.NewEmployeeMapRepository(employees)
+	// - service
+	employeeService := service.NewEmployeeServiceDefault(employeeRepository)
+	// - handler
+	employeeHandler := handler.NewEmployeeHandler(employeeService)
+	return employeeHandler, nil
 }

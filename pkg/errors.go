@@ -39,14 +39,14 @@ var ServiceErrors = map[int]ServiceError{
 		ResponseCode: http.StatusNotFound,
 		Message:      "Not found",
 	},
+	ErrConflict: {
+		Code:         ErrConflict,
+		ResponseCode: http.StatusConflict,
+		Message:      "Resource conflict",
+	},
 	ErrInternalServer: {
 		Code:         ErrInternalServer,
 		ResponseCode: http.StatusInternalServerError,
 		Message:      "Internal server error",
-	},
-	ErrConflict: {
-		Code:         ErrConflict,
-		ResponseCode: http.StatusConflict,
-		Message:      "Already exists",
 	},
 }
