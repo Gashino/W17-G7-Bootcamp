@@ -26,7 +26,9 @@ func createTestSection(id int) models.Section {
 
 func TestSectionRepository_Create(t *testing.T) {
 	t.Run("Create_Success", func(t *testing.T) {
-		repo := NewSectionMapRepository([]models.Section{})
+		sections := map[int]models.Section{}
+		types := map[int]models.ProductType{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types)
 		section := createTestSection(1)
 		section.ID = 0 // ID should be set by the repository
 
@@ -42,7 +44,9 @@ func TestSectionRepository_Create(t *testing.T) {
 		section2 := createTestSection(2)
 		section2.SectionNumber = section1.SectionNumber // Same section number
 
-		repo := NewSectionMapRepository([]models.Section{section1})
+		sections := map[int]models.Section{section1.ID: section1}
+		types := map[int]models.ProductType{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types)
 
 		_, err := repo.Create(section2)
 
@@ -57,7 +61,9 @@ func TestSectionRepository_GetAll(t *testing.T) {
 	t.Run("GetAll_Success", func(t *testing.T) {
 		section1 := createTestSection(1)
 		section2 := createTestSection(2)
-		repo := NewSectionMapRepository([]models.Section{section1, section2})
+		sections := map[int]models.Section{section1.ID: section1, section2.ID: section2}
+		types := map[int]models.ProductType{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types)
 
 		result, err := repo.GetAll()
 
@@ -65,18 +71,20 @@ func TestSectionRepository_GetAll(t *testing.T) {
 		assert.Len(t, result, 2)
 
 		// Convert map to slice for easier comparison
-		var sections []models.Section
+		var sectionsSlice []models.Section
 		for _, s := range result {
-			sections = append(sections, s)
+			sectionsSlice = append(sectionsSlice, s)
 		}
 
 		// Check that both sections are present, regardless of order
-		assert.Contains(t, sections, section1)
-		assert.Contains(t, sections, section2)
+		assert.Contains(t, sectionsSlice, section1)
+		assert.Contains(t, sectionsSlice, section2)
 	})
 
 	t.Run("GetAll_Empty", func(t *testing.T) {
-		repo := NewSectionMapRepository([]models.Section{})
+		sections := map[int]models.Section{}
+		types := map[int]models.ProductType{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types)
 
 		result, err := repo.GetAll()
 
@@ -88,7 +96,9 @@ func TestSectionRepository_GetAll(t *testing.T) {
 func TestSectionRepository_GetByID(t *testing.T) {
 	t.Run("GetByID_Success", func(t *testing.T) {
 		section := createTestSection(1)
-		repo := NewSectionMapRepository([]models.Section{section})
+		sections := map[int]models.Section{section.ID: section}
+		types := map[int]models.ProductType{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types)
 
 		result, err := repo.GetByID(1)
 
@@ -97,7 +107,9 @@ func TestSectionRepository_GetByID(t *testing.T) {
 	})
 
 	t.Run("GetByID_NotFound_Error", func(t *testing.T) {
-		repo := NewSectionMapRepository([]models.Section{})
+		sections := map[int]models.Section{}
+		types := map[int]models.ProductType{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types)
 
 		_, err := repo.GetByID(999)
 
@@ -111,7 +123,9 @@ func TestSectionRepository_GetByID(t *testing.T) {
 func TestSectionRepository_Update(t *testing.T) {
 	t.Run("Update_Success", func(t *testing.T) {
 		section := createTestSection(1)
-		repo := NewSectionMapRepository([]models.Section{section})
+		sections := map[int]models.Section{section.ID: section}
+		types := map[int]models.ProductType{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types)
 
 		updateData := models.Section{
 			SectionAttributes: models.SectionAttributes{
@@ -131,7 +145,9 @@ func TestSectionRepository_Update(t *testing.T) {
 	})
 
 	t.Run("Update_NotFound_Error", func(t *testing.T) {
-		repo := NewSectionMapRepository([]models.Section{})
+		sections := map[int]models.Section{}
+		types := map[int]models.ProductType{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types)
 
 		_, err := repo.Update(999, models.Section{})
 
@@ -145,7 +161,9 @@ func TestSectionRepository_Update(t *testing.T) {
 func TestSectionRepository_Delete(t *testing.T) {
 	t.Run("Delete_Success", func(t *testing.T) {
 		section := createTestSection(1)
-		repo := NewSectionMapRepository([]models.Section{section})
+		sections := map[int]models.Section{section.ID: section}
+		types := map[int]models.ProductType{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types)
 
 		err := repo.Delete(1)
 
@@ -155,7 +173,9 @@ func TestSectionRepository_Delete(t *testing.T) {
 	})
 
 	t.Run("Delete_NotFound_Error", func(t *testing.T) {
-		repo := NewSectionMapRepository([]models.Section{})
+		sections := map[int]models.Section{}
+		types := map[int]models.ProductType{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types)
 
 		err := repo.Delete(999)
 
@@ -167,8 +187,9 @@ func TestSectionRepository_Delete(t *testing.T) {
 }
 
 func TestSectionRepository_ConcurrentAccess(t *testing.T) {
-	// Este test verifica que el repositorio pueda manejar múltiples operaciones secuenciales
-	repo := NewSectionMapRepository([]models.Section{})
+	sections := map[int]models.Section{}
+	types := map[int]models.ProductType{1: {ID: 1}}
+	repo := NewSectionMapRepository(&sections, &types)
 
 	// Creamos un canal para recibir los resultados
 	results := make(chan models.Section, 10)
@@ -200,13 +221,13 @@ func TestSectionRepository_ConcurrentAccess(t *testing.T) {
 	}
 
 	// Verificamos que se crearon todas las secciones
-	sections, err := repo.GetAll()
+	sectionsMap, err := repo.GetAll()
 	assert.NoError(t, err)
-	assert.Len(t, sections, 10, "Deberían haberse creado 10 secciones")
+	assert.Len(t, sectionsMap, 10, "Deberían haberse creado 10 secciones")
 
 	// Verificamos que todos los IDs son únicos
 	idSet := make(map[int]bool)
-	for _, section := range sections {
+	for _, section := range sectionsMap {
 		if idSet[section.ID] {
 			t.Fatalf("ID duplicado encontrado: %d", section.ID)
 		}
