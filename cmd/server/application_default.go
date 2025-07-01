@@ -7,10 +7,9 @@ import (
 	"app/internal/service"
 	"app/pkg/models"
 	"fmt"
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"net/http"
 )
 
 // ConfigServerChi is a struct that represents the configuration for ServerChi

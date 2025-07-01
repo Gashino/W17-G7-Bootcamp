@@ -67,7 +67,7 @@ func (p *ProductMap) validateProductCode(product models.Product) error {
 			continue
 		}
 
-		if strings.ToLower(value.ProductCode) == strings.ToLower(product.ProductCode) {
+		if strings.ToLower(*value.ProductCode) == strings.ToLower(*product.ProductCode) {
 			return pkg.ServiceError{
 				Code:         0,
 				ResponseCode: http.StatusConflict,
