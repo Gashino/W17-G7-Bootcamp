@@ -25,6 +25,7 @@ const (
 	ErrBadRequest = 1 + iota
 	ErrNotFound
 	ErrInternalServer
+	ErrUnprocessableEntity
 )
 
 var ServiceErrors = map[int]ServiceError{
@@ -42,5 +43,10 @@ var ServiceErrors = map[int]ServiceError{
 		Code:         ErrInternalServer,
 		ResponseCode: http.StatusInternalServerError,
 		Message:      "Internal server error",
+	},
+	ErrUnprocessableEntity: {
+		Code:         ErrUnprocessableEntity,
+		ResponseCode: http.StatusUnprocessableEntity,
+		Message:      "Malformed or incomplete data",
 	},
 }

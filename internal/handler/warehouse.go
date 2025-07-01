@@ -2,6 +2,7 @@ package handler
 
 import (
 	"app/internal/service"
+	"app/pkg"
 	"app/pkg/models"
 	"encoding/json"
 	"net/http"
@@ -26,7 +27,7 @@ func (h *WarehouseDefault) GetAll() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		v, err := h.sv.FindAll()
 		if err != nil {
-			response.JSON(w, http.StatusInternalServerError, nil)
+			response.Error(w, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, pkg.ServiceErrors[pkg.ErrInternalServer].Error())
 			return
 		}
 
@@ -56,14 +57,15 @@ func (h *WarehouseDefault) GetOne() http.HandlerFunc {
 		idInt, err := strconv.Atoi(id)
 
 		if err != nil {
-			response.JSON(w, http.StatusNotFound, "warehouse not found")
+			response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
 			return
 		}
 
 		value, err := h.sv.FindOne(idInt)
 
 		if err != nil {
-			response.JSON(w, http.StatusNotFound, err.Error())
+
+			response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
 			return
 		}
 
@@ -95,14 +97,15 @@ func (h *WarehouseDefault) Add() http.HandlerFunc {
 
 		// Si no se puede hacer cancelo
 		if err != nil {
-			response.JSON(w, http.StatusUnprocessableEntity, "Malformed or incomplete warehouse data.")
+			response.Error(w, pkg.ServiceErrors[pkg.ErrUnprocessableEntity].ResponseCode, pkg.ServiceErrors[pkg.ErrUnprocessableEntity].Error())
 			return
 		}
 
 		// Si algun campo esta vacio cancelo
 		valid := data.AreFieldsValid()
 		if !valid {
-			response.JSON(w, http.StatusUnprocessableEntity, "Malformed or incomplete warehouse data.")
+
+			response.Error(w, pkg.ServiceErrors[pkg.ErrUnprocessableEntity].ResponseCode, pkg.ServiceErrors[pkg.ErrUnprocessableEntity].Error())
 			return
 		}
 
@@ -136,7 +139,7 @@ func (h *WarehouseDefault) Update() http.HandlerFunc {
 
 		// Si no se puede hacer cancelo
 		if err != nil {
-			response.JSON(w, http.StatusUnprocessableEntity, "Malformed or incomplete warehouse data.")
+			response.Error(w, pkg.ServiceErrors[pkg.ErrUnprocessableEntity].ResponseCode, pkg.ServiceErrors[pkg.ErrUnprocessableEntity].Error())
 			return
 		}
 
@@ -144,7 +147,7 @@ func (h *WarehouseDefault) Update() http.HandlerFunc {
 		err = h.sv.Update(idInt, data)
 
 		if err != nil {
-			response.JSON(w, http.StatusNotFound, err.Error())
+			response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
 			return
 
 		}
@@ -162,13 +165,13 @@ func (h *WarehouseDefault) Delete() http.HandlerFunc {
 		id := chi.URLParam(r, "id")
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
-			response.JSON(w, http.StatusNotFound, "warehouse not found")
+			response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
 			return
 		}
 		err = h.sv.Delete(idInt)
 
 		if err != nil {
-			response.JSON(w, http.StatusNotFound, err.Error())
+			response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
 			return
 		}
 
