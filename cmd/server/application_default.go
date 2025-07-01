@@ -16,8 +16,6 @@ import (
 type ConfigServerChi struct {
 	// ServerAddress is the address where the server will be listening
 	ServerAddress string
-	// BuyerLoaderFilePath is the path to the file that contains the buyers
-	BuyerLoaderFilePath string
 }
 
 // NewServerChi is a function that returns a new instance of ServerChi
@@ -30,14 +28,10 @@ func NewServerChi(cfg *ConfigServerChi) *ServerChi {
 		if cfg.ServerAddress != "" {
 			defaultConfig.ServerAddress = cfg.ServerAddress
 		}
-		if cfg.BuyerLoaderFilePath != "" {
-			defaultConfig.BuyerLoaderFilePath = cfg.BuyerLoaderFilePath
-		}
 	}
 
 	return &ServerChi{
-		serverAddress:       defaultConfig.ServerAddress,
-		buyerLoaderFilePath: defaultConfig.BuyerLoaderFilePath,
+		serverAddress: defaultConfig.ServerAddress,
 	}
 }
 
@@ -59,13 +53,6 @@ func (a *ServerChi) Run() (err error) {
 
 	// dependencies
 	// - loader
-
-	// dependencies for buyers
-	buyerLd := loader.NewBuyerJSONFile(a.buyerLoaderFilePath)
-	buyerDb, err := buyerLd.Load()
-	if err != nil {
-		return
-	}
 	// - repository
 	employeeHandler, err := a.BuildemployeeHandler()
 	if err != nil {
@@ -77,11 +64,6 @@ func (a *ServerChi) Run() (err error) {
 	if err != nil {
 		return err
 	}
-	buyerRp := repository.NewBuyerMap(buyerDb)
-	// - service
-	buyerSv := service.NewBuyerDefault(buyerRp)
-	// - handler
-	buyerHd := handler.NewBuyerDefault(buyerSv)
 
 	// - handler
 	sectionHd, err := a.BuildSectionHandler()
@@ -91,6 +73,11 @@ func (a *ServerChi) Run() (err error) {
 
 	// create seller handler with dependences
 	hdSeller, err := a.BuildSellerHandler()
+	if err != nil {
+		return err
+	}
+
+	buyerHd, err := a.BuildBuyerHandler()
 	if err != nil {
 		return err
 	}
@@ -251,4 +238,25 @@ func (a *ServerChi) BuildSellerHandler() (*handler.SellerDefault, error) {
 	// - handler
 	hdSeller := handler.NewSellerDefault(svSeller)
 	return hdSeller, nil
+}
+
+func (a *ServerChi) BuildBuyerHandler() (*handler.BuyerDefault, error) {
+
+	// - loader
+	ldBuyer := loader.NewBuyerJSONFile("./docs/db/buyers.json")
+
+	dbBuyer, err := ldBuyer.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	// - repository
+	rpBuyer := repository.NewBuyerMap(dbBuyer)
+
+	// - service
+	svBuyer := service.NewBuyerDefault(rpBuyer)
+
+	// - handler
+	hdBuyer := handler.NewBuyerDefault(svBuyer)
+	return hdBuyer, nil
 }
