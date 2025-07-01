@@ -86,7 +86,7 @@ func (a *ServerChi) BuildSellerHandler() (*handler.SellerDefault, error) {
 	// - loader
 	ldSeller := loader.NewLoaderGeneric[models.SellerDoc]()
 
-	dbSeller, err := ldSeller.LoadFromJSON(a.loaderFilePath)
+	dbSeller, err := ldSeller.LoadFromJSON("docs/db/sellers.json")
 	if err != nil {
 		return nil, err
 	}
