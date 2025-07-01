@@ -52,12 +52,12 @@ type ServerChi struct {
 // Run is a method that runs the server
 func (a *ServerChi) Run() (err error) {
 	// dependencies
-	hdSeller, err := a.newMethod()
+
+	// create seller handler with dependences
+	hdSeller, err := a.BuildSellerHandler()
 	if err != nil {
 		return err
 	}
-
-	// create seller handler with dependences
 
 	// router
 	rt := chi.NewRouter()
@@ -81,7 +81,7 @@ func (a *ServerChi) Run() (err error) {
 	return
 }
 
-func (a *ServerChi) newMethod() (*handler.SellerDefault, error) {
+func (a *ServerChi) BuildSellerHandler() (*handler.SellerDefault, error) {
 
 	// - loader
 	ldSeller := loader.NewLoaderGeneric[models.SellerDoc]()
