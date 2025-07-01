@@ -51,3 +51,8 @@ func (data *Product) ToJSON() ProductDoc {
 		SellerId:                       &si,
 	}
 }
+
+type ProductType struct {
+	ID   int
+	Name string
+}
