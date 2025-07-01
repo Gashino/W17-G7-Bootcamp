@@ -14,10 +14,10 @@ type ServiceError struct {
 
 func (e ServiceError) Error() string {
 	if e.InternalError != nil {
-		return fmt.Sprintf("error: {Message: %s, InternalError: %s}", e.Message, e.InternalError.Error())
+		return fmt.Sprintf("error: %s", e.InternalError.Error())
 	}
 
-	return fmt.Sprintf("error: {Message: %s}", e.Message)
+	return fmt.Sprintf("error: %s", e.Message)
 
 }
 
@@ -40,15 +40,15 @@ var ServiceErrors = map[int]ServiceError{
 		ResponseCode: http.StatusNotFound,
 		Message:      "Not found",
 	},
+	ErrConflict: {
+		Code:         ErrConflict,
+		ResponseCode: http.StatusConflict,
+		Message:      "Resource conflict",
+	},
 	ErrInternalServer: {
 		Code:         ErrInternalServer,
 		ResponseCode: http.StatusInternalServerError,
 		Message:      "Internal server error",
-	},
-	ErrConflict: {
-		Code:         ErrConflict,
-		ResponseCode: http.StatusConflict,
-		Message:      "Resource already exists",
 	},
 	ErrUnprocessableEntity: {
 		Code:         ErrUnprocessableEntity,
