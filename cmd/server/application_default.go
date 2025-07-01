@@ -71,12 +71,29 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
+	// create seller handler with dependences
+	hdSeller, err := a.BuildSellerHandler()
+	if err != nil {
+		return err
+	}
+
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
 	rt.Use(middleware.Logger)
 	rt.Use(middleware.Recoverer)
+
 	// - endpoints
+	// Grupo de endpoints para sellers
+	rt.Route("/sellers", func(rt chi.Router) {
+		// - GET /sellers
+		rt.Get("/", hdSeller.GetAll())
+		rt.Get("/{id}", hdSeller.GetById())
+		rt.Post("/", hdSeller.Create())
+		rt.Patch("/{id}", hdSeller.Update())
+		rt.Delete("/{id}", hdSeller.Delete())
+	})
+
 	rt.Route("/sections", func(rt chi.Router) {
 		// - GET /vehicles
 		rt.Get("/", sectionHd.GetAll())
@@ -112,7 +129,7 @@ func (a *ServerChi) Run() (err error) {
 
 func (a *ServerChi) BuildSectionHandler() (*handler.SectionDefault, error) {
 	sectionLd := loader.NewLoaderGeneric[models.Section]()
-	sectionDb, err := sectionLd.LoadFromJSON(a.loaderFilePath)
+	sectionDb, err := sectionLd.LoadFromJSON("docs/db/sections_5.json")
 	if err != nil {
 		return nil, err
 	}
@@ -158,4 +175,25 @@ func (*ServerChi) BuildemployeeHandler() (*handler.EmployeeHandler, error) {
 	// - handler
 	employeeHandler := handler.NewEmployeeHandler(employeeService)
 	return employeeHandler, nil
+}
+
+func (a *ServerChi) BuildSellerHandler() (*handler.SellerDefault, error) {
+
+	// - loader
+	ldSeller := loader.NewLoaderGeneric[models.SellerDoc]()
+
+	dbSeller, err := ldSeller.LoadFromJSON("./docs/db/sellers.json")
+	if err != nil {
+		return nil, err
+	}
+
+	// - repository
+	rpSeller := repository.NewSellerMap(dbSeller)
+
+	// - service
+	svSeller := service.NewSellerDefault(rpSeller)
+
+	// - handler
+	hdSeller := handler.NewSellerDefault(svSeller)
+	return hdSeller, nil
 }

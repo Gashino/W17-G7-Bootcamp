@@ -26,6 +26,7 @@ const (
 	ErrNotFound
 	ErrInternalServer
 	ErrConflict
+	ErrUnprocessableEntity
 )
 
 var ServiceErrors = map[int]ServiceError{
@@ -48,5 +49,10 @@ var ServiceErrors = map[int]ServiceError{
 		Code:         ErrInternalServer,
 		ResponseCode: http.StatusInternalServerError,
 		Message:      "Internal server error",
+	},
+	ErrUnprocessableEntity: {
+		Code:         ErrUnprocessableEntity,
+		ResponseCode: http.StatusUnprocessableEntity,
+		Message:      "Validation error",
 	},
 }
