@@ -38,8 +38,8 @@ func (l *WarehouseJSONFile) Load() (v map[int]models.Warehouse, err error) {
 	// serialize warehouses
 	v = make(map[int]models.Warehouse)
 	for _, wh := range warehouseJSON {
-		v[wh.Id] = models.Warehouse{
-			Id:             wh.Id,
+		v[wh.ID] = models.Warehouse{
+			ID:             wh.ID,
 			WarehouseCode:  wh.WarehouseCode,
 			Address:        wh.Address,
 			Telephone:      wh.Telephone,

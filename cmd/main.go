@@ -12,7 +12,7 @@ func main() {
 	// app
 	// - config
 	cfg := &server.ConfigServerChi{
-		ServerAddress:  ":8080",
+		ServerAddress: ":8080",
 	}
 	app := server.NewServerChi(cfg)
 	// - run

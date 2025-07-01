@@ -6,47 +6,29 @@ import (
 	"fmt"
 )
 
-func NewSectionMapRepository(db []models.Section) SectionRepository {
+func NewSectionMapRepository(dbSec *map[int]models.Section, dbType *map[int]models.ProductType) SectionRepository {
 	// Calculate initial maxId
-	var maxId int
-	dbMap := make(map[int]models.Section)
-	for _, e := range db {
-		if e.ID > maxId {
-			maxId = e.ID
-		}
-		dbMap[e.ID] = models.Section{
-			ID: e.ID,
-			SectionAttributes: models.SectionAttributes{
-				SectionNumber:      e.SectionNumber,
-				CurrentTemperature: e.CurrentTemperature,
-				MinimumTemperature: e.MinimumTemperature,
-				CurrentCapacity:    e.CurrentCapacity,
-				MinimumCapacity:    e.MinimumCapacity,
-				MaximumCapacity:    e.MaximumCapacity,
-				WarehouseID:        e.WarehouseID,
-				ProductTypeID:      e.ProductTypeID,
-				ProductBatches:     e.ProductBatches,
-			},
-		}
-	}
+
 	return &SectionRepositoryMap{
-		db:     dbMap,
-		lastId: maxId,
+		dbSections:     dbSec,
+		dbProductTypes: dbType,
+		lastId:         len(*dbSec),
 	}
 }
 
 // SectionMap is a struct that represents a section repository
 type SectionRepositoryMap struct {
 	// db is a map of sections
-	db     map[int]models.Section
-	lastId int
+	dbSections     *map[int]models.Section
+	dbProductTypes *map[int]models.ProductType
+	lastId         int
 }
 
 func (r *SectionRepositoryMap) GetAll() (s map[int]models.Section, err error) {
 	s = make(map[int]models.Section)
 
 	// copy db
-	for key, value := range r.db {
+	for key, value := range *r.dbSections {
 		s[key] = value
 	}
 
@@ -54,7 +36,7 @@ func (r *SectionRepositoryMap) GetAll() (s map[int]models.Section, err error) {
 }
 
 func (r *SectionRepositoryMap) GetByID(id int) (s models.Section, err error) {
-	if s, ok := r.db[id]; !ok {
+	if s, ok := (*r.dbSections)[id]; !ok {
 		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
 		svcErr.InternalError = fmt.Errorf("section with id %d not found", id)
 		return models.Section{}, svcErr
@@ -64,7 +46,16 @@ func (r *SectionRepositoryMap) GetByID(id int) (s models.Section, err error) {
 }
 
 func (r *SectionRepositoryMap) Create(section models.Section) (s models.Section, err error) {
-	for _, value := range r.db {
+
+	_, productTypeExists := (*r.dbProductTypes)[section.ProductTypeID]
+
+	if !productTypeExists {
+		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
+		svcErr.InternalError = fmt.Errorf("product type with id %d not found", section.ProductTypeID)
+		return models.Section{}, svcErr
+	}
+
+	for _, value := range *r.dbSections {
 		if value.SectionNumber == section.SectionNumber {
 			svcErr := pkg.ServiceErrors[pkg.ErrConflict]
 			svcErr.InternalError = fmt.Errorf("section with section number %d already exists", section.SectionNumber)
@@ -74,14 +65,14 @@ func (r *SectionRepositoryMap) Create(section models.Section) (s models.Section,
 
 	r.lastId++
 	section.ID = r.lastId
-	r.db[section.ID] = section
+	(*r.dbSections)[section.ID] = section
 	return section, nil
 
 }
 
 func (r *SectionRepositoryMap) Update(id int, section models.Section) (s models.Section, err error) {
 
-	existing, ok := r.db[id]
+	existing, ok := (*r.dbSections)[id]
 	if !ok {
 		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
 		svcErr.InternalError = fmt.Errorf("section with id %d not found", id)
@@ -116,18 +107,18 @@ func (r *SectionRepositoryMap) Update(id int, section models.Section) (s models.
 		existing.ProductBatches = section.ProductBatches
 	}
 
-	r.db[id] = existing
+	(*r.dbSections)[id] = existing
 
 	return existing, nil
 }
 
 func (r *SectionRepositoryMap) Delete(id int) (err error) {
 
-	if _, ok := r.db[id]; !ok {
+	if _, ok := (*r.dbSections)[id]; !ok {
 		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
 		svcErr.InternalError = fmt.Errorf("section with id %d not found", id)
 		return svcErr
 	}
-	delete(r.db, id)
+	delete(*r.dbSections, id)
 	return nil
 }
