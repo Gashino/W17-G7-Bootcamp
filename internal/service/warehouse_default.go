@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-func NewVehicleDefault(rp repository.WarehouseRepository) *WarehouseDefault {
+func NewWarehouseDefault(rp repository.WarehouseRepository) *WarehouseDefault {
 	return &WarehouseDefault{rp: rp}
 }
 

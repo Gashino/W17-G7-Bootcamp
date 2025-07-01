@@ -60,21 +60,17 @@ func (a *ServerChi) Run() (err error) {
 	// dependencies
 	// - loader
 
-	ldWarehouse := loader.NewWarehouseJSONFile("docs/db/warehouse_500.json")
-	dbWarehouse, err := ldWarehouse.Load()
-	if err != nil {
-		return
-	}
-
 	// - repository
 	employeeHandler, err := a.BuildemployeeHandler()
 	if err != nil {
 		return err
 	}
-	rpWarehouse := repository.NewWarehouseMap(dbWarehouse)
 
-	// - service
-	svWarehouse := service.NewVehicleDefault(rpWarehouse)
+	// handler warehouse
+	hdWarehouse, err := a.BuildWarehouseHandler()
+	if err != nil {
+		return err
+	}
 
 	// - handler
 	sectionHd, err := a.BuildSectionHandler()
@@ -87,8 +83,6 @@ func (a *ServerChi) Run() (err error) {
 	if err != nil {
 		return err
 	}
-
-	hdWarehouse := handler.NewVehicleDefault(svWarehouse)
 
 	// router
 	rt := chi.NewRouter()
@@ -149,6 +143,25 @@ func (a *ServerChi) Run() (err error) {
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
 	return
+}
+
+func (a *ServerChi) BuildWarehouseHandler() (*handler.WarehouseDefault, error) {
+
+	ldWarehouse := loader.NewWarehouseJSONFile("docs/db/warehouse_500.json")
+	dbWarehouse, err := ldWarehouse.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	// repository
+	rpWarehouse := repository.NewWarehouseMap(dbWarehouse)
+
+	// - service
+	svWarehouse := service.NewWarehouseDefault(rpWarehouse)
+
+	// handler
+	hdWarehouse := handler.NewWarehouseDefault(svWarehouse)
+	return hdWarehouse, nil
 }
 
 func (a *ServerChi) BuildSectionHandler() (*handler.SectionDefault, error) {
