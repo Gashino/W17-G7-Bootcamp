@@ -27,12 +27,7 @@ func (d ProductDefault) GetAll() http.HandlerFunc {
 			return
 		}
 
-		dataResponse := make(map[int]models.ProductDoc)
-		for key, value := range result {
-			dataResponse[key] = value.ToJSON()
-		}
-
-		response.JSON(writer, http.StatusOK, dataResponse)
+		response.JSON(writer, http.StatusOK, result)
 	}
 }
 
@@ -47,13 +42,13 @@ func (d ProductDefault) GetById() http.HandlerFunc {
 			return
 		}
 
-		response.JSON(writer, http.StatusOK, result.ToJSON())
+		response.JSON(writer, http.StatusOK, result)
 	}
 }
 
 func (d ProductDefault) Create() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var productDoc models.ProductDoc
+		var productDoc models.Product
 
 		errParsing := request.JSON(r, &productDoc)
 		if errParsing != nil {
@@ -66,7 +61,7 @@ func (d ProductDefault) Create() http.HandlerFunc {
 			return
 		}
 
-		result := d.sv.Create(productDoc.ToStruct())
+		result := d.sv.Create(productDoc)
 
 		if result != nil {
 			response.Error(w, http.StatusConflict, result.Error())
@@ -94,7 +89,7 @@ func (d ProductDefault) Delete() http.HandlerFunc {
 
 func (d ProductDefault) Patch() http.HandlerFunc {
 	return func(writer http.ResponseWriter, req *http.Request) {
-		var productJson models.ProductDoc
+		var productJson models.Product
 		id, _ := strconv.Atoi(chi.URLParam(req, "id"))
 
 		err := request.JSON(req, &productJson)
@@ -110,7 +105,7 @@ func (d ProductDefault) Patch() http.HandlerFunc {
 			return
 		}
 
-		response.JSON(writer, http.StatusOK, result.ToJSON())
+		response.JSON(writer, http.StatusOK, result)
 
 	}
 }
