@@ -14,10 +14,10 @@ type ServiceError struct {
 
 func (e ServiceError) Error() string {
 	if e.InternalError != nil {
-		return fmt.Sprintf("error: {Message: %s, InternalError: %s}", e.Message, e.InternalError.Error())
+		return fmt.Sprintf("error: %s", e.InternalError.Error())
 	}
 
-	return fmt.Sprintf("error: {Message: %s}", e.Message)
+	return fmt.Sprintf("error: %s", e.Message)
 
 }
 
@@ -47,6 +47,6 @@ var ServiceErrors = map[int]ServiceError{
 	ErrConflict: {
 		Code:         ErrConflict,
 		ResponseCode: http.StatusConflict,
-		Message:      "ID conflict",
+		Message:      "Already exists",
 	},
 }
