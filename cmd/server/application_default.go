@@ -51,8 +51,14 @@ type ServerChi struct {
 
 // Run is a method that runs the server
 func (a *ServerChi) Run() (err error) {
+
+	sectionDb, productDb, _, productTypeDb, err := a.createMaps()
+	if err != nil {
+		return err
+	}
+
 	// create product handler with dependences
-	prodHandler, err := a.BuildProductHandler()
+	prodHandler, err := a.BuildProductHandler(&productDb, &productTypeDb)
 	if err != nil {
 		return err
 	}
@@ -61,12 +67,12 @@ func (a *ServerChi) Run() (err error) {
 	// - loader
 
 	// - repository
-	employeeHandler, err := a.BuildemployeeHandler()
+	//employeeHandler, err := a.BuildemployeeHandler()
 	if err != nil {
 		return err
 	}
 	// - handler
-	sectionHd, err := a.BuildSectionHandler()
+	sectionHd, err := a.BuildSectionHandler(&sectionDb, &productTypeDb)
 	if err != nil {
 		return err
 	}
@@ -98,26 +104,47 @@ func (a *ServerChi) Run() (err error) {
 		r.Patch("/{id}", prodHandler.Patch())
 	})
 
-	rt.Route("/employees", func(r chi.Router) {
+	/*rt.Route("/employees", func(r chi.Router) {
 		r.Get("/", employeeHandler.GetAllEmployees)
 		r.Get("/{id}", employeeHandler.GetEmployee)
 		r.Post("/", employeeHandler.CreateEmployee)
 		r.Patch("/{id}", employeeHandler.UpdateEmployee)
 		r.Delete("/{id}", employeeHandler.DeleteEmployee)
-	})
+	})*/
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
 	return
 }
 
-func (a *ServerChi) BuildSectionHandler() (*handler.SectionDefault, error) {
+func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product, map[int]models.Employee, map[int]models.ProductType, error) {
 	sectionLd := loader.NewLoaderGeneric[models.Section]()
-	sectionDb, err := sectionLd.LoadFromJSON(a.loaderFilePath)
+	sectionDb, err := sectionLd.LoadFromJSON("docs/db/sections.json")
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
+	productLd := loader.NewLoaderGeneric[models.Product]()
+	productDb, err := productLd.LoadFromJSON("docs/db/products.json")
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	employeeLd := loader.NewLoaderGeneric[models.Employee]()
+	employeeDb, err := employeeLd.LoadFromJSON("docs/db/employees.json")
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	productTypeLd := loader.NewLoaderGeneric[models.ProductType]()
+	productTypeDb, err := productTypeLd.LoadFromJSON("docs/db/productTypes.json")
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	return sectionDb, productDb, employeeDb, productTypeDb, nil
+}
+
+func (a *ServerChi) BuildSectionHandler(sectionDb *map[int]models.Section, productTypeDb *map[int]models.ProductType) (*handler.SectionDefault, error) {
+
 	// - repository
-	sectionRp := repository.NewSectionMapRepository(sectionDb)
+	sectionRp := repository.NewSectionMapRepository(sectionDb, productTypeDb)
 	// - service
 	sectionSv := service.NewSectionDefault(sectionRp)
 	// - handler
@@ -125,28 +152,20 @@ func (a *ServerChi) BuildSectionHandler() (*handler.SectionDefault, error) {
 	return sectionHd, nil
 }
 
-func (a *ServerChi) BuildProductHandler() (*handler.ProductDefault, error) {
-
-	// - loader
-	productLoader := loader.NewProductJSONFile("docs/db/products.json")
-	productDb, err := productLoader.Load()
-
-	if err != nil {
-		return nil, err
-	}
+func (a *ServerChi) BuildProductHandler(productDb *map[int]models.Product, productTypeDb *map[int]models.ProductType) (prodHandler *handler.ProductDefault, err error) {
 
 	// - repository
-	productRp := repository.NewProductMap(productDb)
+	productRp := repository.NewProductMap(productDb, productTypeDb)
 
 	// - service
 	productSv := service.NewProductDefault(productRp)
 
 	// - handler
-	prodHandler := handler.NewProductDefault(productSv)
+	prodHandler = handler.NewProductDefault(productSv)
 	return prodHandler, nil
 }
 
-func (*ServerChi) BuildemployeeHandler() (*handler.EmployeeHandler, error) {
+/*func (*ServerChi) BuildemployeeHandler() (*handler.EmployeeHandler, error) {
 	loaderEmployee := loader.NewLoaderGeneric[models.EmployeeDocument]()
 	employees, err := loaderEmployee.LoadFromJSON("./docs/db/employees.json")
 	if err != nil {
@@ -158,4 +177,4 @@ func (*ServerChi) BuildemployeeHandler() (*handler.EmployeeHandler, error) {
 	// - handler
 	employeeHandler := handler.NewEmployeeHandler(employeeService)
 	return employeeHandler, nil
-}
+}*/

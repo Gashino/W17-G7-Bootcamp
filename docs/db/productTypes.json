@@ -1,0 +1,22 @@
+[
+  {"ID": 101, "Name": "Electronics"},
+  {"ID": 102, "Name": "Clothing"},
+  {"ID": 103, "Name": "Home & Kitchen"},
+  {"ID": 104, "Name": "Beauty & Personal Care"},
+  {"ID": 105, "Name": "Sports & Outdoors"},
+  {"ID": 106, "Name": "Toys & Games"},
+  {"ID": 107, "Name": "Books"},
+  {"ID": 108, "Name": "Health & Household"},
+  {"ID": 109, "Name": "Grocery"},
+  {"ID": 110, "Name": "Automotive"},
+  {"ID": 111, "Name": "Tools & Home Improvement"},
+  {"ID": 112, "Name": "Pet Supplies"},
+  {"ID": 113, "Name": "Office Products"},
+  {"ID": 114, "Name": "Baby Products"},
+  {"ID": 115, "Name": "Jewelry"},
+  {"ID": 116, "Name": "Musical Instruments"},
+  {"ID": 117, "Name": "Industrial & Scientific"},
+  {"ID": 118, "Name": "Arts & Crafts"},
+  {"ID": 119, "Name": "Luggage & Travel Gear"},
+  {"ID": 120, "Name": "Software"}
+]
