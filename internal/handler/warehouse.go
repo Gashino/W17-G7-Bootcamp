@@ -12,8 +12,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// NewVehicleDefault is a function that returns a new instance of VehicleDefault
-func NewVehicleDefault(sv service.WarehouseService) *WarehouseDefault {
+// NewWarehouseDefault is a function that returns a new instance of VehicleDefault
+func NewWarehouseDefault(sv service.WarehouseService) *WarehouseDefault {
 	return &WarehouseDefault{sv: sv}
 }
 
