@@ -52,15 +52,12 @@ type ServerChi struct {
 // Run is a method that runs the server
 func (a *ServerChi) Run() (err error) {
 	// dependencies
-	// - loader
-	ldSeller := loader.NewSellerJSONFile(a.loaderFilePath)
-	dbSeller, err := ldSeller.Load()
+	hdSeller, err := a.newMethod()
 	if err != nil {
-		return
+		return err
 	}
 
 	// create seller handler with dependences
-	hdSeller := a.BuildSellerHandler(dbSeller)
 
 	// router
 	rt := chi.NewRouter()
@@ -84,7 +81,16 @@ func (a *ServerChi) Run() (err error) {
 	return
 }
 
-func (*ServerChi) BuildSellerHandler(dbSeller map[int]models.Seller) *handler.SellerDefault {
+func (a *ServerChi) newMethod() (*handler.SellerDefault, error) {
+
+	// - loader
+	ldSeller := loader.NewLoaderGeneric[models.SellerDoc]()
+
+	dbSeller, err := ldSeller.LoadFromJSON(a.loaderFilePath)
+	if err != nil {
+		return nil, err
+	}
+
 	// - repository
 	rpSeller := repository.NewSellerMap(dbSeller)
 
@@ -93,6 +99,5 @@ func (*ServerChi) BuildSellerHandler(dbSeller map[int]models.Seller) *handler.Se
 
 	// - handler
 	hdSeller := handler.NewSellerDefault(svSeller)
-
-	return hdSeller
+	return hdSeller, nil
 }

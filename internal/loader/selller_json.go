@@ -1,53 +1,24 @@
 package loader
 
 import (
-	"app/pkg/models"
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
-// NewSellerJSONFile is a function that returns a new instance of SellerJSONFile
-func NewSellerJSONFile(path string) *SellerJSONFile {
-	return &SellerJSONFile{
-		path: path,
-	}
+type LoaderGeneric[T any] struct{}
+
+func NewLoaderGeneric[T any]() *LoaderGeneric[T] {
+	return &LoaderGeneric[T]{}
 }
-
-// SellerJSONFile is a struct that implements the LoaderSeller interface
-type SellerJSONFile struct {
-	// path is the path to the file that contains the Sellers in JSON format
-	path string
-}
-
-// Load is a method that loads the Sellers
-func (l *SellerJSONFile) Load() (s map[int]models.Seller, err error) {
-	// open file
-	file, err := os.Open(l.path)
+func (l *LoaderGeneric[T]) LoadFromJSON(filePath string) ([]T, error) {
+	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("error reading file %s: %w", filePath, err)
 	}
-	defer file.Close()
-
-	// decode file
-	var SellersJSON []models.SellerDoc
-	err = json.NewDecoder(file).Decode(&SellersJSON)
-	if err != nil {
-		return
+	var items []T
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, fmt.Errorf("error unmarshaling JSON from %s: %w", filePath, err)
 	}
-
-	// serialize Sellers
-	s = make(map[int]models.Seller)
-	for _, seller := range SellersJSON {
-		s[seller.ID] = models.Seller{
-			Id: seller.ID,
-			SellerAttributes: models.SellerAttributes{
-				CId:         seller.CId,
-				CompanyName: seller.CompanyName,
-				Adress:      seller.Address,
-				Telephone:   seller.Telephone,
-			},
-		}
-	}
-
-	return
+	return items, nil
 }

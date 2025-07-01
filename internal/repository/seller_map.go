@@ -5,20 +5,28 @@ import (
 	"app/pkg/models"
 )
 
-// NewSellerMap is a function that returns a new instance of SellerMap
-func NewSellerMap(db map[int]models.Seller) *SellerMap {
-	// default db
-	defaultDb := make(map[int]models.Seller)
-	if db != nil {
-		defaultDb = db
-	}
-	return &SellerMap{db: defaultDb}
+// SellerMap is an in-memory repository for managing sellers
+type SellerMap struct {
+	db    map[int]models.Seller
+	maxId int
 }
 
-// SellerMap is a struct that represents a Seller repository
-type SellerMap struct {
-	// db is a map of Sellers
-	db map[int]models.Seller
+// NewSellerMap creates a new seller repository with initial data
+func NewSellerMap(db []models.SellerDoc) *SellerMap {
+	var maxId int
+	dbMap := make(map[int]models.Seller)
+
+	for _, s := range db {
+		if s.ID > maxId {
+			maxId = s.ID
+		}
+		dbMap[s.ID] = models.FromSellerDoc(s)
+	}
+
+	return &SellerMap{
+		db:    dbMap,
+		maxId: maxId,
+	}
 }
 
 // FindAll is a method that returns a map of all Sellers
