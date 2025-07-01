@@ -60,11 +60,22 @@ func (a *ServerChi) Run() (err error) {
 	// dependencies
 	// - loader
 
+	ldWarehouse := loader.NewWarehouseJSONFile("docs/db/warehouse_500.json")
+	dbWarehouse, err := ldWarehouse.Load()
+	if err != nil {
+		return
+	}
+
 	// - repository
 	employeeHandler, err := a.BuildemployeeHandler()
 	if err != nil {
 		return err
 	}
+	rpWarehouse := repository.NewWarehouseMap(dbWarehouse)
+
+	// - service
+	svWarehouse := service.NewVehicleDefault(rpWarehouse)
+
 	// - handler
 	sectionHd, err := a.BuildSectionHandler()
 	if err != nil {
@@ -76,6 +87,8 @@ func (a *ServerChi) Run() (err error) {
 	if err != nil {
 		return err
 	}
+
+	hdWarehouse := handler.NewVehicleDefault(svWarehouse)
 
 	// router
 	rt := chi.NewRouter()
@@ -122,6 +135,17 @@ func (a *ServerChi) Run() (err error) {
 		r.Patch("/{id}", employeeHandler.UpdateEmployee)
 		r.Delete("/{id}", employeeHandler.DeleteEmployee)
 	})
+	rt.Route("/api/v1", func(rt chi.Router) {
+		rt.Route("/warehouses", func(rt chi.Router) {
+			// - GET /warehouses
+			rt.Get("/", hdWarehouse.GetAll())
+			rt.Get("/{id}", hdWarehouse.GetOne())
+			rt.Post("/", hdWarehouse.Add())
+			rt.Patch("/{id}", hdWarehouse.Update())
+			rt.Delete("/{id}", hdWarehouse.Delete())
+		})
+	})
+
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
 	return
