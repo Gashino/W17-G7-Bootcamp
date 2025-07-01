@@ -6,12 +6,12 @@ import (
 	"os"
 )
 
-type LoaderGeneric[T any] struct{}
+type LoaderGeneric2[T any] struct{}
 
-func NewLoaderGeneric[T any]() *LoaderGeneric[T] {
-	return &LoaderGeneric[T]{}
+func NewLoaderGeneric2[T any]() *LoaderGeneric2[T] {
+	return &LoaderGeneric2[T]{}
 }
-func (l *LoaderGeneric[T]) LoadFromJSON(filePath string) ([]T, error) {
+func (l *LoaderGeneric2[T]) LoadFromJSON(filePath string) ([]T, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file %s: %w", filePath, err)
