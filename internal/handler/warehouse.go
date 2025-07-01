@@ -35,7 +35,7 @@ func (h *WarehouseDefault) GetAll() http.HandlerFunc {
 		data := make(map[int]models.WarehouseDoc)
 		for key, value := range v {
 			data[key] = models.WarehouseDoc{
-				Id:             value.Id,
+				ID:             value.ID,
 				WarehouseCode:  value.WarehouseCode,
 				Address:        value.Address,
 				Telephone:      value.Telephone,
@@ -72,7 +72,7 @@ func (h *WarehouseDefault) GetOne() http.HandlerFunc {
 		// response
 
 		data := models.WarehouseDoc{
-			Id:             value.Id,
+			ID:             value.ID,
 			WarehouseCode:  value.WarehouseCode,
 			Address:        value.Address,
 			Telephone:      value.Telephone,

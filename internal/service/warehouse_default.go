@@ -44,7 +44,7 @@ func (s *WarehouseDefault) Add(v models.WarehouseDoc) (err error) {
 	}
 
 	warehouse := models.Warehouse{
-		Id:             id,
+		ID:             id,
 		WarehouseCode:  v.WarehouseCode,
 		Address:        v.Address,
 		Telephone:      v.Telephone,
