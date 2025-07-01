@@ -51,6 +51,12 @@ type ServerChi struct {
 
 // Run is a method that runs the server
 func (a *ServerChi) Run() (err error) {
+	// create product handler with dependences
+	prodHandler, err := a.BuildProductHandler()
+	if err != nil {
+		return err
+	}
+
 	// dependencies
 	// - handler
 	sectionHd, err := a.BuildSectionHandler()
@@ -76,6 +82,15 @@ func (a *ServerChi) Run() (err error) {
 		// - DELETE /vehicles/{id}
 		rt.Delete("/{id}", sectionHd.Delete())
 	})
+
+	rt.Route("/products", func(r chi.Router) {
+		r.Get("/", prodHandler.GetAll())
+		r.Get("/{id}", prodHandler.GetById())
+		r.Post("/", prodHandler.Create())
+		r.Delete("/{id}", prodHandler.Delete())
+		r.Patch("/{id}", prodHandler.Patch())
+	})
+
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
 	return
@@ -94,4 +109,25 @@ func (a *ServerChi) BuildSectionHandler() (*handler.SectionDefault, error) {
 	// - handler
 	sectionHd := handler.NewSectionDefault(sectionSv)
 	return sectionHd, nil
+}
+
+func (a *ServerChi) BuildProductHandler() (*handler.ProductDefault, error) {
+
+	// - loader
+	productLoader := loader.NewProductJSONFile("docs/db/products.json")
+	productDb, err := productLoader.Load()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// - repository
+	productRp := repository.NewProductMap(productDb)
+
+	// - service
+	productSv := service.NewProductDefault(productRp)
+
+	// - handler
+	prodHandler := handler.NewProductDefault(productSv)
+	return prodHandler, nil
 }

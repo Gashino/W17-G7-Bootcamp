@@ -63,13 +63,13 @@ func TestSectionRepository_GetAll(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
-		
+
 		// Convert map to slice for easier comparison
 		var sections []models.Section
 		for _, s := range result {
 			sections = append(sections, s)
 		}
-		
+
 		// Check that both sections are present, regardless of order
 		assert.Contains(t, sections, section1)
 		assert.Contains(t, sections, section2)
@@ -169,7 +169,7 @@ func TestSectionRepository_Delete(t *testing.T) {
 func TestSectionRepository_ConcurrentAccess(t *testing.T) {
 	// Este test verifica que el repositorio pueda manejar múltiples operaciones secuenciales
 	repo := NewSectionMapRepository([]models.Section{})
-	
+
 	// Creamos un canal para recibir los resultados
 	results := make(chan models.Section, 10)
 	errors := make(chan error, 10)
