@@ -1,0 +1,72 @@
+[
+    {
+      "id": 1,
+      "cid": "20304050601",
+      "company_name": "Alkemy",
+      "address": "Monroe 860",
+      "telephone": "47470000"
+    },
+    {
+      "id": 2,
+      "cid": "20304050602",
+      "company_name": "Globant S.A.",
+      "address": "Av. Córdoba 1111",
+      "telephone": "48000001"
+    },
+    {
+      "id": 3,
+      "cid": "20304050603",
+      "company_name": "Mercado Libre",
+      "address": "Av. Caseros 3039",
+      "telephone": "47470002"
+    },
+    {
+      "id": 4,
+      "cid": "20304050604",
+      "company_name": "Despegar.com",
+      "address": "Av. Libertador 7208",
+      "telephone": "47470003"
+    },
+    {
+      "id": 5,
+      "cid": "20304050605",
+      "company_name": "PedidosYa",
+      "address": "Av. del Libertador 400",
+      "telephone": "47470004"
+    },
+    {
+      "id": 6,
+      "cid": "20304050606",
+      "company_name": "Rappi",
+      "address": "Calle Falsa 123",
+      "telephone": "47470005"
+    },
+    {
+      "id": 7,
+      "cid": "20304050607",
+      "company_name": "Naranja X",
+      "address": "Av. Colón 144",
+      "telephone": "47470006"
+    },
+    {
+      "id": 8,
+      "cid": "20304050608",
+      "company_name": "Ualá",
+      "address": "San Martín 500",
+      "telephone": "47470007"
+    },
+    {
+      "id": 9,
+      "cid": "20304050609",
+      "company_name": "Tiendanube",
+      "address": "Av. Belgrano 675",
+      "telephone": "47470008"
+    },
+    {
+      "id": 10,
+      "cid": "20304050610",
+      "company_name": "Nubank",
+      "address": "Diagonal Norte 350",
+      "telephone": "47470009"
+    }
+  ]

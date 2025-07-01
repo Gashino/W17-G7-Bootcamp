@@ -1,0 +1,116 @@
+package handler
+
+import (
+	"app/internal/service"
+	"app/pkg/models"
+	"github.com/bootcamp-go/web/request"
+	"github.com/bootcamp-go/web/response"
+	"github.com/go-chi/chi/v5"
+	"net/http"
+	"strconv"
+)
+
+func NewProductDefault(sv service.IProductService) *ProductDefault {
+	return &ProductDefault{sv: sv}
+}
+
+type ProductDefault struct {
+	sv service.IProductService
+}
+
+func (d ProductDefault) GetAll() http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		result, err := d.sv.GetAll()
+
+		if err != nil {
+			response.Error(writer, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		dataResponse := make(map[int]models.ProductDoc)
+		for key, value := range result {
+			dataResponse[key] = value.ToJSON()
+		}
+
+		response.JSON(writer, http.StatusOK, dataResponse)
+	}
+}
+
+func (d ProductDefault) GetById() http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		id, _ := strconv.Atoi(chi.URLParam(request, "id"))
+
+		result, err := d.sv.GetById(id)
+
+		if err != nil {
+			response.Error(writer, http.StatusNotFound, err.Error())
+			return
+		}
+
+		response.JSON(writer, http.StatusOK, result.ToJSON())
+	}
+}
+
+func (d ProductDefault) Create() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var productDoc models.ProductDoc
+
+		errParsing := request.JSON(r, &productDoc)
+		if errParsing != nil {
+			response.Error(w, http.StatusInternalServerError, errParsing.Error())
+			return
+		}
+
+		if isValid := productDoc.Validate(); !isValid {
+			response.Error(w, http.StatusUnprocessableEntity, "some field is not valid for product")
+			return
+		}
+
+		result := d.sv.Create(productDoc.ToStruct())
+
+		if result != nil {
+			response.Error(w, http.StatusConflict, result.Error())
+			return
+		}
+
+		response.JSON(w, http.StatusCreated, "product successfully created")
+	}
+}
+
+func (d ProductDefault) Delete() http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		id, _ := strconv.Atoi(chi.URLParam(request, "id"))
+
+		result := d.sv.Delete(id)
+
+		if result != nil {
+			response.Error(writer, http.StatusNotFound, result.Error())
+			return
+		}
+
+		response.JSON(writer, http.StatusNoContent, nil)
+	}
+}
+
+func (d ProductDefault) Patch() http.HandlerFunc {
+	return func(writer http.ResponseWriter, req *http.Request) {
+		var productJson models.ProductDoc
+		id, _ := strconv.Atoi(chi.URLParam(req, "id"))
+
+		err := request.JSON(req, &productJson)
+		if err != nil {
+			response.Error(writer, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		result, errServ := d.sv.Update(id, productJson)
+
+		if errServ != nil {
+			response.Error(writer, http.StatusConflict, errServ.Error())
+			return
+		}
+
+		response.JSON(writer, http.StatusOK, result.ToJSON())
+
+	}
+}

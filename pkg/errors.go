@@ -14,10 +14,10 @@ type ServiceError struct {
 
 func (e ServiceError) Error() string {
 	if e.InternalError != nil {
-		return fmt.Sprintf("error: {Message: %s, InternalError: %s}", e.Message, e.InternalError.Error())
+		return fmt.Sprintf("error: %s", e.InternalError.Error())
 	}
 
-	return fmt.Sprintf("error: {Message: %s}", e.Message)
+	return fmt.Sprintf("error: %s", e.Message)
 
 }
 
@@ -25,6 +25,7 @@ const (
 	ErrBadRequest = 1 + iota
 	ErrNotFound
 	ErrInternalServer
+	ErrConflict
 	ErrUnprocessableEntity
 )
 
@@ -39,6 +40,11 @@ var ServiceErrors = map[int]ServiceError{
 		ResponseCode: http.StatusNotFound,
 		Message:      "Not found",
 	},
+	ErrConflict: {
+		Code:         ErrConflict,
+		ResponseCode: http.StatusConflict,
+		Message:      "Resource conflict",
+	},
 	ErrInternalServer: {
 		Code:         ErrInternalServer,
 		ResponseCode: http.StatusInternalServerError,
@@ -47,6 +53,6 @@ var ServiceErrors = map[int]ServiceError{
 	ErrUnprocessableEntity: {
 		Code:         ErrUnprocessableEntity,
 		ResponseCode: http.StatusUnprocessableEntity,
-		Message:      "Malformed or incomplete data",
+		Message:      "Validation error",
 	},
 }
