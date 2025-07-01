@@ -129,7 +129,7 @@ func (a *ServerChi) Run() (err error) {
 
 func (a *ServerChi) BuildSectionHandler() (*handler.SectionDefault, error) {
 	sectionLd := loader.NewLoaderGeneric[models.Section]()
-	sectionDb, err := sectionLd.LoadFromJSON(a.loaderFilePath)
+	sectionDb, err := sectionLd.LoadFromJSON("docs/db/sections_5.json")
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (a *ServerChi) BuildSellerHandler() (*handler.SellerDefault, error) {
 	// - loader
 	ldSeller := loader.NewLoaderGeneric[models.SellerDoc]()
 
-	dbSeller, err := ldSeller.LoadFromJSON(a.loaderFilePath)
+	dbSeller, err := ldSeller.LoadFromJSON("./docs/db/sellers.json")
 	if err != nil {
 		return nil, err
 	}
