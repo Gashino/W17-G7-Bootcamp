@@ -53,7 +53,7 @@ type ServerChi struct {
 // Run is a method that runs the server
 func (a *ServerChi) Run() (err error) {
 
-	sectionDb, productDb, employeeDb, productTypeDb, warehouseDb, err := a.createMaps()
+	sectionDb, productDb, employeeDb, productTypeDb, warehouseDb, sellerDb, err := a.createMaps()
 	if err != nil {
 		return err
 	}
@@ -86,13 +86,11 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
-	/*
-		// create seller handler with dependences
-		hdSeller, err := a.BuildSellerHandler()
-		if err != nil {
-			return err
-		}
-	*/
+	// create seller handler with dependences
+	hdSeller, err := a.BuildSellerHandler(&sellerDb)
+	if err != nil {
+		return err
+	}
 
 	// router
 	rt := chi.NewRouter()
@@ -103,16 +101,14 @@ func (a *ServerChi) Run() (err error) {
 	// - endpoints
 	// Grupo de endpoints para sellers
 
-	/*
-		rt.Route("/sellers", func(rt chi.Router) {
-			// - GET /sellers
-			rt.Get("/", hdSeller.GetAll())
-			rt.Get("/{id}", hdSeller.GetById())
-			rt.Post("/", hdSeller.Create())
-			rt.Patch("/{id}", hdSeller.Update())
-			rt.Delete("/{id}", hdSeller.Delete())
-		})
-	*/
+	rt.Route("/sellers", func(rt chi.Router) {
+		// - GET /sellers
+		rt.Get("/", hdSeller.GetAll())
+		rt.Get("/{id}", hdSeller.GetById())
+		rt.Post("/", hdSeller.Create())
+		rt.Patch("/{id}", hdSeller.Update())
+		rt.Delete("/{id}", hdSeller.Delete())
+	})
 
 	rt.Route("/sections", func(rt chi.Router) {
 		// - GET /vehicles
@@ -158,41 +154,48 @@ func (a *ServerChi) Run() (err error) {
 	return
 }
 
-func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product, map[int]models.Employee, map[int]models.ProductType, map[int]models.Warehouse, error) {
+func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product, map[int]models.Employee, map[int]models.ProductType, map[int]models.Warehouse, map[int]models.Seller, error) {
 	sectionLd := loader.NewLoaderGeneric[models.Section]()
 	sectionDb, err := sectionLd.LoadFromJSON("docs/db/sections.json")
 	if err != nil {
 		fmt.Println("err1")
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	productLd := loader.NewLoaderGeneric[models.Product]()
 	productDb, err := productLd.LoadFromJSON("docs/db/products.json")
 	if err != nil {
 		fmt.Println("err2")
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	employeeLd := loader.NewLoaderGeneric[models.Employee]()
 	employeeDb, err := employeeLd.LoadFromJSON("docs/db/employees.json")
 	if err != nil {
 		fmt.Println("err3")
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
 	productTypeLd := loader.NewLoaderGeneric[models.ProductType]()
 	productTypeDb, err := productTypeLd.LoadFromJSON("docs/db/productTypes.json")
 	if err != nil {
 		fmt.Println("err4")
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
 	warehouseLd := loader.NewLoaderGeneric[models.Warehouse]()
 	warehouseDb, err := warehouseLd.LoadFromJSON("docs/db/warehouse_500.json")
 	if err != nil {
 		fmt.Println("err5")
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	return sectionDb, productDb, employeeDb, productTypeDb, warehouseDb, nil
+	sellerLd := loader.NewLoaderGeneric[models.Seller]()
+	sellerDb, err := sellerLd.LoadFromJSON("docs/db/sellers.json")
+	if err != nil {
+		fmt.Println("err6")
+		return nil, nil, nil, nil, nil, nil, err
+	}
+
+	return sectionDb, productDb, employeeDb, productTypeDb, warehouseDb, sellerDb, nil
 }
 
 func (a *ServerChi) BuildSectionHandler(sectionDb *map[int]models.Section, productTypeDb *map[int]models.ProductType) (*handler.SectionDefault, error) {
@@ -240,23 +243,14 @@ func (*ServerChi) BuildemployeeHandler(employeeDb *map[int]models.Employee, ware
 	return employeeHandler, nil
 }
 
-// func (a *ServerChi) BuildSellerHandler() (*handler.SellerDefault, error) {
+func (a *ServerChi) BuildSellerHandler(sellerDb *map[int]models.Seller) (*handler.SellerDefault, error) {
+	// - repository
+	rpSeller := repository.NewSellerMap(sellerDb)
 
-// 	// - loader
-// 	ldSeller := loader.NewLoaderGeneric[models.SellerDoc]()
+	// - service
+	svSeller := service.NewSellerDefault(rpSeller)
 
-// 	dbSeller, err := ldSeller.LoadFromJSON("./docs/db/sellers.json")
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	// - repository
-// 	rpSeller := repository.NewSellerMap(dbSeller)
-
-// 	// - service
-// 	svSeller := service.NewSellerDefault(rpSeller)
-
-// 	// - handler
-// 	hdSeller := handler.NewSellerDefault(svSeller)
-// 	return hdSeller, nil
-// }
+	// - handler
+	hdSeller := handler.NewSellerDefault(svSeller)
+	return hdSeller, nil
+}
