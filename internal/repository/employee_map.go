@@ -54,11 +54,7 @@ func (r *EmployeeRepositoryMap) Save(employee models.Employee) (models.Employee,
 
 	for _, existingEmployee := range *r.db {
 		if existingEmployee.CardNumberID == employee.CardNumberID {
-			return models.Employee{}, pkg.ServiceError{
-				Code:         400,
-				ResponseCode: 400,
-				Message:      "Card ID already exists",
-			}
+			return models.Employee{}, pkg.ServiceErrors[pkg.ErrConflict]
 		}
 	}
 
@@ -87,7 +83,6 @@ func (r *EmployeeRepositoryMap) Update(employee models.Employee, id int) (models
 	currentEmployee := (*r.db)[id]
 
 	if currentEmployee.CardNumberID != employee.CardNumberID {
-
 		for existingID, existingEmployee := range *r.db {
 			if existingID != id && existingEmployee.CardNumberID == employee.CardNumberID {
 				return models.Employee{}, pkg.ServiceErrors[pkg.ErrConflict]
@@ -100,8 +95,9 @@ func (r *EmployeeRepositoryMap) Update(employee models.Employee, id int) (models
 }
 
 func (r *EmployeeRepositoryMap) Delete(id int) error {
-	if _, ok := (*r.db)[id]; ok {
-		delete(*r.db, id)
+	if _, ok := (*r.db)[id]; !ok {
+		return pkg.ServiceErrors[pkg.ErrNotFound]
 	}
+	delete(*r.db, id)
 	return nil
 }

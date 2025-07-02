@@ -52,9 +52,9 @@ func (h *EmployeeHandler) GetEmployee(w http.ResponseWriter, r *http.Request) {
 func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	var employee models.EmployeeDTO
 	if err := json.NewDecoder(r.Body).Decode(&employee); err != nil {
-		writeResponse(w, http.StatusUnprocessableEntity, nil, pkg.ServiceError{
-			Code:         102,
-			ResponseCode: http.StatusUnprocessableEntity,
+		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
+			Code:         400,
+			ResponseCode: http.StatusBadRequest,
 			Message:      "Invalid request body",
 		})
 		return
