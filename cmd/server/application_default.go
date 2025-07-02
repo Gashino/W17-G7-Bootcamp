@@ -144,6 +144,15 @@ func (a *ServerChi) Run() (err error) {
 			rt.Patch("/{id}", hdSeller.Update())
 			rt.Delete("/{id}", hdSeller.Delete())
 		})
+
+		rt.Route("/buyers", func(r chi.Router) {
+			r.Get("/", buyerHd.GetAll())
+			r.Get("/{id}", buyerHd.GetByID())
+			r.Post("/", buyerHd.Create())
+			r.Patch("/{id}", buyerHd.Update())
+			r.Delete("/{id}", buyerHd.Delete())
+		})
+
 	})
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
