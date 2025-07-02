@@ -97,53 +97,6 @@ func (a *ServerChi) Run() (err error) {
 	rt.Use(middleware.Recoverer)
 
 	// - endpoints
-	// Grupo de endpoints para sellers
-
-	rt.Route("/sellers", func(rt chi.Router) {
-		// - GET /sellers
-		rt.Get("/", hdSeller.GetAll())
-		rt.Get("/{id}", hdSeller.GetById())
-		rt.Post("/", hdSeller.Create())
-		rt.Patch("/{id}", hdSeller.Update())
-		rt.Delete("/{id}", hdSeller.Delete())
-	})
-	rt.Route("/buyers", func(r chi.Router) {
-		r.Get("/", buyerHd.GetAll())
-		r.Get("/{id}", buyerHd.GetByID())
-		r.Post("/", buyerHd.Create())
-		r.Patch("/{id}", buyerHd.Update())
-		r.Delete("/{id}", buyerHd.Delete())
-	})
-
-	rt.Route("/sections", func(rt chi.Router) {
-		// - GET /vehicles
-		rt.Get("/", sectionHd.GetAll())
-		// - GET /vehicles/{id}
-		rt.Get("/{id}", sectionHd.GetByID())
-		// - POST /vehicles
-		rt.Post("/", sectionHd.PostSection())
-		// - PUT /vehicles/{id}
-		rt.Patch("/{id}", sectionHd.Update())
-		// - DELETE /vehicles/{id}
-		rt.Delete("/{id}", sectionHd.Delete())
-	})
-
-	rt.Route("/products", func(r chi.Router) {
-		r.Get("/", prodHandler.GetAll())
-		r.Get("/{id}", prodHandler.GetById())
-		r.Post("/", prodHandler.Create())
-		r.Delete("/{id}", prodHandler.Delete())
-		r.Patch("/{id}", prodHandler.Patch())
-	})
-
-	rt.Route("/employees", func(r chi.Router) {
-		r.Get("/", employeeHandler.GetAllEmployees)
-		r.Get("/{id}", employeeHandler.GetEmployee)
-		r.Post("/", employeeHandler.CreateEmployee)
-		r.Patch("/{id}", employeeHandler.UpdateEmployee)
-		r.Delete("/{id}", employeeHandler.DeleteEmployee)
-	})
-
 	rt.Route("/api/v1", func(rt chi.Router) {
 		rt.Route("/warehouses", func(rt chi.Router) {
 			// - GET /warehouses
@@ -152,6 +105,44 @@ func (a *ServerChi) Run() (err error) {
 			rt.Post("/", hdWarehouse.Add())
 			rt.Patch("/{id}", hdWarehouse.Update())
 			rt.Delete("/{id}", hdWarehouse.Delete())
+		})
+
+		rt.Route("/employees", func(r chi.Router) {
+			r.Get("/", employeeHandler.GetAllEmployees)
+			r.Get("/{id}", employeeHandler.GetEmployee)
+			r.Post("/", employeeHandler.CreateEmployee)
+			r.Patch("/{id}", employeeHandler.UpdateEmployee)
+			r.Delete("/{id}", employeeHandler.DeleteEmployee)
+		})
+
+		rt.Route("/products", func(r chi.Router) {
+			r.Get("/", prodHandler.GetAll())
+			r.Get("/{id}", prodHandler.GetById())
+			r.Post("/", prodHandler.Create())
+			r.Delete("/{id}", prodHandler.Delete())
+			r.Patch("/{id}", prodHandler.Patch())
+		})
+
+		rt.Route("/sections", func(rt chi.Router) {
+			// - GET /vehicles
+			rt.Get("/", sectionHd.GetAll())
+			// - GET /vehicles/{id}
+			rt.Get("/{id}", sectionHd.GetByID())
+			// - POST /vehicles
+			rt.Post("/", sectionHd.PostSection())
+			// - PUT /vehicles/{id}
+			rt.Patch("/{id}", sectionHd.Update())
+			// - DELETE /vehicles/{id}
+			rt.Delete("/{id}", sectionHd.Delete())
+		})
+
+		rt.Route("/sellers", func(rt chi.Router) {
+			// - GET /sellers
+			rt.Get("/", hdSeller.GetAll())
+			rt.Get("/{id}", hdSeller.GetById())
+			rt.Post("/", hdSeller.Create())
+			rt.Patch("/{id}", hdSeller.Update())
+			rt.Delete("/{id}", hdSeller.Delete())
 		})
 	})
 	// run server
