@@ -9,11 +9,11 @@ import (
 // This struct will be used as a map in the database
 // swagger:model Employee
 type Employee struct {
-	ID           int
-	CardNumberID string
-	FirstName    string
-	LastName     string
-	WarehouseID  int
+	ID           int    `json:"id"`
+	CardNumberID string `json:"card_number_id"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	WarehouseID  int    `json:"warehouse_id"`
 }
 
 type EmployeeDocument struct {
