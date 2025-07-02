@@ -2,7 +2,9 @@ package handler
 
 import (
 	"app/internal/service"
+	"app/pkg"
 	"app/pkg/models"
+	"errors"
 	"github.com/bootcamp-go/web/request"
 	"github.com/bootcamp-go/web/response"
 	"github.com/go-chi/chi/v5"
@@ -27,7 +29,10 @@ func (d ProductDefault) GetAll() http.HandlerFunc {
 			return
 		}
 
-		response.JSON(writer, http.StatusOK, result)
+		response.JSON(writer, http.StatusOK, map[string]any{
+			"message": "success",
+			"data":    result,
+		})
 	}
 }
 
@@ -42,7 +47,10 @@ func (d ProductDefault) GetById() http.HandlerFunc {
 			return
 		}
 
-		response.JSON(writer, http.StatusOK, result)
+		response.JSON(writer, http.StatusOK, map[string]any{
+			"message": "success",
+			"data":    result,
+		})
 	}
 }
 
@@ -79,7 +87,12 @@ func (d ProductDefault) Delete() http.HandlerFunc {
 		result := d.sv.Delete(id)
 
 		if result != nil {
-			response.Error(writer, http.StatusNotFound, result.Error())
+			svcErr := pkg.ServiceError{}
+			if errors.As(result, &svcErr) {
+				response.Error(writer, svcErr.ResponseCode, svcErr.Error())
+				return
+			}
+			response.Error(writer, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, pkg.ServiceErrors[pkg.ErrInternalServer].Error())
 			return
 		}
 
@@ -101,11 +114,19 @@ func (d ProductDefault) Patch() http.HandlerFunc {
 		result, errServ := d.sv.Update(id, productJson)
 
 		if errServ != nil {
-			response.Error(writer, http.StatusConflict, errServ.Error())
+			svcErr := pkg.ServiceError{}
+			if errors.As(errServ, &svcErr) {
+				response.Error(writer, svcErr.ResponseCode, svcErr.Error())
+				return
+			}
+			response.Error(writer, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, pkg.ServiceErrors[pkg.ErrInternalServer].Error())
 			return
+
 		}
 
-		response.JSON(writer, http.StatusOK, result)
-
+		response.JSON(writer, http.StatusOK, map[string]any{
+			"message": "success",
+			"data":    result,
+		})
 	}
 }
