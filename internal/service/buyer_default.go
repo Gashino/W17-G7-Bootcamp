@@ -40,7 +40,7 @@ func (s *BuyerDefault) Create(buyer models.Buyer) (b models.Buyer, err error) {
 // Update is a method that updates an existing buyer
 func (s *BuyerDefault) Update(id int, buyer models.Buyer) (b models.Buyer, err error) {
 	// Set the ID from the path parameter
-	buyer.Id = id
+	buyer.ID = id
 
 	// Update the buyer (this will handle partial updates and uniqueness validation)
 	b, err = s.rp.Update(buyer)

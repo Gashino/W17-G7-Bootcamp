@@ -7,10 +7,10 @@ import (
 )
 
 // NewBuyerMap is a function that returns a new instance of BuyerMap
-func NewBuyerMap(db map[int]models.Buyer) *BuyerMap {
+func NewBuyerMap(db *map[int]models.Buyer) *BuyerMap {
 	return &BuyerMap{
 		db:     db,
-		nextID: getNextID(db),
+		nextID: getNextID(*db),
 		mutex:  &sync.RWMutex{},
 	}
 }
@@ -18,7 +18,7 @@ func NewBuyerMap(db map[int]models.Buyer) *BuyerMap {
 // BuyerMap is a struct that implements the RepositoryBuyer interface using a map
 type BuyerMap struct {
 	// db is the map that stores the buyers
-	db map[int]models.Buyer
+	db *map[int]models.Buyer
 	// nextID is the next available ID for new buyers
 	nextID int
 	// mutex is used for thread safety
@@ -31,7 +31,7 @@ func (r *BuyerMap) GetAll() (b map[int]models.Buyer, err error) {
 	defer r.mutex.RUnlock()
 
 	b = make(map[int]models.Buyer)
-	for id, buyer := range r.db {
+	for id, buyer := range *r.db {
 		b[id] = buyer
 	}
 	return
@@ -42,7 +42,7 @@ func (r *BuyerMap) GetByID(id int) (b models.Buyer, err error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	buyer, exists := r.db[id]
+	buyer, exists := (*r.db)[id]
 	if !exists {
 		err = pkg.ServiceErrors[pkg.ErrNotFound]
 		return
@@ -57,7 +57,7 @@ func (r *BuyerMap) Create(buyer models.Buyer) (b models.Buyer, err error) {
 	defer r.mutex.Unlock()
 
 	// Check if card_number_id already exists
-	for _, existingBuyer := range r.db {
+	for _, existingBuyer := range *r.db {
 		if existingBuyer.CardNumberID == buyer.CardNumberID {
 			err = pkg.ServiceErrors[pkg.ErrBadRequest]
 			return
@@ -65,11 +65,11 @@ func (r *BuyerMap) Create(buyer models.Buyer) (b models.Buyer, err error) {
 	}
 
 	// Assign the next available ID
-	buyer.Id = r.nextID
+	buyer.ID = r.nextID
 	r.nextID++
 
 	// Store the buyer
-	r.db[buyer.Id] = buyer
+	(*r.db)[buyer.ID] = buyer
 
 	// Return the created buyer
 	b = buyer
@@ -82,7 +82,7 @@ func (r *BuyerMap) Update(buyer models.Buyer) (b models.Buyer, err error) {
 	defer r.mutex.Unlock()
 
 	// Check if buyer exists
-	existingBuyer, exists := r.db[buyer.Id]
+	existingBuyer, exists := (*r.db)[buyer.ID]
 	if !exists {
 		err = pkg.ServiceErrors[pkg.ErrNotFound]
 		return
@@ -90,8 +90,8 @@ func (r *BuyerMap) Update(buyer models.Buyer) (b models.Buyer, err error) {
 
 	// If card_number_id is being changed, check for uniqueness
 	if buyer.CardNumberID != "" && buyer.CardNumberID != existingBuyer.CardNumberID {
-		for id, otherBuyer := range r.db {
-			if id != buyer.Id && otherBuyer.CardNumberID == buyer.CardNumberID {
+		for id, otherBuyer := range *r.db {
+			if id != buyer.ID && otherBuyer.CardNumberID == buyer.CardNumberID {
 				err = pkg.ServiceErrors[pkg.ErrBadRequest]
 				return
 			}
@@ -110,7 +110,7 @@ func (r *BuyerMap) Update(buyer models.Buyer) (b models.Buyer, err error) {
 	}
 
 	// Store the updated buyer
-	r.db[buyer.Id] = existingBuyer
+	(*r.db)[buyer.ID] = existingBuyer
 
 	// Return the updated buyer
 	b = existingBuyer
@@ -122,13 +122,13 @@ func (r *BuyerMap) Delete(id int) (err error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	_, exists := r.db[id]
+	_, exists := (*r.db)[id]
 	if !exists {
 		err = pkg.ServiceErrors[pkg.ErrNotFound]
 		return
 	}
 
-	delete(r.db, id)
+	delete(*r.db, id)
 	return
 }
 

@@ -11,7 +11,7 @@ type BuyerDoc struct {
 // Buyer is a struct that represents a buyer
 type Buyer struct {
 	// Id is the unique identifier of the buyer
-	Id int
+	ID int `json:"id"`
 
 	// BuyerAttributes contains the attributes of a buyer
 	BuyerAttributes

@@ -39,7 +39,7 @@ func (l *BuyerJSONFile) Load() (b map[int]models.Buyer, err error) {
 	b = make(map[int]models.Buyer)
 	for _, buyer := range buyersJSON {
 		b[buyer.ID] = models.Buyer{
-			Id: buyer.ID,
+			ID: buyer.ID,
 			BuyerAttributes: models.BuyerAttributes{
 				CardNumberID: buyer.CardNumberID,
 				FirstName:    buyer.FirstName,

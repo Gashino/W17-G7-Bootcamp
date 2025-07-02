@@ -19,7 +19,7 @@ func setupTestHandler() *BuyerDefault {
 	// Create test data
 	testBuyers := map[int]models.Buyer{
 		1: {
-			Id: 1,
+			ID: 1,
 			BuyerAttributes: models.BuyerAttributes{
 				CardNumberID: "402323",
 				FirstName:    "John",
@@ -27,7 +27,7 @@ func setupTestHandler() *BuyerDefault {
 			},
 		},
 		2: {
-			Id: 2,
+			ID: 2,
 			BuyerAttributes: models.BuyerAttributes{
 				CardNumberID: "402324",
 				FirstName:    "Jane",
@@ -37,7 +37,7 @@ func setupTestHandler() *BuyerDefault {
 	}
 
 	// Create repository with test data
-	repo := repository.NewBuyerMap(testBuyers)
+	repo := repository.NewBuyerMap(&testBuyers)
 
 	// Create service
 	svc := service.NewBuyerDefault(repo)
@@ -114,8 +114,8 @@ func TestGetByID(t *testing.T) {
 
 	// Check buyer data
 	buyerData := response["data"].(map[string]interface{})
-	if buyerData["Id"].(float64) != 1 {
-		t.Errorf("Expected buyer ID 1, got %v", buyerData["Id"])
+	if buyerData["id"].(float64) != 1 {
+		t.Errorf("Expected buyer ID 1, got %v", buyerData["id"])
 	}
 	if buyerData["first_name"] != "John" {
 		t.Errorf("Expected first name 'John', got %v", buyerData["first_name"])
