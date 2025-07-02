@@ -7,9 +7,10 @@ import (
 	"app/internal/service"
 	"app/pkg/models"
 	"fmt"
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"net/http"
 )
 
 // ConfigServerChi is a struct that represents the configuration for ServerChi
@@ -67,10 +68,10 @@ func (a *ServerChi) Run() (err error) {
 	// - loader
 
 	// - repository
-	//employeeHandler, err := a.BuildemployeeHandler()
-	//if err != nil {
-	//	return err
-	//}
+	employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
+	if err != nil {
+		return err
+	}
 
 	// handler warehouse
 
@@ -134,14 +135,13 @@ func (a *ServerChi) Run() (err error) {
 		r.Patch("/{id}", prodHandler.Patch())
 	})
 
-	/*rt.Route("/employees", func(r chi.Router) {
+	rt.Route("/employees", func(r chi.Router) {
 		r.Get("/", employeeHandler.GetAllEmployees)
 		r.Get("/{id}", employeeHandler.GetEmployee)
 		r.Post("/", employeeHandler.CreateEmployee)
 		r.Patch("/{id}", employeeHandler.UpdateEmployee)
 		r.Delete("/{id}", employeeHandler.DeleteEmployee)
 	})
-	})*/
 
 	rt.Route("/api/v1", func(rt chi.Router) {
 		rt.Route("/warehouses", func(rt chi.Router) {
@@ -230,39 +230,33 @@ func (a *ServerChi) BuildProductHandler(productDb *map[int]models.Product, produ
 	return prodHandler, nil
 }
 
-/*
-	func (*ServerChi) BuildemployeeHandler() (*handler.EmployeeHandler, error) {
-		loaderEmployee := loader.NewLoaderGeneric[models.EmployeeDocument]()
-		employees, err := loaderEmployee.LoadFromJSON("./docs/db/employees.json")
-		if err != nil {
-			return nil, err
-		}
-		employeeRepository := repository.NewEmployeeMapRepository(employees)
-		// - service
-		employeeService := service.NewEmployeeServiceDefault(employeeRepository)
-		// - handler
-		employeeHandler := handler.NewEmployeeHandler(employeeService)
-		return employeeHandler, nil
-	}
+func (*ServerChi) BuildemployeeHandler(employeeDb *map[int]models.Employee, warehouseDb *map[int]models.Warehouse) (*handler.EmployeeHandler, error) {
 
-func (a *ServerChi) BuildSellerHandler() (*handler.SellerDefault, error) {
-
-	// - loader
-	ldSeller := loader.NewLoaderGeneric[models.SellerDoc]()
-
-	dbSeller, err := ldSeller.LoadFromJSON("./docs/db/sellers.json")
-	if err != nil {
-		return nil, err
-	}
-
-	// - repository
-	rpSeller := repository.NewSellerMap(dbSeller)
-
+	employeeRepository := repository.NewEmployeeMapRepository(employeeDb, warehouseDb)
 	// - service
-	svSeller := service.NewSellerDefault(rpSeller)
-
+	employeeService := service.NewEmployeeServiceDefault(employeeRepository)
 	// - handler
-	hdSeller := handler.NewSellerDefault(svSeller)
-	return hdSeller, nil
+	employeeHandler := handler.NewEmployeeHandler(employeeService)
+	return employeeHandler, nil
 }
-*/
+
+// func (a *ServerChi) BuildSellerHandler() (*handler.SellerDefault, error) {
+
+// 	// - loader
+// 	ldSeller := loader.NewLoaderGeneric[models.SellerDoc]()
+
+// 	dbSeller, err := ldSeller.LoadFromJSON("./docs/db/sellers.json")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	// - repository
+// 	rpSeller := repository.NewSellerMap(dbSeller)
+
+// 	// - service
+// 	svSeller := service.NewSellerDefault(rpSeller)
+
+// 	// - handler
+// 	hdSeller := handler.NewSellerDefault(svSeller)
+// 	return hdSeller, nil
+// }
