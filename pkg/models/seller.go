@@ -2,10 +2,10 @@ package models
 
 // SellerAttributes is a struct that represents the attributes of a seller
 type SellerAttributes struct {
-	CId         string
-	CompanyName string
-	Adress      string
-	Telephone   string
+	CId         string `json:"cid"`
+	CompanyName string `json:"company_name"`
+	Address     string `json:"address"`
+	Telephone   string `json:"telephone"`
 }
 
 // SellerDoc is a struct that represents a Seller in JSON format
@@ -13,7 +13,7 @@ type SellerDoc struct {
 	ID          int    `json:"id"`
 	CId         string `json:"cid"`
 	CompanyName string `json:"company_name"`
-	Address     string `json:"address"`
+	Adress      string `json:"address"`
 	Telephone   string `json:"telephone"`
 }
 
@@ -27,17 +27,17 @@ type SellerCreateRequest struct {
 
 // Seller is a struct that represents a Seller
 type Seller struct {
-	Id int
+	ID int `json:"id"`
 	SellerAttributes
 }
 
 // ToSellerDoc convierte un Seller en su versión externa (para response JSON).
 func ToSellerDoc(s Seller) SellerDoc {
 	return SellerDoc{
-		ID:          s.Id,
+		ID:          s.ID,
 		CId:         s.CId,
 		CompanyName: s.CompanyName,
-		Address:     s.Adress,
+		Adress:      s.Address,
 		Telephone:   s.Telephone,
 	}
 }
@@ -45,11 +45,11 @@ func ToSellerDoc(s Seller) SellerDoc {
 // FromSellerDoc convierte un SellerDoc (por ejemplo de una base de datos o input externo) a un Seller interno.
 func FromSellerDoc(d SellerDoc) Seller {
 	return Seller{
-		Id: d.ID,
+		ID: d.ID,
 		SellerAttributes: SellerAttributes{
 			CId:         d.CId,
 			CompanyName: d.CompanyName,
-			Adress:      d.Address,
+			Address:     d.Adress,
 			Telephone:   d.Telephone,
 		},
 	}
@@ -59,11 +59,11 @@ func FromSellerDoc(d SellerDoc) Seller {
 // El campo Id se espera que lo asigne el service o repositorio (por ejemplo, autoincremental).
 func FromCreateRequest(r SellerCreateRequest) Seller {
 	return Seller{
-		Id: 0, // Se puede reemplazar al insertar
+		ID: 0, // Se puede reemplazar al insertar
 		SellerAttributes: SellerAttributes{
 			CId:         *r.CId,
 			CompanyName: *r.CompanyName,
-			Adress:      *r.Address,
+			Address:     *r.Address,
 			Telephone:   *r.Telephone,
 		},
 	}

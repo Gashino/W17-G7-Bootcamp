@@ -28,7 +28,8 @@ func TestSectionRepository_Create(t *testing.T) {
 	t.Run("Create_Success", func(t *testing.T) {
 		sections := map[int]models.Section{}
 		types := map[int]models.ProductType{1: {ID: 1}}
-		repo := NewSectionMapRepository(&sections, &types)
+		warehouses := map[int]models.Warehouse{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types, &warehouses)
 		section := createTestSection(1)
 		section.ID = 0 // ID should be set by the repository
 
@@ -46,7 +47,8 @@ func TestSectionRepository_Create(t *testing.T) {
 
 		sections := map[int]models.Section{section1.ID: section1}
 		types := map[int]models.ProductType{1: {ID: 1}}
-		repo := NewSectionMapRepository(&sections, &types)
+		warehouses := map[int]models.Warehouse{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types, &warehouses)
 
 		_, err := repo.Create(section2)
 
@@ -63,7 +65,8 @@ func TestSectionRepository_GetAll(t *testing.T) {
 		section2 := createTestSection(2)
 		sections := map[int]models.Section{section1.ID: section1, section2.ID: section2}
 		types := map[int]models.ProductType{1: {ID: 1}}
-		repo := NewSectionMapRepository(&sections, &types)
+		warehouses := map[int]models.Warehouse{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types, &warehouses)
 
 		result, err := repo.GetAll()
 
@@ -84,7 +87,8 @@ func TestSectionRepository_GetAll(t *testing.T) {
 	t.Run("GetAll_Empty", func(t *testing.T) {
 		sections := map[int]models.Section{}
 		types := map[int]models.ProductType{1: {ID: 1}}
-		repo := NewSectionMapRepository(&sections, &types)
+		warehouses := map[int]models.Warehouse{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types, &warehouses)
 
 		result, err := repo.GetAll()
 
@@ -98,7 +102,8 @@ func TestSectionRepository_GetByID(t *testing.T) {
 		section := createTestSection(1)
 		sections := map[int]models.Section{section.ID: section}
 		types := map[int]models.ProductType{1: {ID: 1}}
-		repo := NewSectionMapRepository(&sections, &types)
+		warehouses := map[int]models.Warehouse{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types, &warehouses)
 
 		result, err := repo.GetByID(1)
 
@@ -109,7 +114,8 @@ func TestSectionRepository_GetByID(t *testing.T) {
 	t.Run("GetByID_NotFound_Error", func(t *testing.T) {
 		sections := map[int]models.Section{}
 		types := map[int]models.ProductType{1: {ID: 1}}
-		repo := NewSectionMapRepository(&sections, &types)
+		warehouses := map[int]models.Warehouse{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types, &warehouses)
 
 		_, err := repo.GetByID(999)
 
@@ -125,7 +131,8 @@ func TestSectionRepository_Update(t *testing.T) {
 		section := createTestSection(1)
 		sections := map[int]models.Section{section.ID: section}
 		types := map[int]models.ProductType{1: {ID: 1}}
-		repo := NewSectionMapRepository(&sections, &types)
+		warehouses := map[int]models.Warehouse{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types, &warehouses)
 
 		updateData := models.Section{
 			SectionAttributes: models.SectionAttributes{
@@ -147,7 +154,8 @@ func TestSectionRepository_Update(t *testing.T) {
 	t.Run("Update_NotFound_Error", func(t *testing.T) {
 		sections := map[int]models.Section{}
 		types := map[int]models.ProductType{1: {ID: 1}}
-		repo := NewSectionMapRepository(&sections, &types)
+		warehouses := map[int]models.Warehouse{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types, &warehouses)
 
 		_, err := repo.Update(999, models.Section{})
 
@@ -163,7 +171,8 @@ func TestSectionRepository_Delete(t *testing.T) {
 		section := createTestSection(1)
 		sections := map[int]models.Section{section.ID: section}
 		types := map[int]models.ProductType{1: {ID: 1}}
-		repo := NewSectionMapRepository(&sections, &types)
+		warehouses := map[int]models.Warehouse{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types, &warehouses)
 
 		err := repo.Delete(1)
 
@@ -175,7 +184,8 @@ func TestSectionRepository_Delete(t *testing.T) {
 	t.Run("Delete_NotFound_Error", func(t *testing.T) {
 		sections := map[int]models.Section{}
 		types := map[int]models.ProductType{1: {ID: 1}}
-		repo := NewSectionMapRepository(&sections, &types)
+		warehouses := map[int]models.Warehouse{1: {ID: 1}}
+		repo := NewSectionMapRepository(&sections, &types, &warehouses)
 
 		err := repo.Delete(999)
 
@@ -189,7 +199,8 @@ func TestSectionRepository_Delete(t *testing.T) {
 func TestSectionRepository_ConcurrentAccess(t *testing.T) {
 	sections := map[int]models.Section{}
 	types := map[int]models.ProductType{1: {ID: 1}}
-	repo := NewSectionMapRepository(&sections, &types)
+	warehouses := map[int]models.Warehouse{1: {ID: 1}}
+	repo := NewSectionMapRepository(&sections, &types, &warehouses)
 
 	// Creamos un canal para recibir los resultados
 	results := make(chan models.Section, 10)

@@ -8,14 +8,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func ptr(s string) *string { return &s }
+
 func TestProductMap_GetAll(t *testing.T) {
 	// Arrange
 	mockProducts := map[int]models.Product{
-		1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
-		2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
+		1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P1"), Description: ptr("Product 1")}},
+		2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P2"), Description: ptr("Product 2")}},
 	}
 	mockTypes := map[int]models.ProductType{}
-	repo := NewProductMap(&mockProducts, &mockTypes)
+	secTypes := map[int]models.Section{}
+	repo := NewProductMap(&mockProducts, &mockTypes, &secTypes)
 
 	// Act
 	result := repo.GetAll()
@@ -28,11 +31,12 @@ func TestProductMap_GetAll(t *testing.T) {
 func TestProductMap_GetByID(t *testing.T) {
 	// Arrange
 	mockProducts := map[int]models.Product{
-		1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
-		2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
+		1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P1"), Description: ptr("Product 1")}},
+		2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P2"), Description: ptr("Product 2")}},
 	}
 	mockTypes := map[int]models.ProductType{}
-	repo := NewProductMap(&mockProducts, &mockTypes)
+	secTypes := map[int]models.Section{}
+	repo := NewProductMap(&mockProducts, &mockTypes, &secTypes)
 
 	t.Run("existing product", func(t *testing.T) {
 		// Act
@@ -60,11 +64,12 @@ func TestProductMap_Create(t *testing.T) {
 		// Arrange
 		db := make(map[int]models.Product)
 		dbTypes := make(map[int]models.ProductType)
-		repo := NewProductMap(&db, &dbTypes)
+		secTypes := map[int]models.Section{}
+		repo := NewProductMap(&db, &dbTypes, &secTypes)
 		newProduct := models.Product{
 			ProductAttributes: models.ProductAttributes{
-				Description: "New Product",
-				ProductCode: "NP1",
+				Description: ptr("New Product"),
+				ProductCode: ptr("NP1"),
 			},
 		}
 
@@ -79,14 +84,15 @@ func TestProductMap_Create(t *testing.T) {
 	t.Run("Create product with duplicate code", func(t *testing.T) {
 		// Arrange
 		existingProducts := map[int]models.Product{
-			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
+			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P1"), Description: ptr("Product 1")}},
 		}
 		mockTypes := map[int]models.ProductType{}
-		repo := NewProductMap(&existingProducts, &mockTypes)
+		secTypes := map[int]models.Section{}
+		repo := NewProductMap(&existingProducts, &mockTypes, &secTypes)
 		newProduct := models.Product{
 			ProductAttributes: models.ProductAttributes{
-				Description: "New Product",
-				ProductCode: "P1", // Same code as existing product
+				Description: ptr("New Product"),
+				ProductCode: ptr("P1"), // Same code as existing product
 			},
 		}
 
@@ -104,16 +110,17 @@ func TestProductMap_Update(t *testing.T) {
 	t.Run("Update existing product", func(t *testing.T) {
 		// Arrange
 		mockProducts := map[int]models.Product{
-			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
-			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
+			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P1"), Description: ptr("Product 1")}},
+			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P2"), Description: ptr("Product 2")}},
 		}
 		mockTypes := map[int]models.ProductType{}
-		repo := NewProductMap(&mockProducts, &mockTypes)
+		secTypes := map[int]models.Section{}
+		repo := NewProductMap(&mockProducts, &mockTypes, &secTypes)
 		updatedProduct := models.Product{
 			ID: 1,
 			ProductAttributes: models.ProductAttributes{
-				Description: "Updated Product",
-				ProductCode: "UP1",
+				Description: ptr("Updated Product"),
+				ProductCode: ptr("UP1"),
 			},
 		}
 
@@ -129,16 +136,17 @@ func TestProductMap_Update(t *testing.T) {
 	t.Run("Update with duplicate product code", func(t *testing.T) {
 		// Arrange
 		mockProducts := map[int]models.Product{
-			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
-			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
+			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P1"), Description: ptr("Product 1")}},
+			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P2"), Description: ptr("Product 2")}},
 		}
 		mockTypes := map[int]models.ProductType{}
-		repo := NewProductMap(&mockProducts, &mockTypes)
+		secTypes := map[int]models.Section{}
+		repo := NewProductMap(&mockProducts, &mockTypes, &secTypes)
 		updatedProduct := models.Product{
 			ID: 1,
 			ProductAttributes: models.ProductAttributes{
-				Description: "Updated Product",
-				ProductCode: "P2", // Same as product 2
+				Description: ptr("Updated Product"),
+				ProductCode: ptr("P2"), // Same as product 2
 			},
 		}
 
@@ -158,11 +166,12 @@ func TestProductMap_Delete(t *testing.T) {
 	t.Run("Delete existing product", func(t *testing.T) {
 		// Arrange
 		mockProducts := map[int]models.Product{
-			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
-			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
+			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P1"), Description: ptr("Product 1")}},
+			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P2"), Description: ptr("Product 2")}},
 		}
 		mockTypes := map[int]models.ProductType{}
-		repo := NewProductMap(&mockProducts, &mockTypes)
+		secTypes := map[int]models.Section{}
+		repo := NewProductMap(&mockProducts, &mockTypes, &secTypes)
 
 		// Act
 		err := repo.Delete(1)
@@ -177,10 +186,11 @@ func TestProductMap_Delete(t *testing.T) {
 	t.Run("Delete non-existing product", func(t *testing.T) {
 		// Arrange
 		mockProducts := map[int]models.Product{
-			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
+			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P1"), Description: ptr("Product 1")}},
 		}
 		mockTypes := map[int]models.ProductType{}
-		repo := NewProductMap(&mockProducts, &mockTypes)
+		secTypes := map[int]models.Section{}
+		repo := NewProductMap(&mockProducts, &mockTypes, &secTypes)
 
 		// Act
 		err := repo.Delete(999)
@@ -195,7 +205,8 @@ func TestProductMap_Delete(t *testing.T) {
 func TestNewProductMap(t *testing.T) {
 	t.Run("Create with nil db", func(t *testing.T) {
 		// Act
-		repo := NewProductMap(&map[int]models.Product{}, &map[int]models.ProductType{})
+		secTypes := map[int]models.Section{}
+		repo := NewProductMap(&map[int]models.Product{}, &map[int]models.ProductType{}, &secTypes)
 
 		// Assert
 		assert.NotNil(t, repo)
@@ -207,13 +218,14 @@ func TestNewProductMap(t *testing.T) {
 	t.Run("Create with existing db", func(t *testing.T) {
 		// Arrange
 		mockProducts := map[int]models.Product{
-			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
-			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
+			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P1"), Description: ptr("Product 1")}},
+			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: ptr("P2"), Description: ptr("Product 2")}},
 		}
 		mockTypes := map[int]models.ProductType{}
+		secTypes := map[int]models.Section{}
 
 		// Act
-		repo := NewProductMap(&mockProducts, &mockTypes)
+		repo := NewProductMap(&mockProducts, &mockTypes, &secTypes)
 
 		// Assert
 		assert.NotNil(t, repo)

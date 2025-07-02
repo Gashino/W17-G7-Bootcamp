@@ -12,7 +12,7 @@
     "product_batches": [
       {
         "id": 101,
-        "product_ids": [1001, 1002, 1003]
+        "product_ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
       }
     ]
   },
@@ -29,11 +29,11 @@
     "product_batches": [
       {
         "id": 201,
-        "product_ids": [2001, 2002, 2003, 2004]
+        "product_ids": [2, 4 , 6]
       },
       {
         "id": 202,
-        "product_ids": [2005, 2006]
+        "product_ids": [6, 20, 12]
       }
     ]
   },
@@ -50,7 +50,7 @@
     "product_batches": [
       {
         "id": 301,
-        "product_ids": [3001, 3002]
+        "product_ids": [12, 15]
       }
     ]
   },
@@ -67,15 +67,15 @@
     "product_batches": [
       {
         "id": 401,
-        "product_ids": [4001, 4002, 4003, 4004, 4005]
+        "product_ids": [17, 18, 19]
       },
       {
         "id": 402,
-        "product_ids": [4006, 4007, 4008]
+        "product_ids": [20, 16, 11]
       },
       {
         "id": 403,
-        "product_ids": [4009, 4010]
+        "product_ids": [11, 12, 13]
       }
     ]
   },
