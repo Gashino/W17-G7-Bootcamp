@@ -81,7 +81,7 @@ func (a *ServerChi) Run() (err error) {
 	}
 
 	// - handler
-	sectionHd, err := a.BuildSectionHandler(&sectionDb, &productTypeDb)
+	sectionHd, err := a.BuildSectionHandler(&sectionDb, &productTypeDb, &warehouseDb)
 	if err != nil {
 		return err
 	}
@@ -198,10 +198,10 @@ func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product
 	return sectionDb, productDb, employeeDb, productTypeDb, warehouseDb, sellerDb, nil
 }
 
-func (a *ServerChi) BuildSectionHandler(sectionDb *map[int]models.Section, productTypeDb *map[int]models.ProductType) (*handler.SectionDefault, error) {
+func (a *ServerChi) BuildSectionHandler(sectionDb *map[int]models.Section, productTypeDb *map[int]models.ProductType, dbWarehouse *map[int]models.Warehouse) (*handler.SectionDefault, error) {
 
 	// - repository
-	sectionRp := repository.NewSectionMapRepository(sectionDb, productTypeDb)
+	sectionRp := repository.NewSectionMapRepository(sectionDb, productTypeDb, dbWarehouse)
 	// - service
 	sectionSv := service.NewSectionDefault(sectionRp)
 	// - handler

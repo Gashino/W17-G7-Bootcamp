@@ -60,7 +60,7 @@ func (data *Product) MapDataToStruct(product *Product) {
 		product.FreezingRate = data.FreezingRate
 	}
 	if data.SellerId != nil {
-		product.FreezingRate = data.FreezingRate
+		product.SellerId = data.SellerId
 	}
 }
 
