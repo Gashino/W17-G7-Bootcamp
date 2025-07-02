@@ -5,6 +5,7 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -113,9 +114,10 @@ func (h *WarehouseDefault) Add() http.HandlerFunc {
 		err = h.sv.Add(data)
 
 		if err != nil {
-			response.JSON(w, http.StatusInternalServerError, err.Error())
+			svcErr := pkg.ServiceErrors[pkg.ErrInternalServer]
+			svcErr.InternalError = fmt.Errorf(err.Error())
+			response.Error(w, svcErr.ResponseCode, svcErr.Error())
 			return
-
 		}
 
 		response.JSON(w, http.StatusCreated, map[string]any{
@@ -147,9 +149,10 @@ func (h *WarehouseDefault) Update() http.HandlerFunc {
 		err = h.sv.Update(idInt, data)
 
 		if err != nil {
-			response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
+			svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
+			svcErr.InternalError = fmt.Errorf(err.Error())
+			response.Error(w, svcErr.ResponseCode, svcErr.Error())
 			return
-
 		}
 
 		response.JSON(w, http.StatusOK, map[string]any{
@@ -171,7 +174,9 @@ func (h *WarehouseDefault) Delete() http.HandlerFunc {
 		err = h.sv.Delete(idInt)
 
 		if err != nil {
-			response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
+			svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
+			svcErr.InternalError = fmt.Errorf(err.Error())
+			response.Error(w, svcErr.ResponseCode, svcErr.Error())
 			return
 		}
 
