@@ -23,8 +23,8 @@ func (s *WarehouseDefault) FindAll() (v map[int]models.Warehouse, err error) {
 
 }
 
-func (s *WarehouseDefault) FindOne(id int) (v models.Warehouse, err error) {
-	v, err = s.rp.FindOne(id)
+func (s *WarehouseDefault) FindByID(id int) (v models.Warehouse, err error) {
+	v, err = s.rp.FindByID(id)
 	return
 }
 
@@ -58,7 +58,7 @@ func (s *WarehouseDefault) Add(v models.WarehouseDoc) (err error) {
 
 func (s *WarehouseDefault) Update(id int, v models.WarehouseDoc) (err error) {
 	// Obtengo el elemento
-	warehouse, err := s.rp.FindOne(id)
+	warehouse, err := s.rp.FindByID(id)
 	if err != nil {
 		return
 	}
@@ -104,7 +104,7 @@ func (s *WarehouseDefault) Update(id int, v models.WarehouseDoc) (err error) {
 
 func (s *WarehouseDefault) Delete(id int) (err error) {
 	// Obtengo el elemento
-	_, err = s.rp.FindOne(id)
+	_, err = s.rp.FindByID(id)
 	if err != nil {
 		return
 	}
