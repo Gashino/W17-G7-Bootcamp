@@ -10,28 +10,36 @@ import (
 
 func TestNewEmployeeMapRepository(t *testing.T) {
 	// Given
-	employees := []models.EmployeeDocument{
-		{ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
-		{ID: 2, CardNumberID: "87654321", FirstName: "Jane", LastName: "Smith", WarehouseID: 2},
+	employees := map[int]models.Employee{
+		1: {ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
+		2: {ID: 2, CardNumberID: "87654321", FirstName: "Jane", LastName: "Smith", WarehouseID: 2},
+	}
+	warehouses := map[int]models.Warehouse{
+		1: {ID: 1, WarehouseCode: "WH001", Address: "Address 1", Telephone: "123456789"},
+		2: {ID: 2, WarehouseCode: "WH002", Address: "Address 2", Telephone: "987654321"},
 	}
 
 	// When
-	repo := NewEmployeeMapRepository(employees)
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
 
 	// Then
 	assert.NotNil(t, repo)
 	mapRepo := repo.(*EmployeeRepositoryMap)
-	assert.Equal(t, 2, len(mapRepo.db))
+	assert.Equal(t, 2, len(*mapRepo.db))
 	assert.Equal(t, 2, mapRepo.maxId)
 }
 
 func TestEmployeeRepositoryMap_FindAll(t *testing.T) {
 	// Given
-	employees := []models.EmployeeDocument{
-		{ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
-		{ID: 2, CardNumberID: "87654321", FirstName: "Jane", LastName: "Smith", WarehouseID: 2},
+	employees := map[int]models.Employee{
+		1: {ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
+		2: {ID: 2, CardNumberID: "87654321", FirstName: "Jane", LastName: "Smith", WarehouseID: 2},
 	}
-	repo := NewEmployeeMapRepository(employees)
+	warehouses := map[int]models.Warehouse{
+		1: {ID: 1, WarehouseCode: "WH001", Address: "Address 1", Telephone: "123456789"},
+		2: {ID: 2, WarehouseCode: "WH002", Address: "Address 2", Telephone: "987654321"},
+	}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
 
 	// When
 	result, err := repo.FindAll()
@@ -45,10 +53,13 @@ func TestEmployeeRepositoryMap_FindAll(t *testing.T) {
 
 func TestEmployeeRepositoryMap_FindById_Success(t *testing.T) {
 	// Given
-	employees := []models.EmployeeDocument{
-		{ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
+	employees := map[int]models.Employee{
+		1: {ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
 	}
-	repo := NewEmployeeMapRepository(employees)
+	warehouses := map[int]models.Warehouse{
+		1: {ID: 1, WarehouseCode: "WH001", Address: "Address 1", Telephone: "123456789"},
+	}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
 
 	// When
 	result, err := repo.FindById(1)
@@ -64,8 +75,9 @@ func TestEmployeeRepositoryMap_FindById_Success(t *testing.T) {
 
 func TestEmployeeRepositoryMap_FindById_NotFound(t *testing.T) {
 	// Given
-	employees := []models.EmployeeDocument{}
-	repo := NewEmployeeMapRepository(employees)
+	employees := map[int]models.Employee{}
+	warehouses := map[int]models.Warehouse{}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
 
 	// When
 	result, err := repo.FindById(999)
@@ -78,8 +90,11 @@ func TestEmployeeRepositoryMap_FindById_NotFound(t *testing.T) {
 
 func TestEmployeeRepositoryMap_Save_Success(t *testing.T) {
 	// Given
-	employees := []models.EmployeeDocument{}
-	repo := NewEmployeeMapRepository(employees)
+	employees := map[int]models.Employee{}
+	warehouses := map[int]models.Warehouse{
+		1: {ID: 1, WarehouseCode: "WH001", Address: "Address 1", Telephone: "123456789"},
+	}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
 	newEmployee := models.Employee{
 		CardNumberID: "12345678",
 		FirstName:    "John",
@@ -106,10 +121,14 @@ func TestEmployeeRepositoryMap_Save_Success(t *testing.T) {
 
 func TestEmployeeRepositoryMap_Save_DuplicateCardID(t *testing.T) {
 	// Given
-	employees := []models.EmployeeDocument{
-		{ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
+	employees := map[int]models.Employee{
+		1: {ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
 	}
-	repo := NewEmployeeMapRepository(employees)
+	warehouses := map[int]models.Warehouse{
+		1: {ID: 1, WarehouseCode: "WH001", Address: "Address 1", Telephone: "123456789"},
+		2: {ID: 2, WarehouseCode: "WH002", Address: "Address 2", Telephone: "987654321"},
+	}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
 	newEmployee := models.Employee{
 		CardNumberID: "12345678", // Same as existing
 		FirstName:    "Jane",
@@ -131,10 +150,14 @@ func TestEmployeeRepositoryMap_Save_DuplicateCardID(t *testing.T) {
 
 func TestEmployeeRepositoryMap_Update_Success(t *testing.T) {
 	// Given
-	employees := []models.EmployeeDocument{
-		{ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
+	employees := map[int]models.Employee{
+		1: {ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
 	}
-	repo := NewEmployeeMapRepository(employees)
+	warehouses := map[int]models.Warehouse{
+		1: {ID: 1, WarehouseCode: "WH001", Address: "Address 1", Telephone: "123456789"},
+		2: {ID: 2, WarehouseCode: "WH002", Address: "Address 2", Telephone: "987654321"},
+	}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
 	updatedEmployee := models.Employee{
 		ID:           1,
 		CardNumberID: "87654321",
@@ -160,8 +183,11 @@ func TestEmployeeRepositoryMap_Update_Success(t *testing.T) {
 
 func TestEmployeeRepositoryMap_Update_NotFound(t *testing.T) {
 	// Given
-	employees := []models.EmployeeDocument{}
-	repo := NewEmployeeMapRepository(employees)
+	employees := map[int]models.Employee{}
+	warehouses := map[int]models.Warehouse{
+		2: {ID: 2, WarehouseCode: "WH002", Address: "Address 2", Telephone: "987654321"},
+	}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
 	updatedEmployee := models.Employee{
 		ID:           999,
 		CardNumberID: "87654321",
@@ -181,11 +207,15 @@ func TestEmployeeRepositoryMap_Update_NotFound(t *testing.T) {
 
 func TestEmployeeRepositoryMap_Update_DuplicateCardID(t *testing.T) {
 	// Given
-	employees := []models.EmployeeDocument{
-		{ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
-		{ID: 2, CardNumberID: "87654321", FirstName: "Jane", LastName: "Smith", WarehouseID: 2},
+	employees := map[int]models.Employee{
+		1: {ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
+		2: {ID: 2, CardNumberID: "87654321", FirstName: "Jane", LastName: "Smith", WarehouseID: 2},
 	}
-	repo := NewEmployeeMapRepository(employees)
+	warehouses := map[int]models.Warehouse{
+		1: {ID: 1, WarehouseCode: "WH001", Address: "Address 1", Telephone: "123456789"},
+		2: {ID: 2, WarehouseCode: "WH002", Address: "Address 2", Telephone: "987654321"},
+	}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
 	updatedEmployee := models.Employee{
 		ID:           1,
 		CardNumberID: "87654321", // Same as employee ID 2
@@ -205,10 +235,13 @@ func TestEmployeeRepositoryMap_Update_DuplicateCardID(t *testing.T) {
 
 func TestEmployeeRepositoryMap_Delete_Success(t *testing.T) {
 	// Given
-	employees := []models.EmployeeDocument{
-		{ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
+	employees := map[int]models.Employee{
+		1: {ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
 	}
-	repo := NewEmployeeMapRepository(employees)
+	warehouses := map[int]models.Warehouse{
+		1: {ID: 1, WarehouseCode: "WH001", Address: "Address 1", Telephone: "123456789"},
+	}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
 
 	// When
 	err := repo.Delete(1)
@@ -224,12 +257,68 @@ func TestEmployeeRepositoryMap_Delete_Success(t *testing.T) {
 
 func TestEmployeeRepositoryMap_Delete_NotFound(t *testing.T) {
 	// Given
-	employees := []models.EmployeeDocument{}
-	repo := NewEmployeeMapRepository(employees)
+	employees := map[int]models.Employee{}
+	warehouses := map[int]models.Warehouse{}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
 
 	// When
 	err := repo.Delete(999)
 
 	// Then
 	assert.NoError(t, err) // Delete should not error even if ID doesn't exist
+}
+
+func TestEmployeeRepositoryMap_Save_InvalidWarehouseID(t *testing.T) {
+	// Given
+	employees := map[int]models.Employee{}
+	warehouses := map[int]models.Warehouse{
+		1: {ID: 1, WarehouseCode: "WH001", Address: "Address 1", Telephone: "123456789"},
+	}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
+	newEmployee := models.Employee{
+		CardNumberID: "12345678",
+		FirstName:    "John",
+		LastName:     "Doe",
+		WarehouseID:  999, // Invalid warehouse ID
+	}
+
+	// When
+	result, err := repo.Save(newEmployee)
+
+	// Then
+	assert.Error(t, err)
+	assert.Equal(t, models.Employee{}, result)
+	serviceErr, ok := err.(pkg.ServiceError)
+	assert.True(t, ok)
+	assert.Equal(t, 400, serviceErr.Code)
+	assert.Equal(t, "Warehouse ID does not exist", serviceErr.Message)
+}
+
+func TestEmployeeRepositoryMap_Update_InvalidWarehouseID(t *testing.T) {
+	// Given
+	employees := map[int]models.Employee{
+		1: {ID: 1, CardNumberID: "12345678", FirstName: "John", LastName: "Doe", WarehouseID: 1},
+	}
+	warehouses := map[int]models.Warehouse{
+		1: {ID: 1, WarehouseCode: "WH001", Address: "Address 1", Telephone: "123456789"},
+	}
+	repo := NewEmployeeMapRepository(&employees, &warehouses)
+	updatedEmployee := models.Employee{
+		ID:           1,
+		CardNumberID: "87654321",
+		FirstName:    "Jane",
+		LastName:     "Smith",
+		WarehouseID:  999, // Invalid warehouse ID
+	}
+
+	// When
+	result, err := repo.Update(updatedEmployee, 1)
+
+	// Then
+	assert.Error(t, err)
+	assert.Equal(t, models.Employee{}, result)
+	serviceErr, ok := err.(pkg.ServiceError)
+	assert.True(t, ok)
+	assert.Equal(t, 400, serviceErr.Code)
+	assert.Equal(t, "Warehouse ID does not exist", serviceErr.Message)
 }
