@@ -29,7 +29,7 @@ func (r *WarehouseMap) FindAll() (v map[int]models.Warehouse, err error) {
 	return
 }
 
-func (r *WarehouseMap) FindOne(id int) (v models.Warehouse, err error) {
+func (r *WarehouseMap) FindByID(id int) (v models.Warehouse, err error) {
 	for _, value := range *r.db {
 		if value.ID == id {
 			return value, err
