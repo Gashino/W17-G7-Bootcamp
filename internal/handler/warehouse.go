@@ -61,7 +61,7 @@ func (h *WarehouseDefault) GetOne() http.HandlerFunc {
 			return
 		}
 
-		value, err := h.sv.FindOne(idInt)
+		value, err := h.sv.FindByID(idInt)
 
 		if err != nil {
 
