@@ -8,8 +8,10 @@ import (
 )
 
 type ProductMap struct {
-	db     map[int]models.Product
-	lastId int
+	db            *map[int]models.Product
+	dbProductType *map[int]models.ProductType
+	dbSection     *map[int]models.Section
+	lastId        int
 }
 
 func (p *ProductMap) Update(id int, product models.Product) error {
@@ -17,7 +19,7 @@ func (p *ProductMap) Update(id int, product models.Product) error {
 	if err := p.validateProductCode(product); err != nil {
 		return err
 	}
-	p.db[id] = product
+	(*p.db)[id] = product
 
 	return nil
 }
@@ -28,24 +30,28 @@ func (p *ProductMap) Create(product models.Product) error {
 	}
 
 	product.ID = p.lastId
-	p.db[product.ID] = product
+	(*p.db)[product.ID] = product
 	p.lastId++
 
 	return nil
 }
 
 func (p *ProductMap) Delete(id int) error {
-	if _, exist := p.db[id]; exist {
-		delete(p.db, id)
-	} else {
+	if _, exist := (*p.db)[id]; !exist {
 		return pkg.ServiceErrors[pkg.ErrNotFound]
 	}
+
+	if p.existsProductID(id) {
+		return pkg.ServiceErrors[pkg.ErrConflict]
+	}
+
+	delete(*p.db, id)
 
 	return nil
 }
 
 func (p *ProductMap) GetById(id int) (*models.Product, error) {
-	if value, exist := p.db[id]; exist {
+	if value, exist := (*p.db)[id]; exist {
 		return &value, nil
 	} else {
 		return nil, pkg.ServiceErrors[pkg.ErrNotFound]
@@ -53,24 +59,20 @@ func (p *ProductMap) GetById(id int) (*models.Product, error) {
 }
 
 func (p *ProductMap) GetAll() map[int]models.Product {
-	return p.db
+	return *p.db
 }
 
-func NewProductMap(db map[int]models.Product) *ProductMap {
-	defaultDb := make(map[int]models.Product)
-	if db != nil {
-		defaultDb = db
-	}
-	return &ProductMap{db: defaultDb, lastId: len(db) + 1}
+func NewProductMap(dbProduct *map[int]models.Product, dbProductType *map[int]models.ProductType, dbSection *map[int]models.Section) *ProductMap {
+	return &ProductMap{db: dbProduct, dbProductType: dbProductType, dbSection: dbSection, lastId: len(*dbProduct) + 1}
 }
 
 func (p *ProductMap) validateProductCode(product models.Product) error {
-	for _, value := range p.db {
+	for _, value := range *p.db {
 		if value.ID == product.ID {
 			continue
 		}
 
-		if strings.ToLower(value.ProductCode) == strings.ToLower(product.ProductCode) {
+		if strings.ToLower(*value.ProductCode) == strings.ToLower(*product.ProductCode) {
 			return pkg.ServiceError{
 				Code:         0,
 				ResponseCode: http.StatusConflict,
@@ -79,4 +81,17 @@ func (p *ProductMap) validateProductCode(product models.Product) error {
 		}
 	}
 	return nil
+}
+
+func (p *ProductMap) existsProductID(id int) bool {
+	for _, section := range *p.dbSection {
+		for _, batch := range section.ProductBatches {
+			for _, productID := range batch.ProductIDs {
+				if productID == id {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

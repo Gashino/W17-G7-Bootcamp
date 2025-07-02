@@ -53,11 +53,11 @@ func TestSellerDefault_GetById_Success(t *testing.T) {
 
 	// Seller de prueba
 	expectedSeller := models.Seller{
-		Id: 1,
+		ID: 1,
 		SellerAttributes: models.SellerAttributes{
 			CId:         "12345",
 			CompanyName: "Test Company",
-			Adress:      "Test Address",
+			Address:     "Test Address",
 			Telephone:   "123456789",
 		},
 	}
@@ -175,11 +175,11 @@ func TestSellerDefault_Create_Success(t *testing.T) {
 
 	// Seller esperado que retornará el service
 	expectedSeller := models.Seller{
-		Id: 2,
+		ID: 2,
 		SellerAttributes: models.SellerAttributes{
 			CId:         "12345",
 			CompanyName: "New Company",
-			Adress:      "New Address",
+			Address:     "New Address",
 			Telephone:   "987654321",
 		},
 	}
@@ -280,4 +280,4 @@ func TestSellerDefault_Create_InvalidJSON(t *testing.T) {
 // Helper function para crear punteros a string
 func stringPtr(s string) *string {
 	return &s
-} 
+}

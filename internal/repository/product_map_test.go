@@ -14,25 +14,27 @@ func TestProductMap_GetAll(t *testing.T) {
 		1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
 		2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
 	}
-	repo := NewProductMap(mockProducts)
+	mockTypes := map[int]models.ProductType{}
+	repo := NewProductMap(&mockProducts, &mockTypes)
 
 	// Act
 	result := repo.GetAll()
 
 	// Assert
-	assert.Equal(t, mockProducts, result)
-	assert.Len(t, result, 2)
+	assert.Equal(t, mockProducts, result, "GetAll should return all products")
+	assert.Len(t, result, 2, "GetAll should return two products")
 }
 
-func TestProductMap_GetById(t *testing.T) {
+func TestProductMap_GetByID(t *testing.T) {
 	// Arrange
 	mockProducts := map[int]models.Product{
 		1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
 		2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
 	}
-	repo := NewProductMap(mockProducts)
+	mockTypes := map[int]models.ProductType{}
+	repo := NewProductMap(&mockProducts, &mockTypes)
 
-	t.Run("Existing product", func(t *testing.T) {
+	t.Run("existing product", func(t *testing.T) {
 		// Act
 		product, err := repo.GetById(1)
 
@@ -57,7 +59,8 @@ func TestProductMap_Create(t *testing.T) {
 	t.Run("Create new product successfully", func(t *testing.T) {
 		// Arrange
 		db := make(map[int]models.Product)
-		repo := &ProductMap{db: db, lastId: 0}
+		dbTypes := make(map[int]models.ProductType)
+		repo := NewProductMap(&db, &dbTypes)
 		newProduct := models.Product{
 			ProductAttributes: models.ProductAttributes{
 				Description: "New Product",
@@ -78,7 +81,8 @@ func TestProductMap_Create(t *testing.T) {
 		existingProducts := map[int]models.Product{
 			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
 		}
-		repo := NewProductMap(existingProducts)
+		mockTypes := map[int]models.ProductType{}
+		repo := NewProductMap(&existingProducts, &mockTypes)
 		newProduct := models.Product{
 			ProductAttributes: models.ProductAttributes{
 				Description: "New Product",
@@ -92,7 +96,7 @@ func TestProductMap_Create(t *testing.T) {
 		// Assert
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Product code already exist")
-		assert.Len(t, repo.db, 1) // No new product should be added
+		assert.Len(t, *repo.db, 1) // No new product debería ser agregado
 	})
 }
 
@@ -103,7 +107,8 @@ func TestProductMap_Update(t *testing.T) {
 			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
 			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
 		}
-		repo := NewProductMap(mockProducts)
+		mockTypes := map[int]models.ProductType{}
+		repo := NewProductMap(&mockProducts, &mockTypes)
 		updatedProduct := models.Product{
 			ID: 1,
 			ProductAttributes: models.ProductAttributes{
@@ -127,7 +132,8 @@ func TestProductMap_Update(t *testing.T) {
 			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
 			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
 		}
-		repo := NewProductMap(mockProducts)
+		mockTypes := map[int]models.ProductType{}
+		repo := NewProductMap(&mockProducts, &mockTypes)
 		updatedProduct := models.Product{
 			ID: 1,
 			ProductAttributes: models.ProductAttributes{
@@ -155,15 +161,16 @@ func TestProductMap_Delete(t *testing.T) {
 			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
 			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
 		}
-		repo := NewProductMap(mockProducts)
+		mockTypes := map[int]models.ProductType{}
+		repo := NewProductMap(&mockProducts, &mockTypes)
 
 		// Act
 		err := repo.Delete(1)
 
 		// Assert
 		assert.NoError(t, err)
-		assert.Len(t, repo.db, 1)
-		_, exists := repo.db[1]
+		assert.Len(t, *repo.db, 1)
+		_, exists := (*repo.db)[1]
 		assert.False(t, exists)
 	})
 
@@ -172,7 +179,8 @@ func TestProductMap_Delete(t *testing.T) {
 		mockProducts := map[int]models.Product{
 			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
 		}
-		repo := NewProductMap(mockProducts)
+		mockTypes := map[int]models.ProductType{}
+		repo := NewProductMap(&mockProducts, &mockTypes)
 
 		// Act
 		err := repo.Delete(999)
@@ -180,19 +188,19 @@ func TestProductMap_Delete(t *testing.T) {
 		// Assert
 		assert.Error(t, err)
 		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
-		assert.Len(t, repo.db, 1) // DB should remain unchanged
+		assert.Len(t, *repo.db, 1) // DB should remain unchanged
 	})
 }
 
 func TestNewProductMap(t *testing.T) {
 	t.Run("Create with nil db", func(t *testing.T) {
 		// Act
-		repo := NewProductMap(nil)
+		repo := NewProductMap(&map[int]models.Product{}, &map[int]models.ProductType{})
 
 		// Assert
 		assert.NotNil(t, repo)
 		assert.NotNil(t, repo.db)
-		assert.Len(t, repo.db, 0)
+		assert.Len(t, *repo.db, 0)
 		assert.Equal(t, 1, repo.lastId)
 	})
 
@@ -202,13 +210,14 @@ func TestNewProductMap(t *testing.T) {
 			1: {ID: 1, ProductAttributes: models.ProductAttributes{ProductCode: "P1", Description: "Product 1"}},
 			2: {ID: 2, ProductAttributes: models.ProductAttributes{ProductCode: "P2", Description: "Product 2"}},
 		}
+		mockTypes := map[int]models.ProductType{}
 
 		// Act
-		repo := NewProductMap(mockProducts)
+		repo := NewProductMap(&mockProducts, &mockTypes)
 
 		// Assert
 		assert.NotNil(t, repo)
-		assert.Equal(t, mockProducts, repo.db)
-		assert.Equal(t, 3, repo.lastId) // lastId should be len(db) + 1
+		assert.Equal(t, mockProducts, *repo.db)
+		assert.Equal(t, 3, repo.lastId) // lastId debería ser len(db) + 1
 	})
 }
