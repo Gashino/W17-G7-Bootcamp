@@ -76,10 +76,9 @@ func (h *SellerDefault) GetById() http.HandlerFunc {
 		// response
 		var result = models.ToSellerDoc(data)
 
-		response.JSON(w, http.StatusOK, map[string]any{
-			"message": "success",
-			"data":    result,
-		})
+		writeResponse(w, http.StatusCreated, map[string]any{
+			"data": result,
+		}, nil)
 	}
 }
 
@@ -110,10 +109,9 @@ func (h *SellerDefault) Create() http.HandlerFunc {
 		// response
 		var result = models.ToSellerDoc(data)
 
-		response.JSON(w, http.StatusCreated, map[string]any{
-			"message": "success",
-			"data":    result,
-		})
+		writeResponse(w, http.StatusCreated, map[string]any{
+			"data": result,
+		}, nil)
 	}
 }
 
@@ -146,10 +144,9 @@ func (h *SellerDefault) Update() http.HandlerFunc {
 		// response
 		var result = models.ToSellerDoc(data)
 
-		response.JSON(w, http.StatusCreated, map[string]any{
-			"message": "success",
-			"data":    result,
-		})
+		writeResponse(w, http.StatusCreated, map[string]any{
+			"data": result,
+		}, nil)
 	}
 }
 
