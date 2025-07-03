@@ -102,7 +102,7 @@ func (h *SellerDefault) Create() http.HandlerFunc {
 
 		data, err := h.sv.Create(seller)
 		if err != nil {
-			srvErr := pkg.ServiceErrors[pkg.ErrNotFound]
+			srvErr := pkg.ServiceErrors[pkg.ErrConflict]
 			response.Error(w, srvErr.ResponseCode, srvErr.Error())
 			return
 		}
