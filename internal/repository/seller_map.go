@@ -35,9 +35,10 @@ func (r *SellerMap) FindAll() (v map[int]models.Seller, err error) {
 func (r *SellerMap) Create(seller models.Seller) (models.Seller, error) {
 
 	largo := r.maxId + 1
-	_, find := (*r.db)[seller.ID]
-	if find {
-		return models.Seller{}, pkg.ServiceErrors[pkg.ErrConflict]
+	for _, s := range *r.db {
+		if s.CId == seller.CId {
+			return models.Seller{}, pkg.ServiceErrors[pkg.ErrConflict]
+		}
 	}
 	seller.ID = largo
 	(*r.db)[largo] = seller
