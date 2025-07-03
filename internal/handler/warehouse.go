@@ -44,10 +44,11 @@ func (h *WarehouseDefault) GetAll() http.HandlerFunc {
 				MinTemperature: value.MinTemperature,
 			}
 		}
-		response.JSON(w, http.StatusOK, map[string]any{
-			"message": "success",
-			"data":    data,
-		})
+
+		writeResponse(w, http.StatusCreated, map[string]any{
+			"data": data,
+		}, nil)
+
 	}
 }
 
@@ -72,7 +73,7 @@ func (h *WarehouseDefault) GetOne() http.HandlerFunc {
 
 		// response
 
-		data := models.WarehouseDoc{
+		data := models.Warehouse{
 			ID:             value.ID,
 			WarehouseCode:  value.WarehouseCode,
 			Address:        value.Address,
@@ -81,10 +82,9 @@ func (h *WarehouseDefault) GetOne() http.HandlerFunc {
 			MinTemperature: value.MinTemperature,
 		}
 
-		response.JSON(w, http.StatusOK, map[string]any{
-			"message": "success",
-			"data":    data,
-		})
+		writeResponse(w, http.StatusCreated, map[string]any{
+			"data": data,
+		}, nil)
 	}
 }
 
@@ -111,7 +111,7 @@ func (h *WarehouseDefault) Add() http.HandlerFunc {
 		}
 
 		// Llamo al service
-		err = h.sv.Add(data)
+		warehouse, err := h.sv.Add(data)
 
 		if err != nil {
 			svcErr := pkg.ServiceErrors[pkg.ErrInternalServer]
@@ -120,10 +120,18 @@ func (h *WarehouseDefault) Add() http.HandlerFunc {
 			return
 		}
 
-		response.JSON(w, http.StatusCreated, map[string]any{
-			"message": "success",
-			"data":    "Created",
-		})
+		warehouse_doc := models.WarehouseDoc{
+			ID:             warehouse.ID,
+			WarehouseCode:  warehouse.WarehouseCode,
+			Address:        warehouse.Address,
+			Telephone:      warehouse.Telephone,
+			MinCapacity:    warehouse.MinCapacity,
+			MinTemperature: warehouse.MinTemperature,
+		}
+
+		writeResponse(w, http.StatusCreated, map[string]any{
+			"data": warehouse_doc,
+		}, nil)
 		return
 	}
 }
@@ -146,7 +154,7 @@ func (h *WarehouseDefault) Update() http.HandlerFunc {
 		}
 
 		// Llamo al service
-		err = h.sv.Update(idInt, data)
+		warehouse, err := h.sv.Update(idInt, data)
 
 		if err != nil {
 			svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
@@ -155,10 +163,19 @@ func (h *WarehouseDefault) Update() http.HandlerFunc {
 			return
 		}
 
-		response.JSON(w, http.StatusOK, map[string]any{
-			"message": "success",
-			"data":    "Updated",
-		})
+		warehouse_doc := models.WarehouseDoc{
+			ID:             warehouse.ID,
+			WarehouseCode:  warehouse.WarehouseCode,
+			Address:        warehouse.Address,
+			Telephone:      warehouse.Telephone,
+			MinCapacity:    warehouse.MinCapacity,
+			MinTemperature: warehouse.MinTemperature,
+		}
+
+		//response.JSON(w, http.StatusCreated, warehouse_doc)
+		writeResponse(w, http.StatusCreated, map[string]any{
+			"data": warehouse_doc,
+		}, nil)
 		return
 	}
 }
@@ -187,4 +204,5 @@ func (h *WarehouseDefault) Delete() http.HandlerFunc {
 		return
 
 	}
+
 }

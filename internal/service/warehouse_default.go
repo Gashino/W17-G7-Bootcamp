@@ -28,7 +28,7 @@ func (s *WarehouseDefault) FindByID(id int) (v models.Warehouse, err error) {
 	return
 }
 
-func (s *WarehouseDefault) Add(v models.WarehouseDoc) (err error) {
+func (s *WarehouseDefault) Add(v models.WarehouseDoc) (w models.Warehouse, err error) {
 	// Verfico que el codigo sea unico
 	_, err = s.rp.FindWarehouseByCode(v.WarehouseCode)
 
@@ -43,7 +43,7 @@ func (s *WarehouseDefault) Add(v models.WarehouseDoc) (err error) {
 		return
 	}
 
-	warehouse := models.Warehouse{
+	w = models.Warehouse{
 		ID:             id,
 		WarehouseCode:  v.WarehouseCode,
 		Address:        v.Address,
@@ -51,12 +51,12 @@ func (s *WarehouseDefault) Add(v models.WarehouseDoc) (err error) {
 		MinCapacity:    v.MinCapacity,
 		MinTemperature: v.MinTemperature,
 	}
-	err = s.rp.Add(warehouse)
+	err = s.rp.Add(w)
 
 	return
 }
 
-func (s *WarehouseDefault) Update(id int, v models.WarehouseDoc) (err error) {
+func (s *WarehouseDefault) Update(id int, v models.WarehouseDoc) (w models.Warehouse, err error) {
 	// Obtengo el elemento
 	warehouse, err := s.rp.FindByID(id)
 	if err != nil {
@@ -99,6 +99,7 @@ func (s *WarehouseDefault) Update(id int, v models.WarehouseDoc) (err error) {
 		err = s.rp.Add(warehouse)
 	}
 
+	w = warehouse
 	return
 }
 
