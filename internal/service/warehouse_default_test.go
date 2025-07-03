@@ -162,7 +162,7 @@ func Test_WarehouseServiceDefault_Add_Success(t *testing.T) {
 	mockRepo.On("Add", warehouse).Return(nil)
 
 	// When
-	err := service.Add(inputWarehouse)
+	_, err := service.Add(inputWarehouse)
 
 	// Then
 	assert.NoError(t, err)
@@ -190,7 +190,7 @@ func Test_WarehouseServiceDefault_Add_Error(t *testing.T) {
 	}
 	mockRepo.On("FindWarehouseByCode", "WH00501").Return(existingWarehouse, nil)
 	// When
-	err := service.Add(inputWarehouse)
+	_, err := service.Add(inputWarehouse)
 
 	// Then
 	assert.Error(t, err)
@@ -220,7 +220,7 @@ func TestWarehouseServiceDefault_Update_Success_AllFields(t *testing.T) {
 	mockRepo.On("Add", updatedWarehouse).Return(nil)
 
 	// When
-	err := service.Update(1, warehouseDocInput)
+	_, err := service.Update(1, warehouseDocInput)
 
 	// Then
 	assert.NoError(t, err)
@@ -249,7 +249,7 @@ func TestWarehouseServiceDefault_Update_Error_WarehouseCodeNotUnique(t *testing.
 	mockRepo.On("FindWarehouseByCode", "WH002").Return(conflictingWarehouse, nil)
 
 	// When
-	err := service.Update(1, updateInput)
+	_, err := service.Update(1, updateInput)
 
 	// Then
 	assert.Error(t, err)
