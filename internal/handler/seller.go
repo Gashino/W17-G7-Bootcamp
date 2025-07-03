@@ -33,7 +33,8 @@ func (h *SellerDefault) GetAll() http.HandlerFunc {
 		// - get all Sellers
 		v, err := h.sv.FindAll()
 		if err != nil {
-			response.JSON(w, http.StatusInternalServerError, nil)
+			srvErr := pkg.ServiceErrors[pkg.ErrInternalServer]
+			response.Error(w, srvErr.ResponseCode, srvErr.Error())
 			return
 		}
 
@@ -60,9 +61,7 @@ func (h *SellerDefault) GetById() http.HandlerFunc {
 		if err != nil {
 			// Error de parsing del ID → BadRequest
 			srvErr := pkg.ServiceErrors[pkg.ErrBadRequest]
-			response.JSON(w, srvErr.ResponseCode, map[string]any{
-				"error": srvErr.Message,
-			})
+			response.Error(w, srvErr.ResponseCode, srvErr.Error())
 			return
 		}
 
@@ -70,9 +69,7 @@ func (h *SellerDefault) GetById() http.HandlerFunc {
 		data, err := h.sv.GetById(id)
 		if err != nil {
 			srvErr := pkg.ServiceErrors[pkg.ErrNotFound]
-			response.JSON(w, srvErr.ResponseCode, map[string]any{
-				"error": srvErr.Message,
-			})
+			response.Error(w, srvErr.ResponseCode, srvErr.Error())
 			return
 		}
 
@@ -96,9 +93,7 @@ func (h *SellerDefault) Create() http.HandlerFunc {
 
 		if err != nil || !models.IsValidCreateRequest(inputSeller) {
 			srvErr := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
-			response.JSON(w, srvErr.ResponseCode, map[string]any{
-				"error": srvErr.Message,
-			})
+			response.Error(w, srvErr.ResponseCode, srvErr.Error())
 			return
 		}
 
@@ -108,9 +103,7 @@ func (h *SellerDefault) Create() http.HandlerFunc {
 		data, err := h.sv.Create(seller)
 		if err != nil {
 			srvErr := pkg.ServiceErrors[pkg.ErrNotFound]
-			response.JSON(w, srvErr.ResponseCode, map[string]any{
-				"error": srvErr.Message,
-			})
+			response.Error(w, srvErr.ResponseCode, srvErr.Error())
 			return
 		}
 
@@ -137,9 +130,7 @@ func (h *SellerDefault) Update() http.HandlerFunc {
 
 		if err != nil || errId != nil {
 			srvErr := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
-			response.JSON(w, srvErr.ResponseCode, map[string]any{
-				"error": srvErr.Message,
-			})
+			response.Error(w, srvErr.ResponseCode, srvErr.Error())
 			return
 		}
 
@@ -148,9 +139,7 @@ func (h *SellerDefault) Update() http.HandlerFunc {
 		data, err := h.sv.UpdateFields(id, inputSeller)
 		if err != nil {
 			srvErr := pkg.ServiceErrors[pkg.ErrNotFound]
-			response.JSON(w, srvErr.ResponseCode, map[string]any{
-				"error": srvErr.Message,
-			})
+			response.Error(w, srvErr.ResponseCode, srvErr.Error())
 			return
 		}
 
@@ -175,9 +164,7 @@ func (h *SellerDefault) Delete() http.HandlerFunc {
 		if err != nil {
 			// Error de parsing del ID → BadRequest
 			srvErr := pkg.ServiceErrors[pkg.ErrBadRequest]
-			response.JSON(w, srvErr.ResponseCode, map[string]any{
-				"error": srvErr.Message,
-			})
+			response.Error(w, srvErr.ResponseCode, srvErr.Error())
 			return
 		}
 
@@ -185,9 +172,7 @@ func (h *SellerDefault) Delete() http.HandlerFunc {
 		err = h.sv.DeleteSeller(id)
 		if err != nil {
 			srvErr := pkg.ServiceErrors[pkg.ErrNotFound]
-			response.JSON(w, srvErr.ResponseCode, map[string]any{
-				"error": srvErr.Message,
-			})
+			response.Error(w, srvErr.ResponseCode, srvErr.Error())
 			return
 		}
 
