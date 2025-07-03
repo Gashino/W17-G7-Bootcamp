@@ -23,7 +23,7 @@ func (p ProductService) Update(id int, product models.Product) (*models.Product,
 	return productToUpdate, p.rp.Update(id, *productToUpdate)
 }
 
-func (p ProductService) Create(product models.Product) error {
+func (p ProductService) Create(product models.Product) (*models.Product, error) {
 	return p.rp.Create(product)
 }
 

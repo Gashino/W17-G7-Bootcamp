@@ -30,8 +30,7 @@ func (d ProductDefault) GetAll() http.HandlerFunc {
 		}
 
 		response.JSON(writer, http.StatusOK, map[string]any{
-			"message": "success",
-			"data":    result,
+			"data": result,
 		})
 	}
 }
@@ -48,8 +47,7 @@ func (d ProductDefault) GetById() http.HandlerFunc {
 		}
 
 		response.JSON(writer, http.StatusOK, map[string]any{
-			"message": "success",
-			"data":    result,
+			"data": result,
 		})
 	}
 }
@@ -69,14 +67,21 @@ func (d ProductDefault) Create() http.HandlerFunc {
 			return
 		}
 
-		result := d.sv.Create(productDoc)
+		result, err := d.sv.Create(productDoc)
 
-		if result != nil {
-			response.Error(w, http.StatusConflict, result.Error())
+		if err != nil {
+			svcErr := pkg.ServiceError{}
+			if errors.As(err, &svcErr) {
+				response.Error(w, svcErr.ResponseCode, svcErr.Error())
+				return
+			}
+			response.Error(w, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, pkg.ServiceErrors[pkg.ErrInternalServer].Error())
 			return
 		}
 
-		response.JSON(w, http.StatusCreated, "product successfully created")
+		response.JSON(w, http.StatusCreated, map[string]any{
+			"data": result,
+		})
 	}
 }
 
@@ -125,8 +130,7 @@ func (d ProductDefault) Patch() http.HandlerFunc {
 		}
 
 		response.JSON(writer, http.StatusOK, map[string]any{
-			"message": "success",
-			"data":    result,
+			"data": result,
 		})
 	}
 }
