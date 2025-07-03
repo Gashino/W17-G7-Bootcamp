@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -56,6 +57,12 @@ func ValidateEmployee(employee Employee, validateID bool) error {
 
 	if len(employee.CardNumberID) != 8 {
 		return fmt.Errorf("card_number_id must be 8 digits")
+	}
+
+	// Validate that CardNumberID contains only digits
+	cardNumberRegex := regexp.MustCompile(`^[0-9]{8}$`)
+	if !cardNumberRegex.MatchString(employee.CardNumberID) {
+		return fmt.Errorf("card_number_id must contain only numbers")
 	}
 
 	if len(strings.TrimSpace(employee.FirstName)) == 0 {

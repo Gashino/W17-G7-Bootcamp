@@ -54,7 +54,7 @@ func (h *EmployeeHandler) GetEmployee(w http.ResponseWriter, r *http.Request) {
 func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	var employee models.EmployeeDTO
 	if err := json.NewDecoder(r.Body).Decode(&employee); err != nil {
-		srvError := pkg.ServiceErrors[pkg.ErrBadRequest]
+		srvError := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
 		response.Error(w, srvError.ResponseCode, srvError.Error())
 		return
 	}
@@ -84,13 +84,13 @@ func (h *EmployeeHandler) UpdateEmployee(w http.ResponseWriter, r *http.Request)
 
 	var employee models.EmployeeDTO
 	if err := json.NewDecoder(r.Body).Decode(&employee); err != nil {
-		srvError := pkg.ServiceErrors[pkg.ErrBadRequest]
+		srvError := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
 		response.Error(w, srvError.ResponseCode, srvError.Error())
 		return
 	}
 
 	if !validateRequestUpdatePatch(employee) {
-		srvError := pkg.ServiceErrors[pkg.ErrBadRequest]
+		srvError := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
 		response.Error(w, srvError.ResponseCode, srvError.Error())
 		return
 	}
@@ -177,8 +177,8 @@ func extractIDFromURL(w http.ResponseWriter, r *http.Request) (int, bool) {
 // validateRequest is a helper function to validate the employee request
 func validateRequest(employee models.Employee, validateID bool) error {
 	if err := models.ValidateEmployee(employee, validateID); err != nil {
-		errorR := pkg.ServiceErrors[pkg.ErrBadRequest]
-		errorR.Message = err.Error()
+		errorR := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
+		errorR.InternalError = fmt.Errorf(err.Error())
 		return errorR
 
 	}
