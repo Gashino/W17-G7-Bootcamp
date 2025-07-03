@@ -11,6 +11,7 @@ type ProductMap struct {
 	db            *map[int]models.Product
 	dbProductType *map[int]models.ProductType
 	dbSection     *map[int]models.Section
+	dbSeller      *map[int]models.Seller
 	lastId        int
 }
 
@@ -24,16 +25,36 @@ func (p *ProductMap) Update(id int, product models.Product) error {
 	return nil
 }
 
-func (p *ProductMap) Create(product models.Product) error {
+func (p *ProductMap) Create(product models.Product) (*models.Product, error) {
 	if err := p.validateProductCode(product); err != nil {
-		return err
+		return nil, err
+	}
+
+	if product.ProductTypeId != nil {
+		if _, exist := (*p.dbProductType)[*product.ProductTypeId]; !exist {
+			return nil, pkg.ServiceError{
+				Code:         0,
+				ResponseCode: http.StatusConflict,
+				Message:      "Not a valid ProductType",
+			}
+		}
+	}
+
+	if product.SellerId != nil {
+		if _, exist := (*p.dbSeller)[*product.SellerId]; !exist {
+			return nil, pkg.ServiceError{
+				Code:         0,
+				ResponseCode: http.StatusConflict,
+				Message:      "Not a valid seller",
+			}
+		}
 	}
 
 	product.ID = p.lastId
 	(*p.db)[product.ID] = product
 	p.lastId++
 
-	return nil
+	return &product, nil
 }
 
 func (p *ProductMap) Delete(id int) error {
@@ -62,8 +83,8 @@ func (p *ProductMap) GetAll() map[int]models.Product {
 	return *p.db
 }
 
-func NewProductMap(dbProduct *map[int]models.Product, dbProductType *map[int]models.ProductType, dbSection *map[int]models.Section) *ProductMap {
-	return &ProductMap{db: dbProduct, dbProductType: dbProductType, dbSection: dbSection, lastId: len(*dbProduct) + 1}
+func NewProductMap(dbProduct *map[int]models.Product, dbProductType *map[int]models.ProductType, dbSection *map[int]models.Section, dbSeller *map[int]models.Seller) *ProductMap {
+	return &ProductMap{db: dbProduct, dbProductType: dbProductType, dbSection: dbSection, dbSeller: dbSeller, lastId: len(*dbProduct) + 1}
 }
 
 func (p *ProductMap) validateProductCode(product models.Product) error {

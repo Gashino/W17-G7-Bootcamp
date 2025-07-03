@@ -6,9 +6,11 @@ import (
 	"app/pkg/models"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
+	"github.com/bootcamp-go/web/response"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -52,11 +54,8 @@ func (h *EmployeeHandler) GetEmployee(w http.ResponseWriter, r *http.Request) {
 func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	var employee models.EmployeeDTO
 	if err := json.NewDecoder(r.Body).Decode(&employee); err != nil {
-		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
-			Code:         400,
-			ResponseCode: http.StatusBadRequest,
-			Message:      "Invalid request body",
-		})
+		srvError := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
+		response.Error(w, srvError.ResponseCode, srvError.Error())
 		return
 	}
 
@@ -85,16 +84,14 @@ func (h *EmployeeHandler) UpdateEmployee(w http.ResponseWriter, r *http.Request)
 
 	var employee models.EmployeeDTO
 	if err := json.NewDecoder(r.Body).Decode(&employee); err != nil {
-		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
-			Code:         404,
-			ResponseCode: http.StatusBadRequest,
-			Message:      "Invalid request body",
-		})
+		srvError := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
+		response.Error(w, srvError.ResponseCode, srvError.Error())
 		return
 	}
 
 	if !validateRequestUpdatePatch(employee) {
-		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceErrors[pkg.ErrBadRequest])
+		srvError := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
+		response.Error(w, srvError.ResponseCode, srvError.Error())
 		return
 	}
 
@@ -146,11 +143,13 @@ func writeResponse(w http.ResponseWriter, status int, data interface{}, err erro
 
 // handleServiceError is a helper function to handle service errors consistently
 func handleServiceError(w http.ResponseWriter, err error) {
-	var serviceErr pkg.ServiceError
-	if errors.As(err, &serviceErr) {
-		writeResponse(w, serviceErr.ResponseCode, nil, err)
+	var srvError pkg.ServiceError
+	if errors.As(err, &srvError) {
+
+		response.Error(w, srvError.ResponseCode, srvError.Error())
 	} else {
-		writeResponse(w, http.StatusInternalServerError, nil, pkg.ServiceErrors[pkg.ErrInternalServer])
+		srvError := pkg.ServiceErrors[pkg.ErrInternalServer]
+		response.Error(w, srvError.ResponseCode, srvError.Error())
 	}
 }
 
@@ -158,21 +157,17 @@ func handleServiceError(w http.ResponseWriter, err error) {
 func extractIDFromURL(w http.ResponseWriter, r *http.Request) (int, bool) {
 	idStr := chi.URLParam(r, "id")
 	if idStr == "" {
-		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
-			Code:         100,
-			ResponseCode: http.StatusBadRequest,
-			Message:      "ID is required",
-		})
+		srvError := pkg.ServiceErrors[pkg.ErrBadRequest]
+		srvError.InternalError = fmt.Errorf("ID is required")
+		response.Error(w, srvError.ResponseCode, srvError.Error())
 		return 0, false
 	}
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		writeResponse(w, http.StatusBadRequest, nil, pkg.ServiceError{
-			Code:         101,
-			ResponseCode: http.StatusBadRequest,
-			Message:      "Invalid ID format",
-		})
+		srvError := pkg.ServiceErrors[pkg.ErrBadRequest]
+		srvError.InternalError = fmt.Errorf("Invalid ID format")
+		response.Error(w, srvError.ResponseCode, srvError.Error())
 		return 0, false
 	}
 
@@ -182,8 +177,8 @@ func extractIDFromURL(w http.ResponseWriter, r *http.Request) (int, bool) {
 // validateRequest is a helper function to validate the employee request
 func validateRequest(employee models.Employee, validateID bool) error {
 	if err := models.ValidateEmployee(employee, validateID); err != nil {
-		errorR := pkg.ServiceErrors[pkg.ErrBadRequest]
-		errorR.Message = err.Error()
+		errorR := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
+		errorR.InternalError = fmt.Errorf(err.Error())
 		return errorR
 
 	}

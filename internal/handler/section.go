@@ -103,10 +103,9 @@ func (h *SectionDefault) GetByID() http.HandlerFunc {
 			ProductTypeID:      value.ProductTypeID,
 		}
 
-		response.JSON(w, http.StatusOK, map[string]any{
-			"message": "success",
-			"data":    data,
-		})
+		writeResponse(w, http.StatusCreated, map[string]any{
+			"data": data,
+		}, nil)
 	}
 
 }
@@ -174,10 +173,9 @@ func (h *SectionDefault) PostSection() http.HandlerFunc {
 			ProductTypeID:      value.ProductTypeID,
 		}
 
-		response.JSON(w, http.StatusOK, map[string]any{
-			"message": "Created successfully",
-			"data":    data,
-		})
+		writeResponse(w, http.StatusCreated, map[string]any{
+			"data": data,
+		}, nil)
 	}
 
 }
@@ -273,10 +271,9 @@ func (h *SectionDefault) Update() http.HandlerFunc {
 			ProductTypeID:      value.ProductTypeID,
 		}
 
-		response.JSON(w, http.StatusOK, map[string]any{
-			"message": "Updated successfully",
-			"data":    data,
-		})
+		writeResponse(w, http.StatusCreated, map[string]any{
+			"data": data,
+		}, nil)
 	}
 }
 

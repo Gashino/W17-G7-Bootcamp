@@ -53,7 +53,7 @@ func (a *ServerChi) Run() (err error) {
 	}
 
 	// create product handler with dependences
-	prodHandler, err := a.BuildProductHandler(&productDb, &productTypeDb, &sectionDb)
+	prodHandler, err := a.BuildProductHandler(&productDb, &productTypeDb, &sectionDb, &sellerDb)
 	if err != nil {
 		return err
 	}
@@ -232,10 +232,10 @@ func (a *ServerChi) BuildWarehouseHandler(sectionDb *map[int]models.Section, emp
 	return warehouseHd, nil
 }
 
-func (a *ServerChi) BuildProductHandler(productDb *map[int]models.Product, productTypeDb *map[int]models.ProductType, dbSection *map[int]models.Section) (prodHandler *handler.ProductDefault, err error) {
+func (a *ServerChi) BuildProductHandler(productDb *map[int]models.Product, productTypeDb *map[int]models.ProductType, dbSection *map[int]models.Section, dbSellers *map[int]models.Seller) (prodHandler *handler.ProductDefault, err error) {
 
 	// - repository
-	productRp := repository.NewProductMap(productDb, productTypeDb, dbSection)
+	productRp := repository.NewProductMap(productDb, productTypeDb, dbSection, dbSellers)
 
 	// - service
 	productSv := service.NewProductDefault(productRp)
