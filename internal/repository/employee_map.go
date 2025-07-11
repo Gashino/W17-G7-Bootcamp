@@ -3,101 +3,122 @@ package repository
 import (
 	"app/pkg"
 	"app/pkg/models"
+	"database/sql"
+	"fmt"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 type EmployeeRepositoryMap struct {
-	db          *map[int]models.Employee
-	maxId       int
-	warehouseDb *map[int]models.Warehouse
+	db *sql.DB
 }
 
-func NewEmployeeMapRepository(employeeDb *map[int]models.Employee, warehouseDb *map[int]models.Warehouse) EmployeeRepository {
+func NewEmployeeRepository(db *sql.DB) EmployeeRepository {
 	// Calculate initial maxId
-	var maxId int
-	for _, e := range *employeeDb {
-		if e.ID > maxId {
-			maxId = e.ID
-		}
-	}
-
 	return &EmployeeRepositoryMap{
-		db:          employeeDb,
-		warehouseDb: warehouseDb,
-		maxId:       maxId,
+		db: db,
 	}
 }
 
 func (r *EmployeeRepositoryMap) FindAll() (map[int]models.Employee, error) {
-	result := make(map[int]models.Employee)
-	for k, v := range *r.db {
-		result[k] = v
+	rows, err := r.db.Query("SELECT id, card_number_id, first_name, last_name, warehouse_id FROM employees")
+	if err != nil {
+		return nil, err
 	}
+	defer rows.Close()
+
+	result := map[int]models.Employee{}
+	for rows.Next() {
+		var employee models.Employee
+		err := rows.Scan(&employee.ID, &employee.CardNumberID, &employee.FirstName, &employee.LastName, &employee.WarehouseID)
+		if err != nil {
+			return nil, err
+		}
+		result[employee.ID] = employee
+	}
+
 	return result, nil
 }
 
 func (r *EmployeeRepositoryMap) FindById(id int) (models.Employee, error) {
-	if employee, ok := (*r.db)[id]; ok {
-		return employee, nil
+	rows, err := r.db.Query("SELECT id, card_number_id, first_name, last_name, warehouse_id FROM employees WHERE id = ?", id)
+	if err != nil {
+		return models.Employee{}, err
 	}
-	return models.Employee{}, pkg.ServiceErrors[pkg.ErrNotFound]
+	defer rows.Close()
+
+	if !rows.Next() {
+		return models.Employee{}, pkg.ServiceErrors[pkg.ErrNotFound]
+	}
+
+	var employee models.Employee
+	err = rows.Scan(&employee.ID, &employee.CardNumberID, &employee.FirstName, &employee.LastName, &employee.WarehouseID)
+	if err != nil {
+		return models.Employee{}, err
+	}
+
+	return employee, nil
 }
 
 func (r *EmployeeRepositoryMap) Save(employee models.Employee) (models.Employee, error) {
 	// Validate that the WarehouseID exists
-	if _, exists := (*r.warehouseDb)[employee.WarehouseID]; !exists {
-		return models.Employee{}, pkg.ServiceError{
-			Code:         400,
-			ResponseCode: 400,
-			Message:      "Warehouse ID does not exist",
+	_, err := r.db.Exec(
+		"INSERT INTO employees (card_number_id, first_name, last_name, warehouse_id) VALUES (?, ?, ?, ?)",
+		employee.CardNumberID, employee.FirstName, employee.LastName, employee.WarehouseID,
+	)
+	if err != nil {
+		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+			switch mysqlErr.Number {
+			case 1452:
+				// Error foreign key constraint (warehouse_id no existe)
+				srvError := pkg.ServiceErrors[pkg.ErrNotFound]
+				srvError.InternalError = fmt.Errorf("Warehouse ID does not exist")
+				return models.Employee{}, srvError
+			case 1062:
+				// Error unique constraint (card_number_id ya existe)
+				srvError := pkg.ServiceErrors[pkg.ErrConflict]
+				srvError.InternalError = fmt.Errorf("Card number ID already exists")
+				return models.Employee{}, srvError
+			default:
+				// Otro error de MySQL
+				return models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer]
+			}
 		}
+		// Error no es de MySQL
+		return models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
-
-	for _, existingEmployee := range *r.db {
-		if existingEmployee.CardNumberID == employee.CardNumberID {
-			return models.Employee{}, pkg.ServiceErrors[pkg.ErrConflict]
-		}
-	}
-
-	r.maxId++
-	newId := r.maxId
-	employee.ID = newId
-	(*r.db)[newId] = employee
 
 	return employee, nil
 }
 
 func (r *EmployeeRepositoryMap) Update(employee models.Employee, id int) (models.Employee, error) {
-	if _, ok := (*r.db)[id]; !ok {
-		return models.Employee{}, pkg.ServiceErrors[pkg.ErrNotFound]
-	}
-
-	// Validate that the WarehouseID exists
-	if _, exists := (*r.warehouseDb)[employee.WarehouseID]; !exists {
-		return models.Employee{}, pkg.ServiceError{
-			Code:         400,
-			ResponseCode: 400,
-			Message:      "Warehouse ID does not exist",
-		}
-	}
-
-	currentEmployee := (*r.db)[id]
-
-	if currentEmployee.CardNumberID != employee.CardNumberID {
-		for existingID, existingEmployee := range *r.db {
-			if existingID != id && existingEmployee.CardNumberID == employee.CardNumberID {
-				return models.Employee{}, pkg.ServiceErrors[pkg.ErrConflict]
+	_, err := r.db.Exec("UPDATE employees SET card_number_id = ?, first_name = ?, last_name = ?, warehouse_id = ? WHERE id = ?", employee.CardNumberID, employee.FirstName, employee.LastName, employee.WarehouseID, id)
+	if err != nil {
+		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+			switch mysqlErr.Number {
+			case 1452:
+				srvError := pkg.ServiceErrors[pkg.ErrNotFound]
+				srvError.InternalError = fmt.Errorf("Warehouse ID does not exist")
+				return models.Employee{}, srvError
+			case 1062:
+				srvError := pkg.ServiceErrors[pkg.ErrConflict]
+				srvError.InternalError = fmt.Errorf("Card number ID already exists")
+				return models.Employee{}, srvError
+			default:
+				return models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer]
 			}
 		}
+		return models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
 
-	(*r.db)[id] = employee
 	return employee, nil
 }
 
 func (r *EmployeeRepositoryMap) Delete(id int) error {
-	if _, ok := (*r.db)[id]; !ok {
-		return pkg.ServiceErrors[pkg.ErrNotFound]
+	_, err := r.db.Exec("DELETE FROM employees WHERE id = ?", id)
+	if err != nil {
+		return pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
-	delete(*r.db, id)
+
 	return nil
 }
