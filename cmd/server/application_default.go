@@ -8,10 +8,11 @@ import (
 	"app/pkg/models"
 	"database/sql"
 	"fmt"
-	"github.com/go-sql-driver/mysql"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/go-sql-driver/mysql"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -249,9 +250,9 @@ func (a *ServerChi) BuildProductHandler(productDb *map[int]models.Product, produ
 	return prodHandler, nil
 }
 
-func (*ServerChi) BuildemployeeHandler(employeeDb *map[int]models.Employee, warehouseDb *map[int]models.Warehouse) (*handler.EmployeeHandler, error) {
+func (*ServerChi) BuildemployeeHandler(db *sql.DB) (*handler.EmployeeHandler, error) {
 
-	employeeRepository := repository.NewEmployeeMapRepository(employeeDb, warehouseDb)
+	employeeRepository := repository.NewEmployeeRepository(db)
 	// - service
 	employeeService := service.NewEmployeeServiceDefault(employeeRepository)
 	// - handler

@@ -2,6 +2,7 @@ package service
 
 import (
 	"app/internal/repository"
+	"app/pkg"
 	"app/pkg/models"
 )
 
@@ -41,8 +42,14 @@ func (s *EmployeeServiceDefault) Update(employee models.Employee, id int) (model
 	if employee.LastName != "" {
 		e.LastName = employee.LastName
 	}
-	if e.CardNumberID != employee.CardNumberID {
+	if employee.CardNumberID != "" {
 		e.CardNumberID = employee.CardNumberID
+	}
+	// Validar el empleado actualizado
+	if err := models.ValidateEmployee(e, true); err != nil {
+		srvError := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
+		srvError.InternalError = err
+		return models.Employee{}, srvError
 	}
 	return s.repository.Update(e, id)
 }
