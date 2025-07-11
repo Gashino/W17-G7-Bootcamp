@@ -12,9 +12,13 @@ type SellerSql struct {
 	db *sql.DB
 }
 
+// SQL queries constants
 const (
+	// SELECT queries
 	querySelectAllSellers = `SELECT id, cid, company_name, address, telephone FROM sellers`
 	querySelectSellerById = `SELECT id, cid, company_name, address, telephone FROM sellers WHERE id = ?`
+	// DELETE queries
+	queryDeleteSeller = `DELETE FROM sellers WHERE id = ?`
 )
 
 // NewSellerSql creates a new seller repository with initial data
@@ -81,5 +85,23 @@ func (r *SellerSql) UpdateFields(id int, data models.SellerCreateRequest) (model
 
 // DeleteSeller is a method that delete a Seller if exists
 func (r *SellerSql) DeleteSeller(id int) error {
+	_, err := r.GetById(id)
+	if err != nil {
+		return err
+	}
+	result, err := r.db.Exec(queryDeleteSeller, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return pkg.ServiceErrors[pkg.ErrNotFound]
+	}
+
 	return nil
 }
