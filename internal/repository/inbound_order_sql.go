@@ -17,7 +17,7 @@ func NewInboundOrderSQL(db *sql.DB) *InboundOrderSQL {
 	return &InboundOrderSQL{db: db}
 }
 
-func (r *InboundOrderSQL) Create(inboundOrder models.InboundOrder) error {
+func (r *InboundOrderSQL) Create(inboundOrder models.InboundOrder) (models.InboundOrder, error) {
 	_, err := r.db.Exec("INSERT INTO inbound_orders (order_date, order_number, employee_id, product_batch_id, warehouse_id) VALUES (?, ?, ?, ?, ?)", inboundOrder.OrderDate, inboundOrder.OrderNumber, inboundOrder.EmployeeID, inboundOrder.ProductBatchID, inboundOrder.WarehouseID)
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
@@ -25,16 +25,16 @@ func (r *InboundOrderSQL) Create(inboundOrder models.InboundOrder) error {
 			case 1452:
 				srvError := pkg.ServiceErrors[pkg.ErrNotFound]
 				srvError.InternalError = fmt.Errorf(mysqlErr.Message)
-				return srvError
+				return models.InboundOrder{}, srvError
 			case 1062:
 				srvError := pkg.ServiceErrors[pkg.ErrConflict]
 				srvError.InternalError = fmt.Errorf(mysqlErr.Message)
-				return srvError
+				return models.InboundOrder{}, srvError
 			default:
-				return pkg.ServiceErrors[pkg.ErrInternalServer]
+				return models.InboundOrder{}, pkg.ServiceErrors[pkg.ErrInternalServer]
 			}
 		}
-		return pkg.ServiceErrors[pkg.ErrInternalServer]
+		return models.InboundOrder{}, pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
-	return nil
+	return inboundOrder, nil
 }

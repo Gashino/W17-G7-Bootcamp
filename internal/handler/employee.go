@@ -145,7 +145,6 @@ func writeResponse(w http.ResponseWriter, status int, data interface{}, err erro
 func handleServiceError(w http.ResponseWriter, err error) {
 	var srvError pkg.ServiceError
 	if errors.As(err, &srvError) {
-
 		response.Error(w, srvError.ResponseCode, srvError.Error())
 	} else {
 		srvError := pkg.ServiceErrors[pkg.ErrInternalServer]

@@ -5,5 +5,5 @@ import (
 )
 
 type InboundOrderRepository interface {
-	Create(inboundOrder models.InboundOrder) error
+	Create(inboundOrder models.InboundOrder) (models.InboundOrder, error)
 }
