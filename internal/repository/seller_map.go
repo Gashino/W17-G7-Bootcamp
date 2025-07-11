@@ -1,8 +1,10 @@
 package repository
 
 import (
+	"app/pkg"
 	"app/pkg/models"
 	"database/sql"
+	"errors"
 )
 
 // SellerSql is an in-memory repository for managing sellers
@@ -11,7 +13,8 @@ type SellerSql struct {
 }
 
 const (
-	QueryGetAll = `SELECT id, cid, company_name, address, telephone FROM sellers`
+	querySelectAllSellers = `SELECT id, cid, company_name, address, telephone FROM sellers`
+	querySelectSellerById = `SELECT id, cid, company_name, address, telephone FROM sellers WHERE id = ?`
 )
 
 // NewSellerSql creates a new seller repository with initial data
@@ -23,7 +26,7 @@ func NewSellerSql(db *sql.DB) *SellerSql {
 
 // FindAll is a method that returns a map of all Sellers
 func (r *SellerSql) FindAll() (v map[int]models.Seller, err error) {
-	rows, err := r.db.Query(QueryGetAll)
+	rows, err := r.db.Query(querySelectAllSellers)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +57,19 @@ func (r *SellerSql) Create(seller models.Seller) (models.Seller, error) {
 // GetById is a method that returns a Seller if exists
 func (r *SellerSql) GetById(id int) (models.Seller, error) {
 	var seller models.Seller
+	err := r.db.QueryRow(querySelectSellerById, id).Scan(
+		&seller.ID,
+		&seller.CId,
+		&seller.CompanyName,
+		&seller.Address,
+		&seller.Telephone,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.Seller{}, pkg.ServiceErrors[pkg.ErrNotFound]
+		}
+		return seller, err
+	}
 	return seller, nil
 }
 
