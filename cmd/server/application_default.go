@@ -57,43 +57,47 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
-	/*	// create product handler with dependences
-		prodHandler, err := a.BuildProductHandler(&productDb, &productTypeDb, &sectionDb, &sellerDb)
-		if err != nil {
-			return err
-		}
+	// Create maps for handlers that still use map implementation
+	sectionDb, productDb, employeeDb, productTypeDb, warehouseDb, sellerDb, _, err := a.createMaps()
+	if err != nil {
+		return err
+	}
 
-		// dependencies
-		// - loader
-		// - repository
-		employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
-		if err != nil {
-			return err
-		}
+	// Create product handler with dependencies
+	prodHandler, err := a.BuildProductHandler(&productDb, &productTypeDb, &sectionDb, &sellerDb)
+	if err != nil {
+		return err
+	}
 
-		// handler warehouse
+	// Create employee handler with dependencies
+	employeeHandler, err := a.BuildemployeeHandler(db)
+	if err != nil {
+		return err
+	}
 
-		hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
-		if err != nil {
-			return err
-		}*/
+	// Create warehouse handler with dependencies
+	hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
+	if err != nil {
+		return err
+	}
 
-	// - handler
+	// Create section handler with dependencies
 	sectionHd, err := a.BuildSectionHandler(db)
 	if err != nil {
 		return err
 	}
 
-	/*// create seller handler with dependences
+	// Create seller handler with dependencies
 	hdSeller, err := a.BuildSellerHandler(&sellerDb)
 	if err != nil {
 		return err
 	}
 
-	buyerHd, err := a.BuildBuyerHandler(&buyerDb)
+	// Create buyer handler with SQL database (migrated to SQL)
+	buyerHd, err := a.BuildBuyerHandler(db)
 	if err != nil {
 		return err
-	}*/
+	}
 
 	// router
 	rt := chi.NewRouter()
@@ -104,7 +108,6 @@ func (a *ServerChi) Run() (err error) {
 	// - endpoints
 	rt.Route("/api/v1", func(rt chi.Router) {
 		rt.Route("/warehouses", func(rt chi.Router) {
-			// - GET /warehouses
 			rt.Get("/", hdWarehouse.GetAll())
 			rt.Get("/{id}", hdWarehouse.GetOne())
 			rt.Post("/", hdWarehouse.Add())
@@ -129,20 +132,14 @@ func (a *ServerChi) Run() (err error) {
 		})
 
 		rt.Route("/sections", func(rt chi.Router) {
-			// - GET /vehicles
 			rt.Get("/", sectionHd.GetAll())
-			// - GET /vehicles/{id}
 			rt.Get("/{id}", sectionHd.GetByID())
-			// - POST /vehicles
 			rt.Post("/", sectionHd.PostSection())
-			// - PUT /vehicles/{id}
 			rt.Patch("/{id}", sectionHd.Update())
-			// - DELETE /vehicles/{id}
 			rt.Delete("/{id}", sectionHd.Delete())
 		})
 
 		rt.Route("/sellers", func(rt chi.Router) {
-			// - GET /sellers
 			rt.Get("/", hdSeller.GetAll())
 			rt.Get("/{id}", hdSeller.GetById())
 			rt.Post("/", hdSeller.Create())
@@ -216,9 +213,8 @@ func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product
 }
 
 func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, error) {
-
 	// - repository
-	sectionRp := repository.NewSectionMapRepository(db)
+	sectionRp := repository.NewSectionSqlRepository(db)
 	// - service
 	sectionSv := service.NewSectionDefault(sectionRp)
 	// - handler
@@ -272,9 +268,9 @@ func (a *ServerChi) BuildSellerHandler(sellerDb *map[int]models.Seller) (*handle
 	return hdSeller, nil
 }
 
-func (a *ServerChi) BuildBuyerHandler(buyerDb *map[int]models.Buyer) (*handler.BuyerDefault, error) {
-	// - repository
-	rpBuyer := repository.NewBuyerMap(buyerDb)
+func (a *ServerChi) BuildBuyerHandler(db *sql.DB) (*handler.BuyerDefault, error) {
+	// - repository (now using SQL instead of map)
+	rpBuyer := repository.NewBuyerSQL(db)
 
 	// - service
 	svBuyer := service.NewBuyerDefault(rpBuyer)
