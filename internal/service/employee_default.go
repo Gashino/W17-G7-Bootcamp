@@ -57,3 +57,7 @@ func (s *EmployeeServiceDefault) Update(employee models.Employee, id int) (model
 func (s *EmployeeServiceDefault) Delete(id int) error {
 	return s.repository.Delete(id)
 }
+
+func (s *EmployeeServiceDefault) ReportInboundOrdersCountByEmployee(id int) ([]models.EmployeeReport, error) {
+	return s.repository.ReportInboundOrdersCountByEmployee(id)
+}
