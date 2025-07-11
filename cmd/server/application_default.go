@@ -84,16 +84,16 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
-	/*// create seller handler with dependences
-	hdSeller, err := a.BuildSellerHandler(&sellerDb)
+	// create seller handler with dependences
+	hdSeller, err := a.BuildSellerHandler(db)
 	if err != nil {
 		return err
 	}
-
-	buyerHd, err := a.BuildBuyerHandler(&buyerDb)
-	if err != nil {
-		return err
-	}*/
+	/*
+		buyerHd, err := a.BuildBuyerHandler(&buyerDb)
+		if err != nil {
+			return err
+		}*/
 
 	// router
 	rt := chi.NewRouter()
@@ -260,9 +260,9 @@ func (*ServerChi) BuildemployeeHandler(db *sql.DB) (*handler.EmployeeHandler, er
 	return employeeHandler, nil
 }
 
-func (a *ServerChi) BuildSellerHandler(sellerDb *map[int]models.Seller) (*handler.SellerDefault, error) {
+func (a *ServerChi) BuildSellerHandler(sellerDb *sql.DB) (*handler.SellerDefault, error) {
 	// - repository
-	rpSeller := repository.NewSellerMap(sellerDb)
+	rpSeller := repository.NewSellerSql(sellerDb)
 
 	// - service
 	svSeller := service.NewSellerDefault(rpSeller)
