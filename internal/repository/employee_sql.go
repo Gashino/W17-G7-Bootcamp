@@ -114,11 +114,11 @@ func (r *EmployeeRepositoryMap) Update(employee models.Employee, id int) (models
 	return employee, nil
 }
 
-func (r *EmployeeRepositoryMap) ReportInboundOrdersCountByEmployee(id int) ([]models.EmployeeReport, error) {
+func (r *EmployeeRepositoryMap) ReportInboundOrdersCountByEmployee(id *int) ([]models.EmployeeReport, error) {
 	var rows *sql.Rows
 	var err error
 
-	if id > 0 {
+	if id != nil && *id > 0 {
 		// Consulta solo para un empleado específico
 		rows, err = r.db.Query(`
             SELECT e.id, e.card_number_id, e.first_name, e.last_name, COUNT(io.id) AS inbound_orders_count

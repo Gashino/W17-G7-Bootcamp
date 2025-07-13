@@ -26,6 +26,10 @@ type EmployeeReport struct {
 	InboundOrdersCount int    `json:"inbound_orders_count"`
 }
 
+type EmployeeReportsResponse struct {
+	Data []EmployeeReport `json:"data"`
+}
+
 type EmployeeDocument struct {
 	ID           int    `json:"id"`
 	CardNumberID string `json:"card_number_id"`

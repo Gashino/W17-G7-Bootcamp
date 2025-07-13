@@ -58,6 +58,6 @@ func (s *EmployeeServiceDefault) Delete(id int) error {
 	return s.repository.Delete(id)
 }
 
-func (s *EmployeeServiceDefault) ReportInboundOrdersCountByEmployee(id int) ([]models.EmployeeReport, error) {
+func (s *EmployeeServiceDefault) ReportInboundOrdersCountByEmployee(id *int) ([]models.EmployeeReport, error) {
 	return s.repository.ReportInboundOrdersCountByEmployee(id)
 }
