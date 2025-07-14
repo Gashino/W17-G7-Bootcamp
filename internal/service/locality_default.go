@@ -23,3 +23,7 @@ func (s *LocalityDefault) Create(seller models.Locality) (models.Locality, error
 func (s *LocalityDefault) GetById(id int) (models.Locality, error) {
 	return s.rp.GetById(id)
 }
+
+func (s *LocalityDefault) GetCantSellersByLocality(id int) (models.LocalityBySellerResponse, error) {
+	return s.rp.GetCantSellersByLocality(id)
+}

@@ -22,6 +22,13 @@ type LocalityCreateRequest struct {
 	CountryName  *string `json:"country_name,omitempty"`
 }
 
+// LocalityBySellerResponse is a struct that represents a Locality in JSON format (Request)
+type LocalityBySellerResponse struct {
+	ID           int     `json:"id"`
+	LocalityName *string `json:"locality_name"`
+	SellerCount  *string `json:"seller_count"`
+}
+
 // Seller is a struct that represents a Locality
 type Locality struct {
 	ID int `json:"id"`

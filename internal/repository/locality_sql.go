@@ -20,6 +20,12 @@ const (
 	queryCheckLocalityByName = `SELECT id FROM localities WHERE locality_name = ?`
 	// INSERT queries
 	queryInsertLocality = `INSERT INTO localities (cid, locality_name, province_name, country_name) VALUES (?, ?, ?, ?)`
+
+	queryCantSellersByLocality = `SELECT l.id AS idLocalidad, l.locality_name AS nombreLocalidad, COUNT(s.id) AS cantidadSellers
+	FROM localidades l
+	LEFT JOIN sellers s ON s.locality_id = l.id
+	WHERE l.id = 5
+	GROUP BY l.id, l.locality_name;`
 )
 
 // NewLocalitySql creates a new seller repository with initial data
@@ -71,6 +77,23 @@ func (r *LocalitySql) GetById(id int) (models.Locality, error) {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.Locality{}, pkg.ServiceErrors[pkg.ErrNotFound]
+		}
+		return locality, err
+	}
+	return locality, nil
+}
+
+// GetById is a method that returns a Seller if exists
+func (r *LocalitySql) GetCantSellersByLocality(id int) (models.LocalityBySellerResponse, error) {
+	var locality models.LocalityBySellerResponse
+	err := r.db.QueryRow(queryCantSellersByLocality, id).Scan(
+		&locality.ID,
+		&locality.LocalityName,
+		&locality.SellerCount,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.LocalityBySellerResponse{}, pkg.ServiceErrors[pkg.ErrNotFound]
 		}
 		return locality, err
 	}

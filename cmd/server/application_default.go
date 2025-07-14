@@ -164,6 +164,7 @@ func (a *ServerChi) Run() (err error) {
 		})
 
 		rt.Route("/localities", func(rt chi.Router) {
+			rt.Get("/reportSellers/{id}", hdLocalities.SellersByLocality())
 			rt.Post("/", hdLocalities.Create())
 		})
 

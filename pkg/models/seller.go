@@ -6,6 +6,7 @@ type SellerAttributes struct {
 	CompanyName string `json:"company_name"`
 	Address     string `json:"address"`
 	Telephone   string `json:"telephone"`
+	LocalityID  int    `json:"locality_id"`
 }
 
 // SellerDoc is a struct that represents a Seller in JSON format
@@ -15,6 +16,7 @@ type SellerDoc struct {
 	CompanyName string `json:"company_name"`
 	Adress      string `json:"address"`
 	Telephone   string `json:"telephone"`
+	LocalityID  int    `json:"locality_id"`
 }
 
 // SellerCreateRequest is a struct that represents a Seller in JSON format (Request)
@@ -23,6 +25,7 @@ type SellerCreateRequest struct {
 	CompanyName *string `json:"company_name,omitempty"`
 	Address     *string `json:"address,omitempty"`
 	Telephone   *string `json:"telephone,omitempty"`
+	LocalityID  *int    `json:"locality_id,omitempty"`
 }
 
 // Seller is a struct that represents a Seller
@@ -39,6 +42,7 @@ func ToSellerDoc(s Seller) SellerDoc {
 		CompanyName: s.CompanyName,
 		Adress:      s.Address,
 		Telephone:   s.Telephone,
+		LocalityID:  s.LocalityID,
 	}
 }
 
@@ -51,12 +55,12 @@ func FromSellerDoc(d SellerDoc) Seller {
 			CompanyName: d.CompanyName,
 			Address:     d.Adress,
 			Telephone:   d.Telephone,
+			LocalityID:  d.LocalityID,
 		},
 	}
 }
 
 // FromCreateRequest convierte una solicitud de creación a un Seller interno.
-// El campo Id se espera que lo asigne el service o repositorio (por ejemplo, autoincremental).
 func FromCreateRequest(r SellerCreateRequest) Seller {
 	return Seller{
 		ID: 0, // Se puede reemplazar al insertar
@@ -65,12 +69,12 @@ func FromCreateRequest(r SellerCreateRequest) Seller {
 			CompanyName: *r.CompanyName,
 			Address:     *r.Address,
 			Telephone:   *r.Telephone,
+			LocalityID:  *r.LocalityID,
 		},
 	}
 }
 
 // IsValidCreateRequest valida que los campos obligatorios estén presentes.
-// Nota: Considera validar formato de teléfono o longitud del texto si lo necesitás.
 func IsValidCreateRequest(r SellerCreateRequest) bool {
-	return r.CId != nil && r.CompanyName != nil && r.Address != nil && r.Telephone != nil
+	return r.CId != nil && r.CompanyName != nil && r.Address != nil && r.Telephone != nil && r.LocalityID != nil
 }

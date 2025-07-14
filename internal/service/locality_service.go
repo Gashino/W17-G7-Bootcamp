@@ -6,4 +6,5 @@ import "app/pkg/models"
 type LocalityService interface {
 	Create(seller models.Locality) (models.Locality, error)
 	GetById(id int) (models.Locality, error)
+	GetCantSellersByLocality(id int) (models.LocalityBySellerResponse, error)
 }

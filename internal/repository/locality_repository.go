@@ -7,4 +7,5 @@ type LocalityRepository interface {
 	// FindAll is a method that returns a map of all Sellers
 	GetById(id int) (models.Locality, error)
 	Create(seller models.Locality) (models.Locality, error)
+	GetCantSellersByLocality(id int) (models.LocalityBySellerResponse, error)
 }

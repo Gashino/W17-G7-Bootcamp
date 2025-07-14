@@ -17,15 +17,18 @@ type SellerSql struct {
 // SQL queries constants
 const (
 	// SELECT queries
-	querySelectAllSellers = `SELECT id, cid, company_name, address, telephone FROM sellers`
-	querySelectSellerById = `SELECT id, cid, company_name, address, telephone FROM sellers WHERE id = ?`
+	querySelectAllSellers = `SELECT id, cid, company_name, address, telephone, locality_id FROM sellers`
+	querySelectSellerById = `SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = ?`
 	queryCheckSellerByCId = `SELECT id FROM sellers WHERE cid = ?`
-	// DELETE queries
-	queryDeleteSeller = `DELETE FROM sellers WHERE id = ?`
+
+	// INSERT queries
+	queryInsertSeller = `INSERT INTO sellers (cid, company_name, address, telephone, locality_id) VALUES (?, ?, ?, ?, ?)`
+
 	// UPDATE queries
 	queryUpdateSellerBase = `UPDATE sellers SET %s WHERE id = ?`
-	// INSERT queries
-	queryInsertSeller = `INSERT INTO sellers (cid, company_name, address, telephone) VALUES (?, ?, ?, ?)`
+
+	// DELETE queries
+	queryDeleteSeller = `DELETE FROM sellers WHERE id = ?`
 )
 
 // NewSellerSql creates a new seller repository with initial data
@@ -51,6 +54,7 @@ func (r *SellerSql) FindAll() (v map[int]models.Seller, err error) {
 			&seller.CompanyName,
 			&seller.Address,
 			&seller.Telephone,
+			&seller.LocalityID,
 		)
 		if err != nil {
 			return nil, err
@@ -75,7 +79,7 @@ func (r *SellerSql) Create(seller models.Seller) (models.Seller, error) {
 	}
 
 	// Insert new seller
-	result, err := r.db.Exec(queryInsertSeller, seller.CId, seller.CompanyName, seller.Address, seller.Telephone)
+	result, err := r.db.Exec(queryInsertSeller, seller.CId, seller.CompanyName, seller.Address, seller.Telephone, seller.LocalityID)
 	if err != nil {
 		return models.Seller{}, fmt.Errorf("failed to create seller: %w", err)
 	}
@@ -99,6 +103,7 @@ func (r *SellerSql) GetById(id int) (models.Seller, error) {
 		&seller.CompanyName,
 		&seller.Address,
 		&seller.Telephone,
+		&seller.LocalityID,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -136,6 +141,10 @@ func (r *SellerSql) UpdateFields(id int, data models.SellerCreateRequest) (model
 	if data.Telephone != nil {
 		setParts = append(setParts, "telephone = ?")
 		args = append(args, *data.Telephone)
+	}
+	if data.LocalityID != nil {
+		setParts = append(setParts, "locality_id = ?")
+		args = append(args, *data.LocalityID)
 	}
 
 	if len(setParts) == 0 {

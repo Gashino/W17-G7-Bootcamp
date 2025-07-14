@@ -6,8 +6,10 @@ import (
 	"app/pkg/models"
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/bootcamp-go/web/response"
+	"github.com/go-chi/chi/v5"
 )
 
 // NewLocalityDefault is a function that returns a new instance of LocalityDefault
@@ -50,6 +52,37 @@ func (h *LocalityDefault) Create() http.HandlerFunc {
 
 		writeResponse(w, http.StatusCreated, map[string]any{
 			"data": result,
+		}, nil)
+	}
+}
+
+// Create is a method that returns a handler for de route POST /Sellers
+func (h *LocalityDefault) SellersByLocality() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// request
+		inputId := chi.URLParam(r, "id")
+
+		id, err := strconv.Atoi(inputId)
+
+		if err != nil {
+			// Error de parsing del ID → BadRequest
+			srvErr := pkg.ServiceErrors[pkg.ErrBadRequest]
+			response.Error(w, srvErr.ResponseCode, srvErr.Error())
+			return
+		}
+
+		// process
+		data, err := h.sv.GetCantSellersByLocality(id)
+		if err != nil {
+			srvErr := pkg.ServiceErrors[pkg.ErrNotFound]
+			response.Error(w, srvErr.ResponseCode, srvErr.Error())
+			return
+		}
+
+		// response
+
+		writeResponse(w, http.StatusCreated, map[string]any{
+			"data": data,
 		}, nil)
 	}
 }
