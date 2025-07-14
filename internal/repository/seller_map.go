@@ -5,6 +5,8 @@ import (
 	"app/pkg/models"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 )
 
 // SellerSql is an in-memory repository for managing sellers
@@ -17,8 +19,13 @@ const (
 	// SELECT queries
 	querySelectAllSellers = `SELECT id, cid, company_name, address, telephone FROM sellers`
 	querySelectSellerById = `SELECT id, cid, company_name, address, telephone FROM sellers WHERE id = ?`
+	queryCheckSellerByCId = `SELECT id FROM sellers WHERE cid = ?`
 	// DELETE queries
 	queryDeleteSeller = `DELETE FROM sellers WHERE id = ?`
+	// UPDATE queries
+	queryUpdateSellerBase = `UPDATE sellers SET %s WHERE id = ?`
+	// INSERT queries
+	queryInsertSeller = `INSERT INTO sellers (cid, company_name, address, telephone) VALUES (?, ?, ?, ?)`
 )
 
 // NewSellerSql creates a new seller repository with initial data
@@ -55,6 +62,31 @@ func (r *SellerSql) FindAll() (v map[int]models.Seller, err error) {
 
 // Create is a method that create a Seller if not exists
 func (r *SellerSql) Create(seller models.Seller) (models.Seller, error) {
+	// Check if seller with same CId already exists
+	var existingId int
+	err := r.db.QueryRow(queryCheckSellerByCId, seller.CId).Scan(&existingId)
+
+	if err == nil {
+		// Seller with this CId already exists
+		return models.Seller{}, pkg.ServiceErrors[pkg.ErrConflict]
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		// Some other error occurred
+		return models.Seller{}, pkg.ServiceErrors[pkg.ErrNotFound]
+	}
+
+	// Insert new seller
+	result, err := r.db.Exec(queryInsertSeller, seller.CId, seller.CompanyName, seller.Address, seller.Telephone)
+	if err != nil {
+		return models.Seller{}, fmt.Errorf("failed to create seller: %w", err)
+	}
+
+	// Get the auto-generated ID
+	lastId, err := result.LastInsertId()
+	if err != nil {
+		return models.Seller{}, fmt.Errorf("failed to get last insert id: %w", err)
+	}
+
+	seller.ID = int(lastId)
 	return seller, nil
 }
 
@@ -79,8 +111,52 @@ func (r *SellerSql) GetById(id int) (models.Seller, error) {
 
 // UpdateFields is a method that modify a Seller if exists
 func (r *SellerSql) UpdateFields(id int, data models.SellerCreateRequest) (models.Seller, error) {
-	var seller models.Seller
-	return seller, nil
+	// First, check if seller exists
+	_, err := r.GetById(id)
+	if err != nil {
+		return models.Seller{}, err
+	}
+
+	// Build dynamic update query
+	setParts := []string{}
+	args := []any{}
+
+	if data.CId != nil {
+		setParts = append(setParts, "cid = ?")
+		args = append(args, *data.CId)
+	}
+	if data.CompanyName != nil {
+		setParts = append(setParts, "company_name = ?")
+		args = append(args, *data.CompanyName)
+	}
+	if data.Address != nil {
+		setParts = append(setParts, "address = ?")
+		args = append(args, *data.Address)
+	}
+	if data.Telephone != nil {
+		setParts = append(setParts, "telephone = ?")
+		args = append(args, *data.Telephone)
+	}
+
+	if len(setParts) == 0 {
+		// No fields to update, return current seller
+		return r.GetById(id)
+	}
+
+	// Add id to args for WHERE clause
+	args = append(args, id)
+
+	// Build the update query properly
+	updateQuery := fmt.Sprintf(queryUpdateSellerBase, strings.Join(setParts, ", "))
+
+	// Execute update
+	_, err = r.db.Exec(updateQuery, args...)
+	if err != nil {
+		return models.Seller{}, fmt.Errorf("failed to update seller: %w", err)
+	}
+
+	// Return updated seller
+	return r.GetById(id)
 }
 
 // DeleteSeller is a method that delete a Seller if exists
