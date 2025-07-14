@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
+	"gopkg.in/yaml.v2"
 	"log"
 	"net/http"
 	"os"
@@ -48,6 +49,34 @@ type ServerChi struct {
 	buyerLoaderFilePath string
 }
 
+// ConfigDB representa la estructura de la configuración de la base de datos
+type ConfigDB struct {
+	Database struct {
+		User     string `yaml:"user"`
+		Password string `yaml:"password"`
+		Host     string `yaml:"host"`
+		Port     string `yaml:"port"`
+		Name     string `yaml:"name"`
+	} `yaml:"database"`
+}
+
+// Lee la configuración desde un archivo YAML cuyo path se obtiene de la variable de entorno CONFIG_PATH
+func loadConfig() (*ConfigDB, error) {
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.yml"
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	var cfg ConfigDB
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
 // Run is a method that runs the server
 func (a *ServerChi) Run() (err error) {
 
@@ -56,12 +85,13 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
-	/*	// create product handler with dependences
-		prodHandler, err := a.BuildProductHandler(&productDb, &productTypeDb, &sectionDb, &sellerDb)
-		if err != nil {
-			return err
-		}
+	// create product handler with dependences
+	prodHandler, err := a.BuildProductHandler(db)
+	if err != nil {
+		return err
+	}
 
+	/*
 		// dependencies
 		// - loader
 		// - repository
@@ -130,11 +160,11 @@ func (a *ServerChi) Run() (err error) {
 		})
 
 		rt.Route("/products", func(r chi.Router) {
-			/*	r.Get("/", prodHandler.GetAll())
-				r.Get("/{id}", prodHandler.GetById())
-				r.Post("/", prodHandler.Create())
-				r.Delete("/{id}", prodHandler.Delete())
-				r.Patch("/{id}", prodHandler.Patch())*/
+			r.Get("/", prodHandler.GetAll())
+			r.Get("/{id}", prodHandler.GetById())
+			r.Post("/", prodHandler.Create())
+			r.Delete("/{id}", prodHandler.Delete())
+			r.Patch("/{id}", prodHandler.Patch())
 		})
 
 		rt.Route("/sections", func(rt chi.Router) {
@@ -159,11 +189,11 @@ func (a *ServerChi) Run() (err error) {
 
 		rt.Route("/sellers", func(rt chi.Router) {
 			// - GET /sellers
-				rt.Get("/", hdSeller.GetAll())
-				rt.Get("/{id}", hdSeller.GetById())
-				rt.Post("/", hdSeller.Create())
-				rt.Patch("/{id}", hdSeller.Update())
-				rt.Delete("/{id}", hdSeller.Delete())
+			rt.Get("/", hdSeller.GetAll())
+			rt.Get("/{id}", hdSeller.GetById())
+			rt.Post("/", hdSeller.Create())
+			rt.Patch("/{id}", hdSeller.Update())
+			rt.Delete("/{id}", hdSeller.Delete())
 		})
 
 		rt.Route("/buyers", func(r chi.Router) {
@@ -268,10 +298,10 @@ func (a *ServerChi) BuildWarehouseHandler(sectionDb *map[int]models.Section, emp
 	return warehouseHd, nil
 }
 
-func (a *ServerChi) BuildProductHandler(productDb *map[int]models.Product, productTypeDb *map[int]models.ProductType, dbSection *map[int]models.Section, dbSellers *map[int]models.Seller) (prodHandler *handler.ProductDefault, err error) {
+func (a *ServerChi) BuildProductHandler(db *sql.DB) (prodHandler *handler.ProductDefault, err error) {
 
 	// - repository
-	productRp := repository.NewProductMap(productDb, productTypeDb, dbSection, dbSellers)
+	productRp := repository.NewProductSqlRepository(db)
 
 	// - service
 	productSv := service.NewProductDefault(productRp)
@@ -317,41 +347,29 @@ func (a *ServerChi) BuildBuyerHandler(buyerDb *map[int]models.Buyer) (*handler.B
 
 // Mejorar la función initMySQL existente
 func initMySQL() (*sql.DB, error) {
-
-	// Obtener las credenciales desde variables de entorno
-	user := getEnvOrDefault("DB_USER", "root")
-	password := getEnvOrDefault("DB_PASSWORD", "asda1125")
-	host := getEnvOrDefault("DB_HOST", "localhost")
-	port := getEnvOrDefault("DB_PORT", "3306")
-	dbname := getEnvOrDefault("DB_NAME", "db_test")
-
-	cfg := mysql.Config{
-		User:                 user,
-		Passwd:               password,
+	cfg, err := loadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error loading config: %w", err)
+	}
+	mysqlCfg := mysql.Config{
+		User:                 cfg.Database.User,
+		Passwd:               cfg.Database.Password,
 		Net:                  "tcp",
-		Addr:                 fmt.Sprintf("%s:%s", host, port),
-		DBName:               dbname,
+		Addr:                 fmt.Sprintf("%s:%s", cfg.Database.Host, cfg.Database.Port),
+		DBName:               cfg.Database.Name,
 		ParseTime:            true,
 		AllowNativePasswords: true,
 	}
-	db, err := sql.Open("mysql", cfg.FormatDSN())
+	db, err := sql.Open("mysql", mysqlCfg.FormatDSN())
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %w", err)
 	}
-	// Verificar que la conexión funciona
 	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("error pinging database: %w", err)
 	}
 	log.Println("Connected to MySQL database successfully")
 	return db, nil
-}
-
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
 }
 
 func (a *ServerChi) BuildLocalityHandler(localityDb *sql.DB) (*handler.LocalityDefault, error) {
