@@ -11,7 +11,7 @@
 		FOREIGN KEY (locality_id) REFERENCES localities(id)
 	)
 
-	CREATE TABLE IF NOT EXISTS localidades (
+	CREATE TABLE IF NOT EXISTS localities (
     id INT AUTO_INCREMENT PRIMARY KEY,
     locality_name VARCHAR(255) NOT NULL UNIQUE,
     province_name VARCHAR(255) NOT NULL,

@@ -71,7 +71,7 @@ func FromCreateRequestLocality(r LocalityCreateRequest) Locality {
 
 // IsValidCreateRequest valida que los campos obligatorios estén presentes.
 func IsValidCreateRequestLocalities(r LocalityCreateRequest) bool {
-	return IsNullOrEmpty(r.LocalityName) || IsNullOrEmpty(r.ProvinceName) || IsNullOrEmpty(r.ProvinceName)
+	return !IsNullOrEmpty(r.LocalityName) && !IsNullOrEmpty(r.ProvinceName) && !IsNullOrEmpty(r.CountryName)
 }
 
 // IsNullOrEmpty valida que un *string este vacio o nulo

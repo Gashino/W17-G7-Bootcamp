@@ -19,10 +19,10 @@ const (
 	querySelectLocalityById  = `SELECT id, locality_name, province_name, country_name FROM localities WHERE id = ?`
 	queryCheckLocalityByName = `SELECT id FROM localities WHERE locality_name = ?`
 	// INSERT queries
-	queryInsertLocality = `INSERT INTO localities (cid, locality_name, province_name, country_name) VALUES (?, ?, ?, ?)`
+	queryInsertLocality = `INSERT INTO localities (locality_name, province_name, country_name) VALUES (?, ?, ?)`
 
 	queryCantSellersByLocality = `SELECT l.id AS idLocalidad, l.locality_name AS nombreLocalidad, COUNT(s.id) AS cantidadSellers
-	FROM localidades l
+	FROM localities l
 	LEFT JOIN sellers s ON s.locality_id = l.id
 	WHERE l.id = ?
 	GROUP BY l.id, l.locality_name;`
@@ -50,7 +50,7 @@ func (r *LocalitySql) Create(locality models.Locality) (models.Locality, error) 
 	}
 
 	// Insert new seller
-	result, err := r.db.Exec(queryInsertLocality, locality.CountryName, locality.LocalityName, locality.ProvinceName)
+	result, err := r.db.Exec(queryInsertLocality, locality.LocalityName, locality.ProvinceName, locality.CountryName)
 	if err != nil {
 		return models.Locality{}, fmt.Errorf("failed to create Locality: %w", err)
 	}
@@ -70,9 +70,9 @@ func (r *LocalitySql) GetById(id int) (models.Locality, error) {
 	var locality models.Locality
 	err := r.db.QueryRow(querySelectLocalityById, id).Scan(
 		&locality.ID,
-		&locality.CountryName,
 		&locality.LocalityName,
 		&locality.ProvinceName,
+		&locality.CountryName,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
