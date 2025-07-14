@@ -19,3 +19,12 @@ CREATE TABLE products (
       FOREIGN KEY (product_type_id) REFERENCES product_types(id),
       FOREIGN KEY (seller_id) REFERENCES sellers(id)
 );
+
+CREATE TABLE product_records (
+     id INT PRIMARY KEY AUTO_INCREMENT,
+     last_update_date DATETIME NOT NULL,
+     purchase_price DOUBLE NOT NULL,
+     sale_price DOUBLE NOT NULL,
+     product_id INT NOT NULL,
+     FOREIGN KEY (product_id) REFERENCES products(id)
+);
