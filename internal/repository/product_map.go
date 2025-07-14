@@ -170,7 +170,7 @@ func (p ProductSql) Create(product models.Product) (*models.Product, error) {
 		product.Length,
 	)
 	if err != nil {
-		return nil, errorGenerator(err)
+		return nil, errorCreateUpdate(err)
 	}
 
 	lastId, errId := result.LastInsertId()
@@ -200,7 +200,7 @@ func (p ProductSql) Update(id int, product models.Product) error {
 	)
 
 	if err != nil {
-		return errorGenerator(err)
+		return errorCreateUpdate(err)
 	}
 
 	rAffected, _ := result.RowsAffected()
@@ -212,7 +212,7 @@ func (p ProductSql) Update(id int, product models.Product) error {
 
 }
 
-func errorGenerator(err error) pkg.ServiceError {
+func errorCreateUpdate(err error) pkg.ServiceError {
 	var errorResponse pkg.ServiceError
 	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 		switch mysqlErr.Number {

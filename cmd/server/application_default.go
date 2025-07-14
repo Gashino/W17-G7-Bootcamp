@@ -8,11 +8,12 @@ import (
 	"app/pkg/models"
 	"database/sql"
 	"fmt"
-	"github.com/go-sql-driver/mysql"
-	"gopkg.in/yaml.v2"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/go-sql-driver/mysql"
+	"gopkg.in/yaml.v2"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -92,22 +93,28 @@ func (a *ServerChi) Run() (err error) {
 	}
 
 	/*
-		// dependencies
-		// - loader
-		// - repository
-		employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
-		if err != nil {
-			return err
-		}
+				// dependencies
+				// - loader
+				// - repository
+				employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
+				if err != nil {
+					return err
+				}
 
-		// handler warehouse
+		        // Create warehouse handler with dependencies
+			hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
+			if err != nil {
+				return err
+			}
+	*/
 
-		hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
-		if err != nil {
-			return err
-		}*/
+	// Create employee handler with dependencies
+	employeeHandler, err := a.BuildemployeeHandler(db)
+	if err != nil {
+		return err
+	}
 
-	// - handler
+	// Create section handler with dependencies
 	sectionHd, err := a.BuildSectionHandler(db)
 	if err != nil {
 		return err
@@ -123,17 +130,31 @@ func (a *ServerChi) Run() (err error) {
 	if err != nil {
 		return err
 	}
-	/*
-		buyerHd, err := a.BuildBuyerHandler(&buyerDb)
-		if err != nil {
-			return err
-		}*/
+
+	// Create buyer handler with SQL database (migrated to SQL)
+	buyerHd, err := a.BuildBuyerHandler(db)
+	if err != nil {
+		return err
+	}
+
+	// Create purchase order handler with SQL database
+	purchaseOrderHd, err := a.BuildPurchaseOrderHandler(db)
+	if err != nil {
+		return err
+	}
 
 	// create seller handler with dependences
 	hdLocalities, err := a.BuildLocalityHandler(db)
 	if err != nil {
 		return err
 	}
+
+	// create product_record handler with dependences
+	hdProdRec, err := a.BuildProductRecordHandler(db)
+	if err != nil {
+		return err
+	}
+
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
@@ -152,11 +173,11 @@ func (a *ServerChi) Run() (err error) {
 		})
 
 		rt.Route("/employees", func(r chi.Router) {
-			/*r.Get("/", employeeHandler.GetAllEmployees)
+			r.Get("/", employeeHandler.GetAllEmployees)
 			r.Get("/{id}", employeeHandler.GetEmployee)
 			r.Post("/", employeeHandler.CreateEmployee)
 			r.Patch("/{id}", employeeHandler.UpdateEmployee)
-			r.Delete("/{id}", employeeHandler.DeleteEmployee)*/
+			r.Delete("/{id}", employeeHandler.DeleteEmployee)
 		})
 
 		rt.Route("/products", func(r chi.Router) {
@@ -168,15 +189,10 @@ func (a *ServerChi) Run() (err error) {
 		})
 
 		rt.Route("/sections", func(rt chi.Router) {
-			// - GET /vehicles
 			rt.Get("/", sectionHd.GetAll())
-			// - GET /vehicles/{id}
 			rt.Get("/{id}", sectionHd.GetByID())
-			// - POST /vehicles
 			rt.Post("/", sectionHd.PostSection())
-			// - PUT /vehicles/{id}
 			rt.Patch("/{id}", sectionHd.Update())
-			// - DELETE /vehicles/{id}
 			rt.Delete("/{id}", sectionHd.Delete())
 			// - GET /reportProducts
 			rt.Get("/reportProducts", sectionHd.ReportProducts())
@@ -188,7 +204,6 @@ func (a *ServerChi) Run() (err error) {
 		})
 
 		rt.Route("/sellers", func(rt chi.Router) {
-			// - GET /sellers
 			rt.Get("/", hdSeller.GetAll())
 			rt.Get("/{id}", hdSeller.GetById())
 			rt.Post("/", hdSeller.Create())
@@ -197,16 +212,25 @@ func (a *ServerChi) Run() (err error) {
 		})
 
 		rt.Route("/buyers", func(r chi.Router) {
-			/*	r.Get("/", buyerHd.GetAll())
-				r.Get("/{id}", buyerHd.GetByID())
-				r.Post("/", buyerHd.Create())
-				r.Patch("/{id}", buyerHd.Update())
-				r.Delete("/{id}", buyerHd.Delete())*/
+			r.Get("/", buyerHd.GetAll())
+			r.Get("/{id}", buyerHd.GetByID())
+			r.Post("/", buyerHd.Create())
+			r.Patch("/{id}", buyerHd.Update())
+			r.Delete("/{id}", buyerHd.Delete())
+			r.Get("/reportPurchaseOrders", buyerHd.GetPurchaseOrdersReport())
 		})
 
 		rt.Route("/localities", func(rt chi.Router) {
 			rt.Get("/reportSellers/{id}", hdLocalities.SellersByLocality())
 			rt.Post("/", hdLocalities.Create())
+		})
+
+		rt.Route("/purchaseOrders", func(r chi.Router) {
+			r.Post("/", purchaseOrderHd.Create())
+		})
+
+		rt.Route("/productRecords", func(rt chi.Router) {
+			rt.Post("/", hdProdRec.Create())
 		})
 
 	})
@@ -267,7 +291,6 @@ func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product
 }
 
 func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, error) {
-
 	// - repository
 	sectionRp := repository.NewSectionSqlRepository(db)
 	// - service
@@ -333,16 +356,28 @@ func (a *ServerChi) BuildSellerHandler(sellerDb *sql.DB) (*handler.SellerDefault
 	return hdSeller, nil
 }
 
-func (a *ServerChi) BuildBuyerHandler(buyerDb *map[int]models.Buyer) (*handler.BuyerDefault, error) {
-	// - repository
-	rpBuyer := repository.NewBuyerMap(buyerDb)
+func (a *ServerChi) BuildBuyerHandler(db *sql.DB) (*handler.BuyerHandler, error) {
+	// - repository (now using SQL instead of map)
+	rpBuyer := repository.NewBuyerSQL(db)
 
 	// - service
 	svBuyer := service.NewBuyerDefault(rpBuyer)
 
 	// - handler
-	hdBuyer := handler.NewBuyerDefault(svBuyer)
+	hdBuyer := handler.NewBuyerHandler(svBuyer)
 	return hdBuyer, nil
+}
+
+func (a *ServerChi) BuildPurchaseOrderHandler(db *sql.DB) (*handler.PurchaseOrderHandler, error) {
+	// - repository
+	purchaseOrderRp := repository.NewPurchaseOrderSQL(db)
+
+	// - service
+	purchaseOrderSv := service.NewPurchaseOrderDefault(purchaseOrderRp)
+
+	// - handler
+	purchaseOrderHd := handler.NewPurchaseOrderHandler(purchaseOrderSv)
+	return purchaseOrderHd, nil
 }
 
 // Mejorar la función initMySQL existente
@@ -382,4 +417,16 @@ func (a *ServerChi) BuildLocalityHandler(localityDb *sql.DB) (*handler.LocalityD
 	// - handler
 	hdLocality := handler.NewLocalityDefault(svLocality)
 	return hdLocality, nil
+}
+
+func (a *ServerChi) BuildProductRecordHandler(db *sql.DB) (*handler.ProductRecordhDefault, error) {
+	// - repository
+	prodRecRepository := repository.NewProductRecordSqlRepository(db)
+
+	// - service
+	svLocality := service.NewProductRecordDefault(prodRecRepository)
+
+	// - handler
+	hdProdRecHandler := handler.NewProductRecordDefault(svLocality)
+	return hdProdRecHandler, nil
 }
