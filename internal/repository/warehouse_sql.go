@@ -105,6 +105,18 @@ func (r *WarehouseSql) FindAvailableID() (id int, err error) {
 	return
 }
 
+func (r *WarehouseSql) Update(id int, v models.Warehouse) (w models.Warehouse, err error) {
+	_, err = r.db.Exec("UPDATE warehouses SET warehouse_code = ?, address = ?, telephone = ?, minimun_capacity= ?, minimun_temperature = ? WHERE id = ?",
+		v.WarehouseCode, v.Address, v.Telephone, v.MinCapacity, v.MinTemperature, id)
+	if err != nil {
+		fmt.Println(err.Error())
+		err = errors.New("SQL Error")
+		return
+	}
+	w = v
+	return
+}
+
 func (r *WarehouseSql) Delete(id int) (err error) {
 
 	_, err = r.db.Exec("DELETE FROM warehouses WHERE id = ?", id)
