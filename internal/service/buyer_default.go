@@ -52,3 +52,9 @@ func (s *BuyerDefault) Delete(id int) (err error) {
 	err = s.rp.Delete(id)
 	return
 }
+
+// GetPurchaseOrdersReport is a method that returns a purchase order report for all buyers or a specific buyer
+func (s *BuyerDefault) GetPurchaseOrdersReport(buyerID *int) (reports []models.BuyerPurchaseOrderReport, err error) {
+	reports, err = s.rp.GetPurchaseOrdersReport(buyerID)
+	return
+}

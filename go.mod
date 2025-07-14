@@ -8,7 +8,10 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-require filippo.io/edwards25519 v1.1.0 // indirect
+require (
+	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/DATA-DOG/go-txdb v0.2.1 // indirect
+)
 
 require (
 	github.com/bootcamp-go/web v1.0.0
