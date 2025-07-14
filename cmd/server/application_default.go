@@ -99,6 +99,12 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
+	// Create purchase order handler with SQL database
+	purchaseOrderHd, err := a.BuildPurchaseOrderHandler(db)
+	if err != nil {
+		return err
+	}
+
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
@@ -153,6 +159,10 @@ func (a *ServerChi) Run() (err error) {
 			r.Post("/", buyerHd.Create())
 			r.Patch("/{id}", buyerHd.Update())
 			r.Delete("/{id}", buyerHd.Delete())
+		})
+
+		rt.Route("/purchaseOrders", func(r chi.Router) {
+			r.Post("/", purchaseOrderHd.Create())
 		})
 
 	})
@@ -268,7 +278,7 @@ func (a *ServerChi) BuildSellerHandler(sellerDb *map[int]models.Seller) (*handle
 	return hdSeller, nil
 }
 
-func (a *ServerChi) BuildBuyerHandler(db *sql.DB) (*handler.BuyerDefault, error) {
+func (a *ServerChi) BuildBuyerHandler(db *sql.DB) (*handler.BuyerHandler, error) {
 	// - repository (now using SQL instead of map)
 	rpBuyer := repository.NewBuyerSQL(db)
 
@@ -276,8 +286,20 @@ func (a *ServerChi) BuildBuyerHandler(db *sql.DB) (*handler.BuyerDefault, error)
 	svBuyer := service.NewBuyerDefault(rpBuyer)
 
 	// - handler
-	hdBuyer := handler.NewBuyerDefault(svBuyer)
+	hdBuyer := handler.NewBuyerHandler(svBuyer)
 	return hdBuyer, nil
+}
+
+func (a *ServerChi) BuildPurchaseOrderHandler(db *sql.DB) (*handler.PurchaseOrderHandler, error) {
+	// - repository
+	purchaseOrderRp := repository.NewPurchaseOrderSQL(db)
+
+	// - service
+	purchaseOrderSv := service.NewPurchaseOrderDefault(purchaseOrderRp)
+
+	// - handler
+	purchaseOrderHd := handler.NewPurchaseOrderHandler(purchaseOrderSv)
+	return purchaseOrderHd, nil
 }
 
 // Mejorar la función initMySQL existente

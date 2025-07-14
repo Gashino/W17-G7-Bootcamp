@@ -118,3 +118,31 @@ INSERT INTO buyers (id, card_number_id, first_name, last_name) VALUES
 
 -- Set AUTO_INCREMENT to continue from the last inserted ID
 ALTER TABLE buyers AUTO_INCREMENT = 101; 
+
+-- Create purchase_orders table
+CREATE TABLE IF NOT EXISTS purchase_orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_number VARCHAR(50) NOT NULL UNIQUE,
+    order_date DATE NOT NULL,
+    tracking_code VARCHAR(100) NOT NULL,
+    buyer_id INT NOT NULL,
+    product_record_id INT NOT NULL,
+    FOREIGN KEY (buyer_id) REFERENCES buyers(id) ON DELETE CASCADE
+);
+
+-- Create index on order_number for better performance
+CREATE INDEX idx_purchase_orders_order_number ON purchase_orders(order_number);
+
+-- Create index on buyer_id for better performance
+CREATE INDEX idx_purchase_orders_buyer_id ON purchase_orders(buyer_id);
+
+-- Create index on product_record_id for better performance
+CREATE INDEX idx_purchase_orders_product_record_id ON purchase_orders(product_record_id);
+
+-- Insert initial data for purchase_orders
+INSERT INTO purchase_orders (order_number, order_date, tracking_code, buyer_id, product_record_id) VALUES
+('order#1', '2021-04-04', 'abscf123', 1, 1),
+('order#2', '2021-04-05', 'xyz789', 2, 2),
+('order#3', '2021-04-06', 'abc456', 3, 3),
+('order#4', '2021-04-07', 'def789', 4, 4),
+('order#5', '2021-04-08', 'ghi012', 5, 5); 
