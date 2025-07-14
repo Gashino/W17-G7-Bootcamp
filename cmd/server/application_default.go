@@ -8,6 +8,7 @@ import (
 	"app/pkg/models"
 	"database/sql"
 	"fmt"
+
 	"log"
 	"net/http"
 	"os"
@@ -92,21 +93,11 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
-	/*
-				// dependencies
-				// - loader
-				// - repository
-				employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
-				if err != nil {
-					return err
-				}
-
-		        // Create warehouse handler with dependencies
-			hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
-			if err != nil {
-				return err
-			}
-	*/
+	// Create warehouse handler with dependencies
+	warehouseHd, err := a.BuildWarehouseHandler(db)
+	if err != nil {
+		return err
+	}
 
 	// Create employee handler with dependencies
 	employeeHandler, err := a.BuildemployeeHandler(db)
@@ -121,6 +112,11 @@ func (a *ServerChi) Run() (err error) {
 	}
 
 	productBatchHd, err := a.BuidProductBatchHandler(db)
+	if err != nil {
+		return err
+	}
+
+	carryHd, err := a.BuildCarryHandler(db)
 	if err != nil {
 		return err
 	}
@@ -165,11 +161,16 @@ func (a *ServerChi) Run() (err error) {
 	rt.Route("/api/v1", func(rt chi.Router) {
 		rt.Route("/warehouses", func(rt chi.Router) {
 			// - GET /warehouses
-			/*rt.Get("/", hdWarehouse.GetAll())
-			rt.Get("/{id}", hdWarehouse.GetOne())
-			rt.Post("/", hdWarehouse.Add())
-			rt.Patch("/{id}", hdWarehouse.Update())
-			rt.Delete("/{id}", hdWarehouse.Delete())*/
+			rt.Get("/", warehouseHd.GetAll())
+			rt.Get("/{id}", warehouseHd.GetOne())
+			rt.Post("/", warehouseHd.Add())
+			rt.Patch("/{id}", warehouseHd.Update())
+			rt.Delete("/{id}", warehouseHd.Delete())
+		})
+
+		rt.Route("/carries", func(rt chi.Router) {
+			rt.Post("/", carryHd.Create())
+			rt.Get("/localities/reportCarries", carryHd.SearchByLocality())
 		})
 
 		rt.Route("/employees", func(r chi.Router) {
@@ -310,15 +311,25 @@ func (a *ServerChi) BuidProductBatchHandler(db *sql.DB) (*handler.ProductBatchDe
 	return productBatchHd, nil
 }
 
-func (a *ServerChi) BuildWarehouseHandler(sectionDb *map[int]models.Section, employeeDb *map[int]models.Employee, warehouseDb *map[int]models.Warehouse) (*handler.WarehouseDefault, error) {
+func (a *ServerChi) BuildWarehouseHandler(db *sql.DB) (*handler.WarehouseDefault, error) {
 
 	// - repository
-	warehouseRp := repository.NewWarehouseMap(sectionDb, employeeDb, warehouseDb)
+	warehouseRp := repository.NewWarehouseSql(db)
 	// - service
 	warehouseSv := service.NewWarehouseDefault(warehouseRp)
 	// - handler
 	warehouseHd := handler.NewWarehouseDefault(warehouseSv)
 	return warehouseHd, nil
+}
+
+func (a *ServerChi) BuildCarryHandler(db *sql.DB) (*handler.CarryDefault, error) {
+	// - repository
+	carryRp := repository.NewCarrySql(db)
+	// - service
+	carrySv := service.NewCarryDefault(carryRp)
+	// - handler
+	carryHd := handler.NewCarryDefault(carrySv)
+	return carryHd, nil
 }
 
 func (a *ServerChi) BuildProductHandler(db *sql.DB) (prodHandler *handler.ProductDefault, err error) {

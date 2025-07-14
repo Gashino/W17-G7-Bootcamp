@@ -40,11 +40,13 @@ func (r *WarehouseMap) FindByID(id int) (v models.Warehouse, err error) {
 	return
 }
 
-func (r *WarehouseMap) Add(v models.Warehouse) (err error) {
+func (r *WarehouseMap) Add(v models.Warehouse) (w models.Warehouse, err error) {
 	(*r.db)[v.ID] = v
+	return w, err
+}
+func (r *WarehouseMap) Update(id int, v models.Warehouse) (w models.Warehouse, err error) {
 	return
 }
-
 func (r *WarehouseMap) FindWarehouseByCode(code string) (v models.Warehouse, err error) {
 	for _, value := range *r.db {
 		if value.WarehouseCode == code {
