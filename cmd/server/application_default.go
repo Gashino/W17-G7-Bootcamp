@@ -84,17 +84,22 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
-	/*// create seller handler with dependences
-	hdSeller, err := a.BuildSellerHandler(&sellerDb)
+	// create seller handler with dependences
+	hdSeller, err := a.BuildSellerHandler(db)
 	if err != nil {
 		return err
 	}
+	/*
+		buyerHd, err := a.BuildBuyerHandler(&buyerDb)
+		if err != nil {
+			return err
+		}*/
 
-	buyerHd, err := a.BuildBuyerHandler(&buyerDb)
+	// create seller handler with dependences
+	hdLocalities, err := a.BuildLocalityHandler(db)
 	if err != nil {
 		return err
-	}*/
-
+	}
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
@@ -156,6 +161,11 @@ func (a *ServerChi) Run() (err error) {
 			r.Post("/", buyerHd.Create())
 			r.Patch("/{id}", buyerHd.Update())
 			r.Delete("/{id}", buyerHd.Delete())
+		})
+
+		rt.Route("/localities", func(rt chi.Router) {
+			rt.Get("/reportSellers/{id}", hdLocalities.SellersByLocality())
+			rt.Post("/", hdLocalities.Create())
 		})
 
 	})
@@ -260,9 +270,9 @@ func (*ServerChi) BuildemployeeHandler(db *sql.DB) (*handler.EmployeeHandler, er
 	return employeeHandler, nil
 }
 
-func (a *ServerChi) BuildSellerHandler(sellerDb *map[int]models.Seller) (*handler.SellerDefault, error) {
+func (a *ServerChi) BuildSellerHandler(sellerDb *sql.DB) (*handler.SellerDefault, error) {
 	// - repository
-	rpSeller := repository.NewSellerMap(sellerDb)
+	rpSeller := repository.NewSellerSql(sellerDb)
 
 	// - service
 	svSeller := service.NewSellerDefault(rpSeller)
@@ -321,4 +331,16 @@ func getEnvOrDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func (a *ServerChi) BuildLocalityHandler(localityDb *sql.DB) (*handler.LocalityDefault, error) {
+	// - repository
+	rpLocality := repository.NewLocalitySql(localityDb)
+
+	// - service
+	svLocality := service.NewLocalityDefault(rpLocality)
+
+	// - handler
+	hdLocality := handler.NewLocalityDefault(svLocality)
+	return hdLocality, nil
 }
