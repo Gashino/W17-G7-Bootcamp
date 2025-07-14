@@ -24,7 +24,7 @@ const (
 	queryCantSellersByLocality = `SELECT l.id AS idLocalidad, l.locality_name AS nombreLocalidad, COUNT(s.id) AS cantidadSellers
 	FROM localidades l
 	LEFT JOIN sellers s ON s.locality_id = l.id
-	WHERE l.id = 5
+	WHERE l.id = ?
 	GROUP BY l.id, l.locality_name;`
 )
 
