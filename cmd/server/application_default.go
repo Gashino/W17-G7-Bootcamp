@@ -8,12 +8,11 @@ import (
 	"app/pkg/models"
 	"database/sql"
 	"fmt"
+	"github.com/go-sql-driver/mysql"
 	"gopkg.in/yaml.v2"
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/go-sql-driver/mysql"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -114,17 +113,27 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
-	/*// create seller handler with dependences
-	hdSeller, err := a.BuildSellerHandler(&sellerDb)
+	productBatchHd, err := a.BuidProductBatchHandler(db)
 	if err != nil {
 		return err
 	}
 
-	buyerHd, err := a.BuildBuyerHandler(&buyerDb)
+	// create seller handler with dependences
+	hdSeller, err := a.BuildSellerHandler(db)
 	if err != nil {
 		return err
-	}*/
+	}
+	/*
+		buyerHd, err := a.BuildBuyerHandler(&buyerDb)
+		if err != nil {
+			return err
+		}*/
 
+	// create seller handler with dependences
+	hdLocalities, err := a.BuildLocalityHandler(db)
+	if err != nil {
+		return err
+	}
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
@@ -133,22 +142,22 @@ func (a *ServerChi) Run() (err error) {
 
 	// - endpoints
 	rt.Route("/api/v1", func(rt chi.Router) {
-		//rt.Route("/warehouses", func(rt chi.Router) {
-		//	// - GET /warehouses
-		//	rt.Get("/", hdWarehouse.GetAll())
-		//	rt.Get("/{id}", hdWarehouse.GetOne())
-		//	rt.Post("/", hdWarehouse.Add())
-		//	rt.Patch("/{id}", hdWarehouse.Update())
-		//	rt.Delete("/{id}", hdWarehouse.Delete())
-		//})
+		rt.Route("/warehouses", func(rt chi.Router) {
+			// - GET /warehouses
+			/*rt.Get("/", hdWarehouse.GetAll())
+			rt.Get("/{id}", hdWarehouse.GetOne())
+			rt.Post("/", hdWarehouse.Add())
+			rt.Patch("/{id}", hdWarehouse.Update())
+			rt.Delete("/{id}", hdWarehouse.Delete())*/
+		})
 
-		//rt.Route("/employees", func(r chi.Router) {
-		//	r.Get("/", employeeHandler.GetAllEmployees)
-		//	r.Get("/{id}", employeeHandler.GetEmployee)
-		//	r.Post("/", employeeHandler.CreateEmployee)
-		//	r.Patch("/{id}", employeeHandler.UpdateEmployee)
-		//	r.Delete("/{id}", employeeHandler.DeleteEmployee)
-		//})
+		rt.Route("/employees", func(r chi.Router) {
+			/*r.Get("/", employeeHandler.GetAllEmployees)
+			r.Get("/{id}", employeeHandler.GetEmployee)
+			r.Post("/", employeeHandler.CreateEmployee)
+			r.Patch("/{id}", employeeHandler.UpdateEmployee)
+			r.Delete("/{id}", employeeHandler.DeleteEmployee)*/
+		})
 
 		rt.Route("/products", func(r chi.Router) {
 			r.Get("/", prodHandler.GetAll())
@@ -169,24 +178,36 @@ func (a *ServerChi) Run() (err error) {
 			rt.Patch("/{id}", sectionHd.Update())
 			// - DELETE /vehicles/{id}
 			rt.Delete("/{id}", sectionHd.Delete())
+			// - GET /reportProducts
+			rt.Get("/reportProducts", sectionHd.ReportProducts())
 		})
 
-		//rt.Route("/sellers", func(rt chi.Router) {
-		//	// - GET /sellers
-		//	rt.Get("/", hdSeller.GetAll())
-		//	rt.Get("/{id}", hdSeller.GetById())
-		//	rt.Post("/", hdSeller.Create())
-		//	rt.Patch("/{id}", hdSeller.Update())
-		//	rt.Delete("/{id}", hdSeller.Delete())
-		//})
+		rt.Route("/productBatches", func(rt chi.Router) {
+			// - POST /productBatches
+			rt.Post("/", productBatchHd.CreateBatch())
+		})
 
-		//rt.Route("/buyers", func(r chi.Router) {
-		//	r.Get("/", buyerHd.GetAll())
-		//	r.Get("/{id}", buyerHd.GetByID())
-		//	r.Post("/", buyerHd.Create())
-		//	r.Patch("/{id}", buyerHd.Update())
-		//	r.Delete("/{id}", buyerHd.Delete())
-		//})
+		rt.Route("/sellers", func(rt chi.Router) {
+			// - GET /sellers
+			rt.Get("/", hdSeller.GetAll())
+			rt.Get("/{id}", hdSeller.GetById())
+			rt.Post("/", hdSeller.Create())
+			rt.Patch("/{id}", hdSeller.Update())
+			rt.Delete("/{id}", hdSeller.Delete())
+		})
+
+		rt.Route("/buyers", func(r chi.Router) {
+			/*	r.Get("/", buyerHd.GetAll())
+				r.Get("/{id}", buyerHd.GetByID())
+				r.Post("/", buyerHd.Create())
+				r.Patch("/{id}", buyerHd.Update())
+				r.Delete("/{id}", buyerHd.Delete())*/
+		})
+
+		rt.Route("/localities", func(rt chi.Router) {
+			rt.Get("/reportSellers/{id}", hdLocalities.SellersByLocality())
+			rt.Post("/", hdLocalities.Create())
+		})
 
 	})
 	// run server
@@ -256,6 +277,16 @@ func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, er
 	return sectionHd, nil
 }
 
+func (a *ServerChi) BuidProductBatchHandler(db *sql.DB) (*handler.ProductBatchDefault, error) {
+	// - repository
+	productBatchRp := repository.NewProductBatchSqlRepository(db)
+	// - service
+	productBatchSv := service.NewProductBatchDefault(productBatchRp)
+	// - handler
+	productBatchHd := handler.NewProductBatchDefault(productBatchSv)
+	return productBatchHd, nil
+}
+
 func (a *ServerChi) BuildWarehouseHandler(sectionDb *map[int]models.Section, employeeDb *map[int]models.Employee, warehouseDb *map[int]models.Warehouse) (*handler.WarehouseDefault, error) {
 
 	// - repository
@@ -290,9 +321,9 @@ func (*ServerChi) BuildemployeeHandler(db *sql.DB) (*handler.EmployeeHandler, er
 	return employeeHandler, nil
 }
 
-func (a *ServerChi) BuildSellerHandler(sellerDb *map[int]models.Seller) (*handler.SellerDefault, error) {
+func (a *ServerChi) BuildSellerHandler(sellerDb *sql.DB) (*handler.SellerDefault, error) {
 	// - repository
-	rpSeller := repository.NewSellerMap(sellerDb)
+	rpSeller := repository.NewSellerSql(sellerDb)
 
 	// - service
 	svSeller := service.NewSellerDefault(rpSeller)
@@ -339,4 +370,16 @@ func initMySQL() (*sql.DB, error) {
 	}
 	log.Println("Connected to MySQL database successfully")
 	return db, nil
+}
+
+func (a *ServerChi) BuildLocalityHandler(localityDb *sql.DB) (*handler.LocalityDefault, error) {
+	// - repository
+	rpLocality := repository.NewLocalitySql(localityDb)
+
+	// - service
+	svLocality := service.NewLocalityDefault(rpLocality)
+
+	// - handler
+	hdLocality := handler.NewLocalityDefault(svLocality)
+	return hdLocality, nil
 }

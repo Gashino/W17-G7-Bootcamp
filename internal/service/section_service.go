@@ -8,4 +8,5 @@ type SectionService interface {
 	Create(section models.Section) (s models.Section, err error)
 	Update(id int, section models.Section) (s models.Section, err error)
 	Delete(id int) (err error)
+	ReportProductsBySection(ptr *int) (s []models.SectionReport, err error)
 }
