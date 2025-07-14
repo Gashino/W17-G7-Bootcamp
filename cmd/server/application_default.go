@@ -83,6 +83,11 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
+	productBatchHd, err := a.BuidProductBatchHandler(db)
+	if err != nil {
+		return err
+	}
+
 	/*// create seller handler with dependences
 	hdSeller, err := a.BuildSellerHandler(&sellerDb)
 	if err != nil {
@@ -144,7 +149,7 @@ func (a *ServerChi) Run() (err error) {
 
 		rt.Route("/productBatches", func(rt chi.Router) {
 			// - POST /productBatches
-			rt.Post("/", sectionHd.CreateBatch())
+			rt.Post("/", productBatchHd.CreateBatch())
 		})
 
 		rt.Route("/sellers", func(rt chi.Router) {
@@ -230,6 +235,16 @@ func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, er
 	// - handler
 	sectionHd := handler.NewSectionDefault(sectionSv)
 	return sectionHd, nil
+}
+
+func (a *ServerChi) BuidProductBatchHandler(db *sql.DB) (*handler.ProductBatchDefault, error) {
+	// - repository
+	productBatchRp := repository.NewProductBatchSqlRepository(db)
+	// - service
+	productBatchSv := service.NewProductBatchDefault(productBatchRp)
+	// - handler
+	productBatchHd := handler.NewProductBatchDefault(productBatchSv)
+	return productBatchHd, nil
 }
 
 func (a *ServerChi) BuildWarehouseHandler(sectionDb *map[int]models.Section, employeeDb *map[int]models.Employee, warehouseDb *map[int]models.Warehouse) (*handler.WarehouseDefault, error) {

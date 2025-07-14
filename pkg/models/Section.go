@@ -90,3 +90,9 @@ type SectionPostDoc struct {
 	WarehouseID        int     `json:"warehouse_id"`
 	ProductTypeID      int     `json:"product_type_id"`
 }
+
+type SectionReport struct {
+	SectionId     int `json:"section_id"`
+	SectionNumber int `json:"section_number"`
+	ProductsCount int `json:"products_count"`
+}

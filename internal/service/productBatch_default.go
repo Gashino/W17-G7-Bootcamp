@@ -17,5 +17,5 @@ type ProductBatchDefault struct {
 }
 
 func (sv *ProductBatchDefault) PostProductBatch(batch models.ProductBatch) (ProductBatch models.ProductBatch, err error) {
-	return sv.rp.Create(section)
+	return sv.rp.InsertProductBatch(batch)
 }

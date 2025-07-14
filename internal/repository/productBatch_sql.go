@@ -19,7 +19,7 @@ type ProductBatchRepositorySql struct {
 	db *sql.DB
 }
 
-func (r *ProductBatchRepositorySql) InsertProductBatch(pb *models.ProductBatch) (productBatch *models.ProductBatch, err error) {
+func (r *ProductBatchRepositorySql) InsertProductBatch(pb models.ProductBatch) (productBatch models.ProductBatch, err error) {
 	result, err := r.db.Exec(`
 		INSERT INTO product_batches (
 			batch_number,
@@ -50,18 +50,18 @@ func (r *ProductBatchRepositorySql) InsertProductBatch(pb *models.ProductBatch) 
 			case 1062:
 				svcErr := pkg.ServiceErrors[pkg.ErrConflict]
 				svcErr.InternalError = fmt.Errorf("batch_number duplicado: %v", mysqlErr.Message)
-				return nil, svcErr
+				return models.ProductBatch{}, svcErr
 			case 1452:
 				svcErr := pkg.ServiceErrors[pkg.ErrConflict]
 				svcErr.InternalError = fmt.Errorf("product_id o section_id no existen: %v", mysqlErr.Message)
-				return nil, svcErr
+				return models.ProductBatch{}, svcErr
 			}
 		}
-		return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
+		return models.ProductBatch{}, pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
 	id, err := result.LastInsertId()
 	if err != nil {
-		return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
+		return models.ProductBatch{}, pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
 
 	pb.ID = int(id)

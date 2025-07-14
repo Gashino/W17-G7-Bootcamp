@@ -181,3 +181,61 @@ func (r *SectionRepositorySql) Delete(id int) (err error) {
 	}
 	return nil
 }
+
+func (r *SectionRepositorySql) GetReportProductsBySection(id int) ([]models.SectionReport, error) {
+	var sr models.SectionReport
+
+	err := r.db.QueryRow(`
+		SELECT s.id, s.section_number, SUM(pb.current_quantity) as products_count
+		FROM sections s
+		JOIN product_batches pb ON s.id = pb.section_id
+		WHERE s.id = ?
+		GROUP BY s.id, s.section_number
+	`, id).Scan(
+		&sr.SectionId,
+		&sr.SectionNumber,
+		&sr.ProductsCount,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
+			svcErr.InternalError = fmt.Errorf("section con id %d no encontrada", id)
+			return []models.SectionReport{}, svcErr
+		}
+		return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+
+	return []models.SectionReport{sr}, nil
+}
+
+func (r *SectionRepositorySql) GetReportProductsAllSections() ([]models.SectionReport, error) {
+	rows, err := r.db.Query(`
+		SELECT s.id, s.section_number, SUM(pb.current_quantity) as products_count
+		FROM sections s
+		JOIN product_batches pb ON s.id = pb.section_id
+		GROUP BY s.id
+	`)
+	if err != nil {
+		return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+	defer rows.Close()
+
+	reports := make([]models.SectionReport, 0)
+	for rows.Next() {
+		var sr models.SectionReport
+		// Solo traemos section_number y products_count
+		err := rows.Scan(
+			&sr.SectionId,
+			&sr.SectionNumber,
+			&sr.ProductsCount,
+		)
+		if err != nil {
+			return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
+		}
+		reports = append(reports, sr)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+	return reports, nil
+}

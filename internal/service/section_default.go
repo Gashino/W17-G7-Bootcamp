@@ -70,3 +70,10 @@ func (sv *SectionDefault) Update(id int, section models.Section) (s models.Secti
 func (sv *SectionDefault) Delete(id int) (err error) {
 	return sv.rp.Delete(id)
 }
+
+func (sv *SectionDefault) ReportProductsBySection(ptr *int) (s []models.SectionReport, err error) {
+	if ptr == nil {
+		return sv.rp.GetReportProductsAllSections()
+	}
+	return sv.rp.GetReportProductsBySection(*ptr)
+}
