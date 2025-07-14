@@ -12,3 +12,15 @@ CREATE TABLE if not exists warehouses (
 -- Volcado de datos para la tabla `warehouses`
 INSERT INTO `warehouses` (`id`, `warehouse_code`, `address`, `telephone`, `minimun_capacity`, `minimun_temperature`) VALUES
 (1, 'ASD123','221 Baker Street', '4555666', 100, 50);
+
+
+-- Creacion de carries
+drop table if exists carries;
+CREATE TABLE if not exists carries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cid INT NOT NULL UNIQUE,
+    company_name VARCHAR(255) NOT NULL,
+    address VARCHAR(255) NOT NULL,
+    telephone VARCHAR(20) NOT NULL,
+    locality_id INT NOT NULL
+);
