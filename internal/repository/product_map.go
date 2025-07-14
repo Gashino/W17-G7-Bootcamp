@@ -62,10 +62,6 @@ func (p *ProductMap) Delete(id int) error {
 		return pkg.ServiceErrors[pkg.ErrNotFound]
 	}
 
-	if p.existsProductID(id) {
-		return pkg.ServiceErrors[pkg.ErrConflict]
-	}
-
 	delete(*p.db, id)
 
 	return nil
@@ -102,17 +98,4 @@ func (p *ProductMap) validateProductCode(product models.Product) error {
 		}
 	}
 	return nil
-}
-
-func (p *ProductMap) existsProductID(id int) bool {
-	for _, section := range *p.dbSection {
-		for _, batch := range section.ProductBatches {
-			for _, productID := range batch.ProductIDs {
-				if productID == id {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }

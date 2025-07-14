@@ -8,11 +8,10 @@ import (
 	"app/pkg/models"
 	"database/sql"
 	"fmt"
+	"github.com/go-sql-driver/mysql"
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/go-sql-driver/mysql"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -84,6 +83,11 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
+	productBatchHd, err := a.BuidProductBatchHandler(db)
+	if err != nil {
+		return err
+	}
+
 	// create seller handler with dependences
 	hdSeller, err := a.BuildSellerHandler(db)
 	if err != nil {
@@ -110,27 +114,27 @@ func (a *ServerChi) Run() (err error) {
 	rt.Route("/api/v1", func(rt chi.Router) {
 		rt.Route("/warehouses", func(rt chi.Router) {
 			// - GET /warehouses
-			rt.Get("/", hdWarehouse.GetAll())
+			/*rt.Get("/", hdWarehouse.GetAll())
 			rt.Get("/{id}", hdWarehouse.GetOne())
 			rt.Post("/", hdWarehouse.Add())
 			rt.Patch("/{id}", hdWarehouse.Update())
-			rt.Delete("/{id}", hdWarehouse.Delete())
+			rt.Delete("/{id}", hdWarehouse.Delete())*/
 		})
 
 		rt.Route("/employees", func(r chi.Router) {
-			r.Get("/", employeeHandler.GetAllEmployees)
+			/*r.Get("/", employeeHandler.GetAllEmployees)
 			r.Get("/{id}", employeeHandler.GetEmployee)
 			r.Post("/", employeeHandler.CreateEmployee)
 			r.Patch("/{id}", employeeHandler.UpdateEmployee)
-			r.Delete("/{id}", employeeHandler.DeleteEmployee)
+			r.Delete("/{id}", employeeHandler.DeleteEmployee)*/
 		})
 
 		rt.Route("/products", func(r chi.Router) {
-			r.Get("/", prodHandler.GetAll())
-			r.Get("/{id}", prodHandler.GetById())
-			r.Post("/", prodHandler.Create())
-			r.Delete("/{id}", prodHandler.Delete())
-			r.Patch("/{id}", prodHandler.Patch())
+			/*	r.Get("/", prodHandler.GetAll())
+				r.Get("/{id}", prodHandler.GetById())
+				r.Post("/", prodHandler.Create())
+				r.Delete("/{id}", prodHandler.Delete())
+				r.Patch("/{id}", prodHandler.Patch())*/
 		})
 
 		rt.Route("/sections", func(rt chi.Router) {
@@ -144,23 +148,30 @@ func (a *ServerChi) Run() (err error) {
 			rt.Patch("/{id}", sectionHd.Update())
 			// - DELETE /vehicles/{id}
 			rt.Delete("/{id}", sectionHd.Delete())
+			// - GET /reportProducts
+			rt.Get("/reportProducts", sectionHd.ReportProducts())
+		})
+
+		rt.Route("/productBatches", func(rt chi.Router) {
+			// - POST /productBatches
+			rt.Post("/", productBatchHd.CreateBatch())
 		})
 
 		rt.Route("/sellers", func(rt chi.Router) {
 			// - GET /sellers
-			rt.Get("/", hdSeller.GetAll())
-			rt.Get("/{id}", hdSeller.GetById())
-			rt.Post("/", hdSeller.Create())
-			rt.Patch("/{id}", hdSeller.Update())
-			rt.Delete("/{id}", hdSeller.Delete())
+				rt.Get("/", hdSeller.GetAll())
+				rt.Get("/{id}", hdSeller.GetById())
+				rt.Post("/", hdSeller.Create())
+				rt.Patch("/{id}", hdSeller.Update())
+				rt.Delete("/{id}", hdSeller.Delete())
 		})
 
 		rt.Route("/buyers", func(r chi.Router) {
-			r.Get("/", buyerHd.GetAll())
-			r.Get("/{id}", buyerHd.GetByID())
-			r.Post("/", buyerHd.Create())
-			r.Patch("/{id}", buyerHd.Update())
-			r.Delete("/{id}", buyerHd.Delete())
+			/*	r.Get("/", buyerHd.GetAll())
+				r.Get("/{id}", buyerHd.GetByID())
+				r.Post("/", buyerHd.Create())
+				r.Patch("/{id}", buyerHd.Update())
+				r.Delete("/{id}", buyerHd.Delete())*/
 		})
 
 		rt.Route("/localities", func(rt chi.Router) {
@@ -228,12 +239,22 @@ func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product
 func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, error) {
 
 	// - repository
-	sectionRp := repository.NewSectionMapRepository(db)
+	sectionRp := repository.NewSectionSqlRepository(db)
 	// - service
 	sectionSv := service.NewSectionDefault(sectionRp)
 	// - handler
 	sectionHd := handler.NewSectionDefault(sectionSv)
 	return sectionHd, nil
+}
+
+func (a *ServerChi) BuidProductBatchHandler(db *sql.DB) (*handler.ProductBatchDefault, error) {
+	// - repository
+	productBatchRp := repository.NewProductBatchSqlRepository(db)
+	// - service
+	productBatchSv := service.NewProductBatchDefault(productBatchRp)
+	// - handler
+	productBatchHd := handler.NewProductBatchDefault(productBatchSv)
+	return productBatchHd, nil
 }
 
 func (a *ServerChi) BuildWarehouseHandler(sectionDb *map[int]models.Section, employeeDb *map[int]models.Employee, warehouseDb *map[int]models.Warehouse) (*handler.WarehouseDefault, error) {
