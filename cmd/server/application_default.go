@@ -8,11 +8,12 @@ import (
 	"app/pkg/models"
 	"database/sql"
 	"fmt"
-	"github.com/go-sql-driver/mysql"
-	"gopkg.in/yaml.v2"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/go-sql-driver/mysql"
+	"gopkg.in/yaml.v2"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -92,20 +93,20 @@ func (a *ServerChi) Run() (err error) {
 	}
 
 	/*
-		// dependencies
-		// - loader
-		// - repository
-		employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
-		if err != nil {
-			return err
-		}
+				// dependencies
+				// - loader
+				// - repository
+				employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
+				if err != nil {
+					return err
+				}
 
-        // Create warehouse handler with dependencies
-	hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
-	if err != nil {
-		return err
-	}
-    */
+		        // Create warehouse handler with dependencies
+			hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
+			if err != nil {
+				return err
+			}
+	*/
 
 	// Create employee handler with dependencies
 	employeeHandler, err := a.BuildemployeeHandler(db)
@@ -126,10 +127,10 @@ func (a *ServerChi) Run() (err error) {
 
 	// create seller handler with dependences
 	hdSeller, err := a.BuildSellerHandler(db)
-    if err != nil {
+	if err != nil {
 		return err
 	}
-    
+
 	// Create buyer handler with SQL database (migrated to SQL)
 	buyerHd, err := a.BuildBuyerHandler(db)
 	if err != nil {
@@ -165,11 +166,11 @@ func (a *ServerChi) Run() (err error) {
 		})
 
 		rt.Route("/employees", func(r chi.Router) {
-			/*r.Get("/", employeeHandler.GetAllEmployees)
+			r.Get("/", employeeHandler.GetAllEmployees)
 			r.Get("/{id}", employeeHandler.GetEmployee)
 			r.Post("/", employeeHandler.CreateEmployee)
 			r.Patch("/{id}", employeeHandler.UpdateEmployee)
-			r.Delete("/{id}", employeeHandler.DeleteEmployee)*/
+			r.Delete("/{id}", employeeHandler.DeleteEmployee)
 		})
 
 		rt.Route("/products", func(r chi.Router) {
