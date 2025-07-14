@@ -4,6 +4,7 @@ import (
 	"app/pkg/models"
 	"database/sql"
 	"errors"
+	"fmt"
 )
 
 // NewVehicleMap is a function that returns a new instance of VehicleMap
@@ -62,12 +63,14 @@ func (r *WarehouseSql) FindByID(id int) (v models.Warehouse, err error) {
 }
 
 func (r *WarehouseSql) Add(v models.Warehouse) (w models.Warehouse, err error) {
+
 	_, err = r.db.Exec(
 		"INSERT INTO warehouses (warehouse_code, address, telephone, minimun_capacity, minimun_temperature) VALUES (?, ?, ?, ?, ?)",
-		v.WarehouseCode, v.Address, v.MinCapacity, v.MinTemperature,
+		v.WarehouseCode, v.Address, v.Telephone, v.MinCapacity, v.MinTemperature,
 	)
 
 	if err != nil {
+		fmt.Println(err.Error())
 		err = errors.New("SQL Error")
 		return
 	}
