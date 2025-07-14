@@ -114,6 +114,44 @@ func (r *EmployeeRepositoryMap) Update(employee models.Employee, id int) (models
 	return employee, nil
 }
 
+func (r *EmployeeRepositoryMap) ReportInboundOrdersCountByEmployee(id *int) ([]models.EmployeeReport, error) {
+	var rows *sql.Rows
+	var err error
+
+	if id != nil && *id > 0 {
+		// Consulta solo para un empleado específico
+		rows, err = r.db.Query(`
+            SELECT e.id, e.card_number_id, e.first_name, e.last_name, COUNT(io.id) AS inbound_orders_count
+            FROM employees e
+            LEFT JOIN inbound_orders io ON e.id = io.employee_id
+            WHERE e.id = ?
+            GROUP BY e.id, e.card_number_id, e.first_name, e.last_name
+        `, id)
+	} else {
+		// Consulta para todos los empleados
+		rows, err = r.db.Query(`
+            SELECT e.id, e.card_number_id, e.first_name, e.last_name, COUNT(io.id) AS inbound_orders_count
+            FROM employees e
+            LEFT JOIN inbound_orders io ON e.id = io.employee_id
+            GROUP BY e.id, e.card_number_id, e.first_name, e.last_name
+        `)
+	}
+
+	if err != nil {
+		return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+	defer rows.Close()
+	var reports []models.EmployeeReport
+	for rows.Next() {
+		var r models.EmployeeReport
+		if err := rows.Scan(&r.ID, &r.CardNumberID, &r.FirstName, &r.LastName, &r.InboundOrdersCount); err != nil {
+			return nil, err
+		}
+		reports = append(reports, r)
+	}
+	return reports, nil
+}
+
 func (r *EmployeeRepositoryMap) Delete(id int) error {
 	_, err := r.db.Exec("DELETE FROM employees WHERE id = ?", id)
 	if err != nil {
