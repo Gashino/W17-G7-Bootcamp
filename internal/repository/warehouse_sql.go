@@ -20,77 +20,93 @@ type WarehouseSql struct {
 func (r *WarehouseSql) FindAll() (v map[int]models.Warehouse, err error) {
 	v = make(map[int]models.Warehouse)
 
-	// copy db
-	for key, value := range *r.db {
-		v[key] = value
+	rows, err := r.db.Query("SELECT id, warehouse_code, address, telephone, minimun_capacity, minimun_temperature FROM warehouses")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var warehouse models.Warehouse
+		err := rows.Scan(&warehouse.ID, &warehouse.WarehouseCode, &warehouse.Address, &warehouse.Telephone, &warehouse.MinCapacity, &warehouse.MinTemperature)
+		if err != nil {
+			return nil, err
+		}
+		v[warehouse.ID] = warehouse
 	}
 
 	return
 }
 
 func (r *WarehouseSql) FindByID(id int) (v models.Warehouse, err error) {
-	for _, value := range *r.db {
-		if value.ID == id {
-			return value, err
-		}
 
+	rows, err := r.db.Query("SELECT id, warehouse_code, address, telephone, minimun_capacity, minimun_temperature FROM warehouses WHERE id = ?", id)
+	if err != nil {
+		err = errors.New("warehouse not found")
+		return
 	}
-	err = errors.New("warehouse not found")
+	defer rows.Close()
+
+	if !rows.Next() {
+		err = errors.New("warehouse not found")
+		return
+	}
+
+	var warehouse models.Warehouse
+	err = rows.Scan(&warehouse.ID, &warehouse.WarehouseCode, &warehouse.Address, &warehouse.Telephone, &warehouse.MinCapacity, &warehouse.MinTemperature)
+	if err != nil {
+		return models.Warehouse{}, err
+	}
+
 	return
 }
 
 func (r *WarehouseSql) Add(v models.Warehouse) (err error) {
-	(*r.db)[v.ID] = v
+	_, err = r.db.Exec(
+		"INSERT INTO warehouses (warehouse_code, address, telephone, minimun_capacity, minimun_temperature) VALUES (?, ?, ?, ?, ?)",
+		v.WarehouseCode, v.Address, v.MinCapacity, v.MinTemperature,
+	)
+
+	if err != nil {
+		err = errors.New("SQL Error")
+		return
+	}
+
 	return
 }
 
 func (r *WarehouseSql) FindWarehouseByCode(code string) (v models.Warehouse, err error) {
-	for _, value := range *r.db {
-		if value.WarehouseCode == code {
-			return value, err
-		}
-
+	rows, err := r.db.Query("SELECT id, warehouse_code, address, telephone, minimun_capacity, minimun_temperature FROM warehouses WHERE warehouse_code = ?", code)
+	if err != nil {
+		err = errors.New("warehouse not found")
+		return
 	}
-	err = errors.New("warehouse not found")
+	defer rows.Close()
+
+	if !rows.Next() {
+		err = errors.New("warehouse not found")
+		return
+	}
+
+	var warehouse models.Warehouse
+	err = rows.Scan(&warehouse.ID, &warehouse.WarehouseCode, &warehouse.Address, &warehouse.Telephone, &warehouse.MinCapacity, &warehouse.MinTemperature)
+	if err != nil {
+		return models.Warehouse{}, err
+	}
+
 	return
 }
 
 func (r *WarehouseSql) FindAvailableID() (id int, err error) {
-	if len(*r.db) == 0 {
-		// Si el mapa está vacío
-		id = 1
-		return
-	}
-
-	maxID := 0
-	for id := range *r.db {
-		if id > maxID {
-			maxID = id
-		}
-	}
-
-	id = maxID + 1
 	return
 }
 
 func (r *WarehouseSql) Delete(id int) (err error) {
 
-	// Verifico Section
-	for _, s := range *r.sectionDb {
-		if s.WarehouseID == id {
-			err = errors.New("FK restriction with Section")
-			return
-		}
+	_, err = r.db.Exec("DELETE FROM warehouses WHERE id = ?", id)
+	if err != nil {
+		err = errors.New("SQL Error")
 	}
 
-	// Verifico Employee
-	for _, e := range *r.employeeDb {
-		if e.WarehouseID == id {
-			err = errors.New("FK restriction with Employee")
-			return
-		}
-	}
-
-	delete(*r.db, id)
-	return
+	return nil
 }
