@@ -57,7 +57,7 @@ func (r *WarehouseSql) FindByID(id int) (v models.Warehouse, err error) {
 	if err != nil {
 		return models.Warehouse{}, err
 	}
-
+	v = warehouse
 	return
 }
 
