@@ -8,6 +8,7 @@ import (
 	"app/pkg/models"
 	"database/sql"
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"log"
 	"net/http"
 	"os"
@@ -47,6 +48,34 @@ type ServerChi struct {
 	serverAddress string
 	// buyerLoaderFilePath is the path to the file that contains the buyers
 	buyerLoaderFilePath string
+}
+
+// ConfigDB representa la estructura de la configuración de la base de datos
+type ConfigDB struct {
+	Database struct {
+		User     string `yaml:"user"`
+		Password string `yaml:"password"`
+		Host     string `yaml:"host"`
+		Port     string `yaml:"port"`
+		Name     string `yaml:"name"`
+	} `yaml:"database"`
+}
+
+// Lee la configuración desde un archivo YAML cuyo path se obtiene de la variable de entorno CONFIG_PATH
+func loadConfig() (*ConfigDB, error) {
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.yml"
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	var cfg ConfigDB
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }
 
 // Run is a method that runs the server
@@ -103,30 +132,30 @@ func (a *ServerChi) Run() (err error) {
 
 	// - endpoints
 	rt.Route("/api/v1", func(rt chi.Router) {
-		rt.Route("/warehouses", func(rt chi.Router) {
-			// - GET /warehouses
-			rt.Get("/", hdWarehouse.GetAll())
-			rt.Get("/{id}", hdWarehouse.GetOne())
-			rt.Post("/", hdWarehouse.Add())
-			rt.Patch("/{id}", hdWarehouse.Update())
-			rt.Delete("/{id}", hdWarehouse.Delete())
-		})
+		//rt.Route("/warehouses", func(rt chi.Router) {
+		//	// - GET /warehouses
+		//	rt.Get("/", hdWarehouse.GetAll())
+		//	rt.Get("/{id}", hdWarehouse.GetOne())
+		//	rt.Post("/", hdWarehouse.Add())
+		//	rt.Patch("/{id}", hdWarehouse.Update())
+		//	rt.Delete("/{id}", hdWarehouse.Delete())
+		//})
 
-		rt.Route("/employees", func(r chi.Router) {
-			r.Get("/", employeeHandler.GetAllEmployees)
-			r.Get("/{id}", employeeHandler.GetEmployee)
-			r.Post("/", employeeHandler.CreateEmployee)
-			r.Patch("/{id}", employeeHandler.UpdateEmployee)
-			r.Delete("/{id}", employeeHandler.DeleteEmployee)
-		})
+		//rt.Route("/employees", func(r chi.Router) {
+		//	r.Get("/", employeeHandler.GetAllEmployees)
+		//	r.Get("/{id}", employeeHandler.GetEmployee)
+		//	r.Post("/", employeeHandler.CreateEmployee)
+		//	r.Patch("/{id}", employeeHandler.UpdateEmployee)
+		//	r.Delete("/{id}", employeeHandler.DeleteEmployee)
+		//})
 
-		rt.Route("/products", func(r chi.Router) {
-			r.Get("/", prodHandler.GetAll())
-			r.Get("/{id}", prodHandler.GetById())
-			r.Post("/", prodHandler.Create())
-			r.Delete("/{id}", prodHandler.Delete())
-			r.Patch("/{id}", prodHandler.Patch())
-		})
+		//rt.Route("/products", func(r chi.Router) {
+		//	r.Get("/", prodHandler.GetAll())
+		//	r.Get("/{id}", prodHandler.GetById())
+		//	r.Post("/", prodHandler.Create())
+		//	r.Delete("/{id}", prodHandler.Delete())
+		//	r.Patch("/{id}", prodHandler.Patch())
+		//})
 
 		rt.Route("/sections", func(rt chi.Router) {
 			// - GET /vehicles
@@ -141,22 +170,22 @@ func (a *ServerChi) Run() (err error) {
 			rt.Delete("/{id}", sectionHd.Delete())
 		})
 
-		rt.Route("/sellers", func(rt chi.Router) {
-			// - GET /sellers
-			rt.Get("/", hdSeller.GetAll())
-			rt.Get("/{id}", hdSeller.GetById())
-			rt.Post("/", hdSeller.Create())
-			rt.Patch("/{id}", hdSeller.Update())
-			rt.Delete("/{id}", hdSeller.Delete())
-		})
+		//rt.Route("/sellers", func(rt chi.Router) {
+		//	// - GET /sellers
+		//	rt.Get("/", hdSeller.GetAll())
+		//	rt.Get("/{id}", hdSeller.GetById())
+		//	rt.Post("/", hdSeller.Create())
+		//	rt.Patch("/{id}", hdSeller.Update())
+		//	rt.Delete("/{id}", hdSeller.Delete())
+		//})
 
-		rt.Route("/buyers", func(r chi.Router) {
-			r.Get("/", buyerHd.GetAll())
-			r.Get("/{id}", buyerHd.GetByID())
-			r.Post("/", buyerHd.Create())
-			r.Patch("/{id}", buyerHd.Update())
-			r.Delete("/{id}", buyerHd.Delete())
-		})
+		//rt.Route("/buyers", func(r chi.Router) {
+		//	r.Get("/", buyerHd.GetAll())
+		//	r.Get("/{id}", buyerHd.GetByID())
+		//	r.Post("/", buyerHd.Create())
+		//	r.Patch("/{id}", buyerHd.Update())
+		//	r.Delete("/{id}", buyerHd.Delete())
+		//})
 
 	})
 	// run server
@@ -218,7 +247,7 @@ func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product
 func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, error) {
 
 	// - repository
-	sectionRp := repository.NewSectionMapRepository(db)
+	sectionRp := repository.NewSectionSqlRepository(db)
 	// - service
 	sectionSv := service.NewSectionDefault(sectionRp)
 	// - handler
@@ -237,10 +266,10 @@ func (a *ServerChi) BuildWarehouseHandler(sectionDb *map[int]models.Section, emp
 	return warehouseHd, nil
 }
 
-func (a *ServerChi) BuildProductHandler(productDb *map[int]models.Product, productTypeDb *map[int]models.ProductType, dbSection *map[int]models.Section, dbSellers *map[int]models.Seller) (prodHandler *handler.ProductDefault, err error) {
+func (a *ServerChi) BuildProductHandler(db *sql.DB) (prodHandler *handler.ProductDefault, err error) {
 
 	// - repository
-	productRp := repository.NewProductMap(productDb, productTypeDb, dbSection, dbSellers)
+	productRp := repository.NewProductSqlRepository(db)
 
 	// - service
 	productSv := service.NewProductDefault(productRp)
@@ -286,39 +315,27 @@ func (a *ServerChi) BuildBuyerHandler(buyerDb *map[int]models.Buyer) (*handler.B
 
 // Mejorar la función initMySQL existente
 func initMySQL() (*sql.DB, error) {
-
-	// Obtener las credenciales desde variables de entorno
-	user := getEnvOrDefault("DB_USER", "root")
-	password := getEnvOrDefault("DB_PASSWORD", "asda1125")
-	host := getEnvOrDefault("DB_HOST", "localhost")
-	port := getEnvOrDefault("DB_PORT", "3306")
-	dbname := getEnvOrDefault("DB_NAME", "db_test")
-
-	cfg := mysql.Config{
-		User:                 user,
-		Passwd:               password,
+	cfg, err := loadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error loading config: %w", err)
+	}
+	mysqlCfg := mysql.Config{
+		User:                 cfg.Database.User,
+		Passwd:               cfg.Database.Password,
 		Net:                  "tcp",
-		Addr:                 fmt.Sprintf("%s:%s", host, port),
-		DBName:               dbname,
+		Addr:                 fmt.Sprintf("%s:%s", cfg.Database.Host, cfg.Database.Port),
+		DBName:               cfg.Database.Name,
 		ParseTime:            true,
 		AllowNativePasswords: true,
 	}
-	db, err := sql.Open("mysql", cfg.FormatDSN())
+	db, err := sql.Open("mysql", mysqlCfg.FormatDSN())
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %w", err)
 	}
-	// Verificar que la conexión funciona
 	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("error pinging database: %w", err)
 	}
 	log.Println("Connected to MySQL database successfully")
 	return db, nil
-}
-
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
 }
