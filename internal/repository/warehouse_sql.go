@@ -2,20 +2,19 @@ package repository
 
 import (
 	"app/pkg/models"
+	"database/sql"
 	"errors"
 )
 
 // NewVehicleMap is a function that returns a new instance of VehicleMap
-func NewWarehouseSql(sectionDb *map[int]models.Section, employeeDb *map[int]models.Employee, warehouseDb *map[int]models.Warehouse) *WarehouseMap {
-	return &WarehouseMap{db: warehouseDb, sectionDb: sectionDb, employeeDb: employeeDb}
+func NewWarehouseSql(db *sql.DB) *WarehouseSql {
+	return &WarehouseSql{db: db}
 }
 
 // Struct for Warehouse Repository
 type WarehouseSql struct {
 	// db is a map of warehouse
-	db         *map[int]models.Warehouse
-	sectionDb  *map[int]models.Section
-	employeeDb *map[int]models.Employee
+	db *sql.DB
 }
 
 func (r *WarehouseSql) FindAll() (v map[int]models.Warehouse, err error) {
