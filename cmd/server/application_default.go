@@ -6,8 +6,13 @@ import (
 	"app/internal/repository"
 	"app/internal/service"
 	"app/pkg/models"
+	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
+
+	"github.com/go-sql-driver/mysql"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -47,39 +52,39 @@ type ServerChi struct {
 // Run is a method that runs the server
 func (a *ServerChi) Run() (err error) {
 
-	sectionDb, productDb, employeeDb, productTypeDb, warehouseDb, sellerDb, buyerDb, err := a.createMaps()
+	db, err := initMySQL()
 	if err != nil {
 		return err
 	}
 
-	// create product handler with dependences
-	prodHandler, err := a.BuildProductHandler(&productDb, &productTypeDb, &sectionDb, &sellerDb)
-	if err != nil {
-		return err
-	}
+	/*	// create product handler with dependences
+		prodHandler, err := a.BuildProductHandler(&productDb, &productTypeDb, &sectionDb, &sellerDb)
+		if err != nil {
+			return err
+		}
 
-	// dependencies
-	// - loader
-	// - repository
-	employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
-	if err != nil {
-		return err
-	}
+		// dependencies
+		// - loader
+		// - repository
+		employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
+		if err != nil {
+			return err
+		}
 
-	// handler warehouse
+		// handler warehouse
 
-	hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
-	if err != nil {
-		return err
-	}
+		hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
+		if err != nil {
+			return err
+		}*/
 
 	// - handler
-	sectionHd, err := a.BuildSectionHandler(&sectionDb, &productTypeDb, &warehouseDb)
+	sectionHd, err := a.BuildSectionHandler(db)
 	if err != nil {
 		return err
 	}
 
-	// create seller handler with dependences
+	/*// create seller handler with dependences
 	hdSeller, err := a.BuildSellerHandler(&sellerDb)
 	if err != nil {
 		return err
@@ -88,7 +93,7 @@ func (a *ServerChi) Run() (err error) {
 	buyerHd, err := a.BuildBuyerHandler(&buyerDb)
 	if err != nil {
 		return err
-	}
+	}*/
 
 	// router
 	rt := chi.NewRouter()
@@ -210,10 +215,10 @@ func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product
 	return sectionDb, productDb, employeeDb, productTypeDb, warehouseDb, sellerDb, buyerDb, nil
 }
 
-func (a *ServerChi) BuildSectionHandler(sectionDb *map[int]models.Section, productTypeDb *map[int]models.ProductType, dbWarehouse *map[int]models.Warehouse) (*handler.SectionDefault, error) {
+func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, error) {
 
 	// - repository
-	sectionRp := repository.NewSectionMapRepository(sectionDb, productTypeDb, dbWarehouse)
+	sectionRp := repository.NewSectionMapRepository(db)
 	// - service
 	sectionSv := service.NewSectionDefault(sectionRp)
 	// - handler
@@ -245,9 +250,9 @@ func (a *ServerChi) BuildProductHandler(productDb *map[int]models.Product, produ
 	return prodHandler, nil
 }
 
-func (*ServerChi) BuildemployeeHandler(employeeDb *map[int]models.Employee, warehouseDb *map[int]models.Warehouse) (*handler.EmployeeHandler, error) {
+func (*ServerChi) BuildemployeeHandler(db *sql.DB) (*handler.EmployeeHandler, error) {
 
-	employeeRepository := repository.NewEmployeeMapRepository(employeeDb, warehouseDb)
+	employeeRepository := repository.NewEmployeeRepository(db)
 	// - service
 	employeeService := service.NewEmployeeServiceDefault(employeeRepository)
 	// - handler
@@ -277,4 +282,43 @@ func (a *ServerChi) BuildBuyerHandler(buyerDb *map[int]models.Buyer) (*handler.B
 	// - handler
 	hdBuyer := handler.NewBuyerDefault(svBuyer)
 	return hdBuyer, nil
+}
+
+// Mejorar la función initMySQL existente
+func initMySQL() (*sql.DB, error) {
+
+	// Obtener las credenciales desde variables de entorno
+	user := getEnvOrDefault("DB_USER", "root")
+	password := getEnvOrDefault("DB_PASSWORD", "asda1125")
+	host := getEnvOrDefault("DB_HOST", "localhost")
+	port := getEnvOrDefault("DB_PORT", "3306")
+	dbname := getEnvOrDefault("DB_NAME", "db_test")
+
+	cfg := mysql.Config{
+		User:                 user,
+		Passwd:               password,
+		Net:                  "tcp",
+		Addr:                 fmt.Sprintf("%s:%s", host, port),
+		DBName:               dbname,
+		ParseTime:            true,
+		AllowNativePasswords: true,
+	}
+	db, err := sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		return nil, fmt.Errorf("error opening database: %w", err)
+	}
+	// Verificar que la conexión funciona
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("error pinging database: %w", err)
+	}
+	log.Println("Connected to MySQL database successfully")
+	return db, nil
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }
