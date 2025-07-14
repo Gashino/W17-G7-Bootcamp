@@ -92,6 +92,11 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
+	carryHd, err := a.BuildCarryHandler(db)
+	if err != nil {
+		return err
+	}
+
 	/*// create seller handler with dependences
 	hdSeller, err := a.BuildSellerHandler(&sellerDb)
 	if err != nil {
@@ -118,6 +123,11 @@ func (a *ServerChi) Run() (err error) {
 			rt.Post("/", warehouseHd.Add())
 			rt.Patch("/{id}", warehouseHd.Update())
 			rt.Delete("/{id}", warehouseHd.Delete())
+		})
+
+		rt.Route("/carries", func(rt chi.Router) {
+			rt.Post("/", carryHd.Create())
+			rt.Get("/localities/reportCarries", carryHd.SearchByLocality())
 		})
 
 		/*
@@ -166,6 +176,7 @@ func (a *ServerChi) Run() (err error) {
 				r.Patch("/{id}", buyerHd.Update())
 				r.Delete("/{id}", buyerHd.Delete())
 			})
+
 		*/
 
 	})
@@ -246,6 +257,16 @@ func (a *ServerChi) BuildWarehouseHandler(db *sql.DB) (*handler.WarehouseDefault
 	// - handler
 	warehouseHd := handler.NewWarehouseDefault(warehouseSv)
 	return warehouseHd, nil
+}
+
+func (a *ServerChi) BuildCarryHandler(db *sql.DB) (*handler.CarryDefault, error) {
+	// - repository
+	carryRp := repository.NewCarrySql(db)
+	// - service
+	carrySv := service.NewCarryDefault(carryRp)
+	// - handler
+	carryHd := handler.NewCarryDefault(carrySv)
+	return carryHd, nil
 }
 
 func (a *ServerChi) BuildProductHandler(productDb *map[int]models.Product, productTypeDb *map[int]models.ProductType, dbSection *map[int]models.Section, dbSellers *map[int]models.Seller) (prodHandler *handler.ProductDefault, err error) {

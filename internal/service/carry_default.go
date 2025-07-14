@@ -20,7 +20,7 @@ func (s *CarryDefault) SearchByLocality(locality_id int) (c map[int]models.Carry
 	return
 }
 
-func (s *CarryDefault) Add(v models.Carry) (w models.Carry, err error) {
+func (s *CarryDefault) Create(v models.Carry) (w models.Carry, err error) {
 	w = v
 	w, err = s.rp.Create(w)
 	return
