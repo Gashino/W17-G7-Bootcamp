@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/bootcamp-go/web/response"
-	"github.com/go-chi/chi/v5"
 )
 
 // NewWarehouseDefault is a function that returns a new instance of VehicleDefault
@@ -26,19 +25,27 @@ type CarryDefault struct {
 
 func (h *CarryDefault) SearchByLocality() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := chi.URLParam(r, "id")
+		query := r.URL.Query()
+		id := query.Get("id")
 
-		idInt, err := strconv.Atoi(id)
+		// Inicializa idInt con -1 por defecto
+		idInt := -1
 
-		if err != nil {
-			response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
-			return
+		// Si el parámetro id no está vacío, intenta convertirlo a un int
+		if id != "" {
+			var err error
+			idInt, err = strconv.Atoi(id)
+			if err != nil {
+				// Maneja el error adecuadamente, por ejemplo, loguearlo
+				response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
+				return
+			}
 		}
 
 		data, err := h.sv.SearchByLocality(idInt)
 
 		if err != nil {
-
+			fmt.Println(err.Error())
 			response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
 			return
 		}
