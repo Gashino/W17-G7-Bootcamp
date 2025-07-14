@@ -13,6 +13,7 @@ import (
 	"os"
 
 	"github.com/go-sql-driver/mysql"
+	"gopkg.in/yaml.v2"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -49,6 +50,34 @@ type ServerChi struct {
 	buyerLoaderFilePath string
 }
 
+// ConfigDB representa la estructura de la configuración de la base de datos
+type ConfigDB struct {
+	Database struct {
+		User     string `yaml:"user"`
+		Password string `yaml:"password"`
+		Host     string `yaml:"host"`
+		Port     string `yaml:"port"`
+		Name     string `yaml:"name"`
+	} `yaml:"database"`
+}
+
+// Lee la configuración desde un archivo YAML cuyo path se obtiene de la variable de entorno CONFIG_PATH
+func loadConfig() (*ConfigDB, error) {
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.yml"
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	var cfg ConfigDB
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
 // Run is a method that runs the server
 func (a *ServerChi) Run() (err error) {
 
@@ -57,27 +86,35 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
-	/*	// create product handler with dependences
-		prodHandler, err := a.BuildProductHandler(&productDb, &productTypeDb, &sectionDb, &sellerDb)
-		if err != nil {
-			return err
-		}
+	// create product handler with dependences
+	prodHandler, err := a.BuildProductHandler(db)
+	if err != nil {
+		return err
+	}
 
-		// dependencies
-		// - loader
-		// - repository
-		employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
-		if err != nil {
-			return err
-		}
+	/*
+				// dependencies
+				// - loader
+				// - repository
+				employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
+				if err != nil {
+					return err
+				}
 
-		// handler warehouse
+		        // Create warehouse handler with dependencies
+			hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
+			if err != nil {
+				return err
+			}
+	*/
 
-		hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
-		if err != nil {
-			return err
-		}*/
+	// Create employee handler with dependencies
+	employeeHandler, err := a.BuildemployeeHandler(db)
+	if err != nil {
+		return err
+	}
 
+<<<<<<< HEAD
 	// - handler
 
 	/*
@@ -93,21 +130,42 @@ func (a *ServerChi) Run() (err error) {
 	}
 
 	carryHd, err := a.BuildCarryHandler(db)
+=======
+	// Create section handler with dependencies
+	sectionHd, err := a.BuildSectionHandler(db)
+>>>>>>> develop
 	if err != nil {
 		return err
 	}
 
-	/*// create seller handler with dependences
-	hdSeller, err := a.BuildSellerHandler(&sellerDb)
+	productBatchHd, err := a.BuidProductBatchHandler(db)
 	if err != nil {
 		return err
 	}
 
-	buyerHd, err := a.BuildBuyerHandler(&buyerDb)
+	// create seller handler with dependences
+	hdSeller, err := a.BuildSellerHandler(db)
 	if err != nil {
 		return err
-	}*/
+	}
 
+	// Create buyer handler with SQL database (migrated to SQL)
+	buyerHd, err := a.BuildBuyerHandler(db)
+	if err != nil {
+		return err
+	}
+
+	// Create purchase order handler with SQL database
+	purchaseOrderHd, err := a.BuildPurchaseOrderHandler(db)
+	if err != nil {
+		return err
+	}
+
+	// create seller handler with dependences
+	hdLocalities, err := a.BuildLocalityHandler(db)
+	if err != nil {
+		return err
+	}
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
@@ -118,11 +176,19 @@ func (a *ServerChi) Run() (err error) {
 	rt.Route("/api/v1", func(rt chi.Router) {
 		rt.Route("/warehouses", func(rt chi.Router) {
 			// - GET /warehouses
+<<<<<<< HEAD
 			rt.Get("/", warehouseHd.GetAll())
 			rt.Get("/{id}", warehouseHd.GetOne())
 			rt.Post("/", warehouseHd.Add())
 			rt.Patch("/{id}", warehouseHd.Update())
 			rt.Delete("/{id}", warehouseHd.Delete())
+=======
+			/*rt.Get("/", hdWarehouse.GetAll())
+			rt.Get("/{id}", hdWarehouse.GetOne())
+			rt.Post("/", hdWarehouse.Add())
+			rt.Patch("/{id}", hdWarehouse.Update())
+			rt.Delete("/{id}", hdWarehouse.Delete())*/
+>>>>>>> develop
 		})
 
 		rt.Route("/carries", func(rt chi.Router) {
@@ -139,6 +205,7 @@ func (a *ServerChi) Run() (err error) {
 				r.Delete("/{id}", employeeHandler.DeleteEmployee)
 			})
 
+<<<<<<< HEAD
 			rt.Route("/products", func(r chi.Router) {
 				r.Get("/", prodHandler.GetAll())
 				r.Get("/{id}", prodHandler.GetById())
@@ -178,6 +245,48 @@ func (a *ServerChi) Run() (err error) {
 			})
 
 		*/
+=======
+		rt.Route("/sections", func(rt chi.Router) {
+			rt.Get("/", sectionHd.GetAll())
+			rt.Get("/{id}", sectionHd.GetByID())
+			rt.Post("/", sectionHd.PostSection())
+			rt.Patch("/{id}", sectionHd.Update())
+			rt.Delete("/{id}", sectionHd.Delete())
+			// - GET /reportProducts
+			rt.Get("/reportProducts", sectionHd.ReportProducts())
+		})
+
+		rt.Route("/productBatches", func(rt chi.Router) {
+			// - POST /productBatches
+			rt.Post("/", productBatchHd.CreateBatch())
+		})
+
+		rt.Route("/sellers", func(rt chi.Router) {
+			rt.Get("/", hdSeller.GetAll())
+			rt.Get("/{id}", hdSeller.GetById())
+			rt.Post("/", hdSeller.Create())
+			rt.Patch("/{id}", hdSeller.Update())
+			rt.Delete("/{id}", hdSeller.Delete())
+		})
+
+		rt.Route("/buyers", func(r chi.Router) {
+			r.Get("/", buyerHd.GetAll())
+			r.Get("/{id}", buyerHd.GetByID())
+			r.Post("/", buyerHd.Create())
+			r.Patch("/{id}", buyerHd.Update())
+			r.Delete("/{id}", buyerHd.Delete())
+			r.Get("/reportPurchaseOrders", buyerHd.GetPurchaseOrdersReport())
+		})
+
+		rt.Route("/localities", func(rt chi.Router) {
+			rt.Get("/reportSellers/{id}", hdLocalities.SellersByLocality())
+			rt.Post("/", hdLocalities.Create())
+		})
+
+		rt.Route("/purchaseOrders", func(r chi.Router) {
+			r.Post("/", purchaseOrderHd.Create())
+		})
+>>>>>>> develop
 
 	})
 	// run server
@@ -238,9 +347,8 @@ func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product
 
 /*
 func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, error) {
-
 	// - repository
-	sectionRp := repository.NewSectionMapRepository(db)
+	sectionRp := repository.NewSectionSqlRepository(db)
 	// - service
 	sectionSv := service.NewSectionDefault(sectionRp)
 	// - handler
@@ -248,7 +356,21 @@ func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, er
 	return sectionHd, nil
 }*/
 
+<<<<<<< HEAD
 func (a *ServerChi) BuildWarehouseHandler(db *sql.DB) (*handler.WarehouseDefault, error) {
+=======
+func (a *ServerChi) BuidProductBatchHandler(db *sql.DB) (*handler.ProductBatchDefault, error) {
+	// - repository
+	productBatchRp := repository.NewProductBatchSqlRepository(db)
+	// - service
+	productBatchSv := service.NewProductBatchDefault(productBatchRp)
+	// - handler
+	productBatchHd := handler.NewProductBatchDefault(productBatchSv)
+	return productBatchHd, nil
+}
+
+func (a *ServerChi) BuildWarehouseHandler(sectionDb *map[int]models.Section, employeeDb *map[int]models.Employee, warehouseDb *map[int]models.Warehouse) (*handler.WarehouseDefault, error) {
+>>>>>>> develop
 
 	// - repository
 	warehouseRp := repository.NewWarehouseSql(db)
@@ -259,6 +381,7 @@ func (a *ServerChi) BuildWarehouseHandler(db *sql.DB) (*handler.WarehouseDefault
 	return warehouseHd, nil
 }
 
+<<<<<<< HEAD
 func (a *ServerChi) BuildCarryHandler(db *sql.DB) (*handler.CarryDefault, error) {
 	// - repository
 	carryRp := repository.NewCarrySql(db)
@@ -270,9 +393,12 @@ func (a *ServerChi) BuildCarryHandler(db *sql.DB) (*handler.CarryDefault, error)
 }
 
 func (a *ServerChi) BuildProductHandler(productDb *map[int]models.Product, productTypeDb *map[int]models.ProductType, dbSection *map[int]models.Section, dbSellers *map[int]models.Seller) (prodHandler *handler.ProductDefault, err error) {
+=======
+func (a *ServerChi) BuildProductHandler(db *sql.DB) (prodHandler *handler.ProductDefault, err error) {
+>>>>>>> develop
 
 	// - repository
-	productRp := repository.NewProductMap(productDb, productTypeDb, dbSection, dbSellers)
+	productRp := repository.NewProductSqlRepository(db)
 
 	// - service
 	productSv := service.NewProductDefault(productRp)
@@ -292,9 +418,9 @@ func (*ServerChi) BuildemployeeHandler(db *sql.DB) (*handler.EmployeeHandler, er
 	return employeeHandler, nil
 }
 
-func (a *ServerChi) BuildSellerHandler(sellerDb *map[int]models.Seller) (*handler.SellerDefault, error) {
+func (a *ServerChi) BuildSellerHandler(sellerDb *sql.DB) (*handler.SellerDefault, error) {
 	// - repository
-	rpSeller := repository.NewSellerMap(sellerDb)
+	rpSeller := repository.NewSellerSql(sellerDb)
 
 	// - service
 	svSeller := service.NewSellerDefault(rpSeller)
@@ -304,20 +430,33 @@ func (a *ServerChi) BuildSellerHandler(sellerDb *map[int]models.Seller) (*handle
 	return hdSeller, nil
 }
 
-func (a *ServerChi) BuildBuyerHandler(buyerDb *map[int]models.Buyer) (*handler.BuyerDefault, error) {
-	// - repository
-	rpBuyer := repository.NewBuyerMap(buyerDb)
+func (a *ServerChi) BuildBuyerHandler(db *sql.DB) (*handler.BuyerHandler, error) {
+	// - repository (now using SQL instead of map)
+	rpBuyer := repository.NewBuyerSQL(db)
 
 	// - service
 	svBuyer := service.NewBuyerDefault(rpBuyer)
 
 	// - handler
-	hdBuyer := handler.NewBuyerDefault(svBuyer)
+	hdBuyer := handler.NewBuyerHandler(svBuyer)
 	return hdBuyer, nil
+}
+
+func (a *ServerChi) BuildPurchaseOrderHandler(db *sql.DB) (*handler.PurchaseOrderHandler, error) {
+	// - repository
+	purchaseOrderRp := repository.NewPurchaseOrderSQL(db)
+
+	// - service
+	purchaseOrderSv := service.NewPurchaseOrderDefault(purchaseOrderRp)
+
+	// - handler
+	purchaseOrderHd := handler.NewPurchaseOrderHandler(purchaseOrderSv)
+	return purchaseOrderHd, nil
 }
 
 // Mejorar la función initMySQL existente
 func initMySQL() (*sql.DB, error) {
+<<<<<<< HEAD
 
 	// Obtener las credenciales desde variables de entorno
 	user := getEnvOrDefault("DB_USER", "root")
@@ -329,17 +468,25 @@ func initMySQL() (*sql.DB, error) {
 	cfg := mysql.Config{
 		User:                 user,
 		Passwd:               password,
+=======
+	cfg, err := loadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error loading config: %w", err)
+	}
+	mysqlCfg := mysql.Config{
+		User:                 cfg.Database.User,
+		Passwd:               cfg.Database.Password,
+>>>>>>> develop
 		Net:                  "tcp",
-		Addr:                 fmt.Sprintf("%s:%s", host, port),
-		DBName:               dbname,
+		Addr:                 fmt.Sprintf("%s:%s", cfg.Database.Host, cfg.Database.Port),
+		DBName:               cfg.Database.Name,
 		ParseTime:            true,
 		AllowNativePasswords: true,
 	}
-	db, err := sql.Open("mysql", cfg.FormatDSN())
+	db, err := sql.Open("mysql", mysqlCfg.FormatDSN())
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %w", err)
 	}
-	// Verificar que la conexión funciona
 	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("error pinging database: %w", err)
@@ -348,9 +495,14 @@ func initMySQL() (*sql.DB, error) {
 	return db, nil
 }
 
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
+func (a *ServerChi) BuildLocalityHandler(localityDb *sql.DB) (*handler.LocalityDefault, error) {
+	// - repository
+	rpLocality := repository.NewLocalitySql(localityDb)
+
+	// - service
+	svLocality := service.NewLocalityDefault(rpLocality)
+
+	// - handler
+	hdLocality := handler.NewLocalityDefault(svLocality)
+	return hdLocality, nil
 }

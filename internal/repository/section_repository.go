@@ -8,4 +8,6 @@ type SectionRepository interface {
 	Create(section models.Section) (s models.Section, err error)
 	Update(id int, section models.Section) (s models.Section, err error)
 	Delete(id int) (err error)
+	GetReportProductsBySection(id int) ([]models.SectionReport, error)
+	GetReportProductsAllSections() ([]models.SectionReport, error)
 }
