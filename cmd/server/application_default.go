@@ -95,6 +95,11 @@ func (a *ServerChi) Run() (err error) {
 			return err
 		}*/
 
+	// create seller handler with dependences
+	hdLocalities, err := a.BuildLocalityHandler(db)
+	if err != nil {
+		return err
+	}
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
@@ -156,6 +161,10 @@ func (a *ServerChi) Run() (err error) {
 			r.Post("/", buyerHd.Create())
 			r.Patch("/{id}", buyerHd.Update())
 			r.Delete("/{id}", buyerHd.Delete())
+		})
+
+		rt.Route("/localities", func(rt chi.Router) {
+			rt.Post("/", hdLocalities.Create())
 		})
 
 	})
@@ -321,4 +330,16 @@ func getEnvOrDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func (a *ServerChi) BuildLocalityHandler(localityDb *sql.DB) (*handler.LocalityDefault, error) {
+	// - repository
+	rpLocality := repository.NewLocalitySql(localityDb)
+
+	// - service
+	svLocality := service.NewLocalityDefault(rpLocality)
+
+	// - handler
+	hdLocality := handler.NewLocalityDefault(svLocality)
+	return hdLocality, nil
 }
