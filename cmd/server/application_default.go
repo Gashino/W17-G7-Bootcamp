@@ -92,21 +92,11 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
-	/*
-				// dependencies
-				// - loader
-				// - repository
-				employeeHandler, err := a.BuildemployeeHandler(&employeeDb, &warehouseDb)
-				if err != nil {
-					return err
-				}
-
-		        // Create warehouse handler with dependencies
-			hdWarehouse, err := a.BuildWarehouseHandler(&sectionDb, &employeeDb, &warehouseDb)
-			if err != nil {
-				return err
-			}
-	*/
+	// Create warehouse handler with dependencies
+	warehouseHd, err := a.BuildWarehouseHandler(db)
+	if err != nil {
+		return err
+	}
 
 	// Create employee handler with dependencies
 	employeeHandler, err := a.BuildemployeeHandler(db)
@@ -114,31 +104,18 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
-<<<<<<< HEAD
-	// - handler
-
-	/*
-		sectionHd, err := a.BuildSectionHandler(db)
-		if err != nil {
-			return err
-		}
-	*/
-
-	warehouseHd, err := a.BuildWarehouseHandler(db)
-	if err != nil {
-		return err
-	}
-
-	carryHd, err := a.BuildCarryHandler(db)
-=======
 	// Create section handler with dependencies
 	sectionHd, err := a.BuildSectionHandler(db)
->>>>>>> develop
 	if err != nil {
 		return err
 	}
 
 	productBatchHd, err := a.BuidProductBatchHandler(db)
+	if err != nil {
+		return err
+	}
+
+	carryHd, err := a.BuildCarryHandler(db)
 	if err != nil {
 		return err
 	}
@@ -176,19 +153,11 @@ func (a *ServerChi) Run() (err error) {
 	rt.Route("/api/v1", func(rt chi.Router) {
 		rt.Route("/warehouses", func(rt chi.Router) {
 			// - GET /warehouses
-<<<<<<< HEAD
 			rt.Get("/", warehouseHd.GetAll())
 			rt.Get("/{id}", warehouseHd.GetOne())
 			rt.Post("/", warehouseHd.Add())
 			rt.Patch("/{id}", warehouseHd.Update())
 			rt.Delete("/{id}", warehouseHd.Delete())
-=======
-			/*rt.Get("/", hdWarehouse.GetAll())
-			rt.Get("/{id}", hdWarehouse.GetOne())
-			rt.Post("/", hdWarehouse.Add())
-			rt.Patch("/{id}", hdWarehouse.Update())
-			rt.Delete("/{id}", hdWarehouse.Delete())*/
->>>>>>> develop
 		})
 
 		rt.Route("/carries", func(rt chi.Router) {
@@ -196,56 +165,22 @@ func (a *ServerChi) Run() (err error) {
 			rt.Get("/localities/reportCarries", carryHd.SearchByLocality())
 		})
 
-		/*
-			rt.Route("/employees", func(r chi.Router) {
-				r.Get("/", employeeHandler.GetAllEmployees)
-				r.Get("/{id}", employeeHandler.GetEmployee)
-				r.Post("/", employeeHandler.CreateEmployee)
-				r.Patch("/{id}", employeeHandler.UpdateEmployee)
-				r.Delete("/{id}", employeeHandler.DeleteEmployee)
-			})
+		rt.Route("/employees", func(r chi.Router) {
+			r.Get("/", employeeHandler.GetAllEmployees)
+			r.Get("/{id}", employeeHandler.GetEmployee)
+			r.Post("/", employeeHandler.CreateEmployee)
+			r.Patch("/{id}", employeeHandler.UpdateEmployee)
+			r.Delete("/{id}", employeeHandler.DeleteEmployee)
+		})
 
-<<<<<<< HEAD
-			rt.Route("/products", func(r chi.Router) {
-				r.Get("/", prodHandler.GetAll())
-				r.Get("/{id}", prodHandler.GetById())
-				r.Post("/", prodHandler.Create())
-				r.Delete("/{id}", prodHandler.Delete())
-				r.Patch("/{id}", prodHandler.Patch())
-			})
+		rt.Route("/products", func(r chi.Router) {
+			r.Get("/", prodHandler.GetAll())
+			r.Get("/{id}", prodHandler.GetById())
+			r.Post("/", prodHandler.Create())
+			r.Delete("/{id}", prodHandler.Delete())
+			r.Patch("/{id}", prodHandler.Patch())
+		})
 
-			rt.Route("/sections", func(rt chi.Router) {
-				// - GET /vehicles
-				rt.Get("/", sectionHd.GetAll())
-				// - GET /vehicles/{id}
-				rt.Get("/{id}", sectionHd.GetByID())
-				// - POST /vehicles
-				rt.Post("/", sectionHd.PostSection())
-				// - PUT /vehicles/{id}
-				rt.Patch("/{id}", sectionHd.Update())
-				// - DELETE /vehicles/{id}
-				rt.Delete("/{id}", sectionHd.Delete())
-			})
-
-			rt.Route("/sellers", func(rt chi.Router) {
-				// - GET /sellers
-				rt.Get("/", hdSeller.GetAll())
-				rt.Get("/{id}", hdSeller.GetById())
-				rt.Post("/", hdSeller.Create())
-				rt.Patch("/{id}", hdSeller.Update())
-				rt.Delete("/{id}", hdSeller.Delete())
-			})
-
-			rt.Route("/buyers", func(r chi.Router) {
-				r.Get("/", buyerHd.GetAll())
-				r.Get("/{id}", buyerHd.GetByID())
-				r.Post("/", buyerHd.Create())
-				r.Patch("/{id}", buyerHd.Update())
-				r.Delete("/{id}", buyerHd.Delete())
-			})
-
-		*/
-=======
 		rt.Route("/sections", func(rt chi.Router) {
 			rt.Get("/", sectionHd.GetAll())
 			rt.Get("/{id}", sectionHd.GetByID())
@@ -286,7 +221,6 @@ func (a *ServerChi) Run() (err error) {
 		rt.Route("/purchaseOrders", func(r chi.Router) {
 			r.Post("/", purchaseOrderHd.Create())
 		})
->>>>>>> develop
 
 	})
 	// run server
@@ -345,7 +279,6 @@ func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product
 	return sectionDb, productDb, employeeDb, productTypeDb, warehouseDb, sellerDb, buyerDb, nil
 }
 
-/*
 func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, error) {
 	// - repository
 	sectionRp := repository.NewSectionSqlRepository(db)
@@ -354,11 +287,8 @@ func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, er
 	// - handler
 	sectionHd := handler.NewSectionDefault(sectionSv)
 	return sectionHd, nil
-}*/
+}
 
-<<<<<<< HEAD
-func (a *ServerChi) BuildWarehouseHandler(db *sql.DB) (*handler.WarehouseDefault, error) {
-=======
 func (a *ServerChi) BuidProductBatchHandler(db *sql.DB) (*handler.ProductBatchDefault, error) {
 	// - repository
 	productBatchRp := repository.NewProductBatchSqlRepository(db)
@@ -369,8 +299,7 @@ func (a *ServerChi) BuidProductBatchHandler(db *sql.DB) (*handler.ProductBatchDe
 	return productBatchHd, nil
 }
 
-func (a *ServerChi) BuildWarehouseHandler(sectionDb *map[int]models.Section, employeeDb *map[int]models.Employee, warehouseDb *map[int]models.Warehouse) (*handler.WarehouseDefault, error) {
->>>>>>> develop
+func (a *ServerChi) BuildWarehouseHandler(db *sql.DB) (*handler.WarehouseDefault, error) {
 
 	// - repository
 	warehouseRp := repository.NewWarehouseSql(db)
@@ -381,7 +310,6 @@ func (a *ServerChi) BuildWarehouseHandler(sectionDb *map[int]models.Section, emp
 	return warehouseHd, nil
 }
 
-<<<<<<< HEAD
 func (a *ServerChi) BuildCarryHandler(db *sql.DB) (*handler.CarryDefault, error) {
 	// - repository
 	carryRp := repository.NewCarrySql(db)
@@ -392,10 +320,7 @@ func (a *ServerChi) BuildCarryHandler(db *sql.DB) (*handler.CarryDefault, error)
 	return carryHd, nil
 }
 
-func (a *ServerChi) BuildProductHandler(productDb *map[int]models.Product, productTypeDb *map[int]models.ProductType, dbSection *map[int]models.Section, dbSellers *map[int]models.Seller) (prodHandler *handler.ProductDefault, err error) {
-=======
 func (a *ServerChi) BuildProductHandler(db *sql.DB) (prodHandler *handler.ProductDefault, err error) {
->>>>>>> develop
 
 	// - repository
 	productRp := repository.NewProductSqlRepository(db)
@@ -456,19 +381,6 @@ func (a *ServerChi) BuildPurchaseOrderHandler(db *sql.DB) (*handler.PurchaseOrde
 
 // Mejorar la función initMySQL existente
 func initMySQL() (*sql.DB, error) {
-<<<<<<< HEAD
-
-	// Obtener las credenciales desde variables de entorno
-	user := getEnvOrDefault("DB_USER", "root")
-	password := getEnvOrDefault("DB_PASSWORD", "")
-	host := getEnvOrDefault("DB_HOST", "localhost")
-	port := getEnvOrDefault("DB_PORT", "3306")
-	dbname := getEnvOrDefault("DB_NAME", "my_db")
-
-	cfg := mysql.Config{
-		User:                 user,
-		Passwd:               password,
-=======
 	cfg, err := loadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("error loading config: %w", err)
@@ -476,7 +388,6 @@ func initMySQL() (*sql.DB, error) {
 	mysqlCfg := mysql.Config{
 		User:                 cfg.Database.User,
 		Passwd:               cfg.Database.Password,
->>>>>>> develop
 		Net:                  "tcp",
 		Addr:                 fmt.Sprintf("%s:%s", cfg.Database.Host, cfg.Database.Port),
 		DBName:               cfg.Database.Name,
