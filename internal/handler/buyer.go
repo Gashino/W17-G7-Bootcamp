@@ -157,36 +157,98 @@ func (h *BuyerHandler) Update() http.HandlerFunc {
 	}
 }
 
-// Delete is a method that handles DELETE requests to delete a buyer
+// Delete is a method that handles DELETE requests to remove a buyer
 func (h *BuyerHandler) Delete() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get ID from URL parameter
+		// Get the buyer ID from the path parameter
 		idStr := chi.URLParam(r, "id")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			response.Error(w, http.StatusBadRequest, "Invalid ID format")
+			response.JSON(w, http.StatusBadRequest, map[string]string{
+				"status":  "Bad Request",
+				"message": "Invalid ID format",
+			})
 			return
 		}
 
-		// Delete buyer
+		// Delete the buyer
 		err = h.sv.Delete(id)
 		if err != nil {
 			handleError(w, err)
 			return
 		}
 
-		// Send response using the response library
+		// Send success response
 		response.JSON(w, http.StatusNoContent, nil)
 	}
 }
 
-// handleError is a helper function that handles errors and sends appropriate HTTP responses
+// GetPurchaseOrdersReport is a method that handles GET requests to retrieve purchase orders report for buyers
+func (h *BuyerHandler) GetPurchaseOrdersReport() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get the optional buyer ID query parameter
+		var buyerID *int
+		idStr := r.URL.Query().Get("id")
+		if idStr != "" {
+			id, err := strconv.Atoi(idStr)
+			if err != nil {
+				response.JSON(w, http.StatusBadRequest, map[string]string{
+					"status":  "Bad Request",
+					"message": "Invalid ID format",
+				})
+				return
+			}
+			buyerID = &id
+		}
+
+		// Get purchase orders report
+		reports, err := h.sv.GetPurchaseOrdersReport(buyerID)
+		if err != nil {
+			handleError(w, err)
+			return
+		}
+
+		// Create response
+		responseData := map[string]interface{}{
+			"data": reports,
+		}
+
+		// Send response
+		response.JSON(w, http.StatusOK, responseData)
+	}
+}
+
+// handleError is a helper function that handles error responses
 func handleError(w http.ResponseWriter, err error) {
-	if serviceError, ok := err.(pkg.ServiceError); ok {
-		response.Error(w, serviceError.ResponseCode, serviceError.Message)
+	// Check if it's a ServiceError
+	serviceError, ok := err.(pkg.ServiceError)
+	if !ok {
+		// If it's not a ServiceError, return internal server error
+		response.JSON(w, http.StatusInternalServerError, map[string]string{
+			"status":  "Internal Server Error",
+			"message": "Internal server error",
+		})
 		return
 	}
 
-	// Default error response
-	response.Error(w, http.StatusInternalServerError, "Internal server error")
+	// Get the error details based on the service error code
+	var statusText string
+	switch serviceError.ResponseCode {
+	case http.StatusBadRequest:
+		statusText = "Bad Request"
+	case http.StatusNotFound:
+		statusText = "Not Found"
+	case http.StatusConflict:
+		statusText = "Conflict"
+	case http.StatusUnprocessableEntity:
+		statusText = "Unprocessable Entity"
+	default:
+		statusText = "Internal Server Error"
+	}
+
+	// Return appropriate error response based on the service error
+	response.JSON(w, serviceError.ResponseCode, map[string]string{
+		"status":  statusText,
+		"message": serviceError.Message,
+	})
 }

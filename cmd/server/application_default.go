@@ -159,6 +159,7 @@ func (a *ServerChi) Run() (err error) {
 			r.Post("/", buyerHd.Create())
 			r.Patch("/{id}", buyerHd.Update())
 			r.Delete("/{id}", buyerHd.Delete())
+			r.Get("/reportPurchaseOrders", buyerHd.GetPurchaseOrdersReport())
 		})
 
 		rt.Route("/purchaseOrders", func(r chi.Router) {

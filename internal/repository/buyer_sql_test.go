@@ -380,3 +380,82 @@ func TestBuyerSQL_Delete(t *testing.T) {
 		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, serviceError.ResponseCode)
 	})
 }
+
+func TestBuyerSQL_GetPurchaseOrdersReport(t *testing.T) {
+	repo, _ := setupBuyerTestDB(t)
+
+	t.Run("all buyers report - no purchase orders", func(t *testing.T) {
+		// Create a buyer without any purchase orders
+		buyer := models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: generateUniqueCardID(),
+				FirstName:    "Report",
+				LastName:     "Test",
+			},
+		}
+		createdBuyer, err := repo.Create(buyer)
+		require.NoError(t, err)
+
+		// Get all buyers report
+		reports, err := repo.GetPurchaseOrdersReport(nil)
+
+		assert.NoError(t, err)
+		assert.NotEmpty(t, reports)
+
+		// Find our buyer in the reports
+		var foundBuyer *models.BuyerPurchaseOrderReport
+		for _, report := range reports {
+			if report.ID == createdBuyer.ID {
+				foundBuyer = &report
+				break
+			}
+		}
+
+		assert.NotNil(t, foundBuyer)
+		assert.Equal(t, createdBuyer.ID, foundBuyer.ID)
+		assert.Equal(t, buyer.CardNumberID, foundBuyer.CardNumberID)
+		assert.Equal(t, "Report", foundBuyer.FirstName)
+		assert.Equal(t, "Test", foundBuyer.LastName)
+		assert.Equal(t, 0, foundBuyer.PurchaseOrdersCount)
+	})
+
+	t.Run("specific buyer report - no purchase orders", func(t *testing.T) {
+		// Create a buyer without any purchase orders
+		buyer := models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: generateUniqueCardID(),
+				FirstName:    "Specific",
+				LastName:     "Test",
+			},
+		}
+		createdBuyer, err := repo.Create(buyer)
+		require.NoError(t, err)
+
+		// Get specific buyer report
+		reports, err := repo.GetPurchaseOrdersReport(&createdBuyer.ID)
+
+		assert.NoError(t, err)
+		assert.Len(t, reports, 1)
+		assert.Equal(t, createdBuyer.ID, reports[0].ID)
+		assert.Equal(t, buyer.CardNumberID, reports[0].CardNumberID)
+		assert.Equal(t, "Specific", reports[0].FirstName)
+		assert.Equal(t, "Test", reports[0].LastName)
+		assert.Equal(t, 0, reports[0].PurchaseOrdersCount)
+	})
+
+	t.Run("specific buyer report - non-existing buyer", func(t *testing.T) {
+		nonExistingID := 99999
+
+		reports, err := repo.GetPurchaseOrdersReport(&nonExistingID)
+
+		assert.Error(t, err)
+		assert.Empty(t, reports)
+		serviceError, ok := err.(pkg.ServiceError)
+		assert.True(t, ok)
+		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, serviceError.ResponseCode)
+	})
+
+	// Note: To fully test with purchase orders, we would need to create
+	// the purchase_orders table and insert test data. This would require
+	// extending the test setup to include purchase order creation.
+}

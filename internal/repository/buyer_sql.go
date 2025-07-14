@@ -152,16 +152,91 @@ func (r *BuyerSQL) Update(buyer models.Buyer) (b models.Buyer, err error) {
 
 // Delete is a method that deletes a buyer by its ID
 func (r *BuyerSQL) Delete(id int) (err error) {
-	// First check if the buyer exists
-	_, err = r.GetByID(id)
+	result, err := r.db.Exec("DELETE FROM buyers WHERE id = ?", id)
 	if err != nil {
 		return err
 	}
 
-	_, err = r.db.Exec("DELETE FROM buyers WHERE id = ?", id)
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return pkg.ServiceErrors[pkg.ErrInternalServer]
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return pkg.ServiceError{
+			ResponseCode:  pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode,
+			InternalError: pkg.ServiceErrors[pkg.ErrNotFound].InternalError,
+		}
 	}
 
 	return nil
+}
+
+// GetPurchaseOrdersReport is a method that returns a purchase order report for all buyers or a specific buyer
+func (r *BuyerSQL) GetPurchaseOrdersReport(buyerID *int) (reports []models.BuyerPurchaseOrderReport, err error) {
+	var query string
+	var args []interface{}
+
+	if buyerID != nil {
+		// Query for specific buyer
+		query = `
+			SELECT 
+				b.id, 
+				b.card_number_id, 
+				b.first_name, 
+				b.last_name, 
+				COUNT(po.id) as purchase_orders_count
+			FROM buyers b
+			LEFT JOIN purchase_orders po ON b.id = po.buyer_id
+			WHERE b.id = ?
+			GROUP BY b.id, b.card_number_id, b.first_name, b.last_name
+		`
+		args = append(args, *buyerID)
+	} else {
+		// Query for all buyers
+		query = `
+			SELECT 
+				b.id, 
+				b.card_number_id, 
+				b.first_name, 
+				b.last_name, 
+				COUNT(po.id) as purchase_orders_count
+			FROM buyers b
+			LEFT JOIN purchase_orders po ON b.id = po.buyer_id
+			GROUP BY b.id, b.card_number_id, b.first_name, b.last_name
+			ORDER BY b.id
+		`
+	}
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	reports = make([]models.BuyerPurchaseOrderReport, 0)
+	for rows.Next() {
+		var report models.BuyerPurchaseOrderReport
+		err := rows.Scan(
+			&report.ID,
+			&report.CardNumberID,
+			&report.FirstName,
+			&report.LastName,
+			&report.PurchaseOrdersCount,
+		)
+		if err != nil {
+			return nil, err
+		}
+		reports = append(reports, report)
+	}
+
+	// If specific buyer was requested and not found, return error
+	if buyerID != nil && len(reports) == 0 {
+		return nil, pkg.ServiceError{
+			ResponseCode:  pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode,
+			InternalError: pkg.ServiceErrors[pkg.ErrNotFound].InternalError,
+		}
+	}
+
+	return reports, nil
 }

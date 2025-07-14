@@ -23,3 +23,12 @@ type BuyerAttributes struct {
 	FirstName    string `json:"first_name"`
 	LastName     string `json:"last_name"`
 }
+
+// BuyerPurchaseOrderReport is a struct that represents a buyer with their purchase order count
+type BuyerPurchaseOrderReport struct {
+	ID                  int    `json:"id"`
+	CardNumberID        string `json:"card_number_id"`
+	FirstName           string `json:"first_name"`
+	LastName            string `json:"last_name"`
+	PurchaseOrdersCount int    `json:"purchase_orders_count"`
+}
