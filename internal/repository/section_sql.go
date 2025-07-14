@@ -4,6 +4,7 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
 )
@@ -27,8 +28,13 @@ func (r *SectionRepositorySql) GetAll() (s map[int]models.Section, err error) {
 		SELECT id, section_number, current_temperature, current_capacity, minimum_temperature, minimum_capacity, product_type_id, warehouse_id
 		FROM sections
 	`)
+	if errors.Is(err, sql.ErrNoRows) {
+		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
+		svcErr.InternalError = fmt.Errorf("no se encontraron sections")
+		return map[int]models.Section{}, svcErr
+	}
 	if err != nil {
-		return nil, err
+		return map[int]models.Section{}, pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
 	defer rows.Close()
 
@@ -70,7 +76,7 @@ func (r *SectionRepositorySql) GetByID(id int) (s models.Section, err error) {
 		&s.ProductTypeID,
 		&s.WarehouseID,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
 		svcErr.InternalError = fmt.Errorf("section con id %d no encontrada", id)
 		return models.Section{}, svcErr
