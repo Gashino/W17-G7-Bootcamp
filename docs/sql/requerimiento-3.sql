@@ -27,11 +27,6 @@ CREATE TABLE sections (
                           FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)
 );
 
-CREATE TABLE product_types (
-                        id INT PRIMARY KEY,
-                        name VARCHAR(255) NOT NULL
-);
-
 CREATE INDEX idx_product_batches_product_id ON product_batches(product_id);
 CREATE INDEX idx_product_batches_section_id ON product_batches(section_id);
 CREATE UNIQUE INDEX idx_product_batches_batch_number ON product_batches(batch_number);

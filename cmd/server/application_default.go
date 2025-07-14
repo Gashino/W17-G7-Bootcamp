@@ -138,6 +138,13 @@ func (a *ServerChi) Run() (err error) {
 			rt.Patch("/{id}", sectionHd.Update())
 			// - DELETE /vehicles/{id}
 			rt.Delete("/{id}", sectionHd.Delete())
+			// - GET /reportProducts
+			rt.Get("/reportProducts", sectionHd.ReportProducts())
+		})
+
+		rt.Route("/productBatches", func(rt chi.Router) {
+			// - POST /productBatches
+			rt.Post("/", sectionHd.CreateBatch())
 		})
 
 		rt.Route("/sellers", func(rt chi.Router) {
