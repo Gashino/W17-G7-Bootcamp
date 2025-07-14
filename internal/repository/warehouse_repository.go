@@ -6,7 +6,7 @@ import "app/pkg/models"
 type WarehouseRepository interface {
 	FindAll() (v map[int]models.Warehouse, err error)
 	FindByID(id int) (v models.Warehouse, err error)
-	Add(v models.Warehouse) (err error)
+	Add(v models.Warehouse) (w models.Warehouse, err error)
 	FindAvailableID() (id int, err error)
 	FindWarehouseByCode(code string) (v models.Warehouse, err error)
 	Delete(id int) (err error)
