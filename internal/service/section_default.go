@@ -33,10 +33,47 @@ func (sv *SectionDefault) Create(section models.Section) (s models.Section, err 
 
 // Update is a method that updates a section
 func (sv *SectionDefault) Update(id int, section models.Section) (s models.Section, err error) {
-	return sv.rp.Update(id, section)
+	sec, err := sv.rp.GetByID(id)
+	if err != nil {
+		return sec, err
+	}
+
+	if section.SectionNumber != 0 {
+		sec.SectionNumber = section.SectionNumber
+	}
+	if section.CurrentTemperature != 0 {
+		sec.CurrentTemperature = section.CurrentTemperature
+	}
+	if section.MinimumTemperature != 0 {
+		sec.MinimumTemperature = section.MinimumTemperature
+	}
+	if section.CurrentCapacity != 0 {
+		sec.CurrentCapacity = section.CurrentCapacity
+	}
+	if section.MinimumCapacity != 0 {
+		sec.MinimumCapacity = section.MinimumCapacity
+	}
+	if section.MaximumCapacity != 0 {
+		sec.MaximumCapacity = section.MaximumCapacity
+	}
+	if section.WarehouseID != 0 {
+		sec.WarehouseID = section.WarehouseID
+	}
+	if section.ProductTypeID != 0 {
+		sec.ProductTypeID = section.ProductTypeID
+	}
+
+	return sv.rp.Update(id, sec)
 }
 
 // Delete is a method that deletes a section
 func (sv *SectionDefault) Delete(id int) (err error) {
 	return sv.rp.Delete(id)
+}
+
+func (sv *SectionDefault) ReportProductsBySection(ptr *int) (s []models.SectionReport, err error) {
+	if ptr == nil {
+		return sv.rp.GetReportProductsAllSections()
+	}
+	return sv.rp.GetReportProductsBySection(*ptr)
 }
