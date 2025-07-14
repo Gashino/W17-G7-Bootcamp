@@ -86,12 +86,13 @@ func (a *ServerChi) Run() (err error) {
 		return err
 	}
 
-	/*	// create product handler with dependences
-		prodHandler, err := a.BuildProductHandler(&productDb, &productTypeDb, &sectionDb, &sellerDb)
-		if err != nil {
-			return err
-		}
+	// create product handler with dependences
+	prodHandler, err := a.BuildProductHandler(db)
+	if err != nil {
+		return err
+	}
 
+	/*
 		// dependencies
 		// - loader
 		// - repository
@@ -149,13 +150,13 @@ func (a *ServerChi) Run() (err error) {
 		//	r.Delete("/{id}", employeeHandler.DeleteEmployee)
 		//})
 
-		//rt.Route("/products", func(r chi.Router) {
-		//	r.Get("/", prodHandler.GetAll())
-		//	r.Get("/{id}", prodHandler.GetById())
-		//	r.Post("/", prodHandler.Create())
-		//	r.Delete("/{id}", prodHandler.Delete())
-		//	r.Patch("/{id}", prodHandler.Patch())
-		//})
+		rt.Route("/products", func(r chi.Router) {
+			r.Get("/", prodHandler.GetAll())
+			r.Get("/{id}", prodHandler.GetById())
+			r.Post("/", prodHandler.Create())
+			r.Delete("/{id}", prodHandler.Delete())
+			r.Patch("/{id}", prodHandler.Patch())
+		})
 
 		rt.Route("/sections", func(rt chi.Router) {
 			// - GET /vehicles
