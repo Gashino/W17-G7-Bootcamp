@@ -17,5 +17,5 @@ CREATE TABLE products (
       height DOUBLE,
       length DOUBLE,
       FOREIGN KEY (product_type_id) REFERENCES product_types(id),
-      FOREIGN KEY (seller_id) REFERENCES Sellers(id)
+      FOREIGN KEY (seller_id) REFERENCES sellers(id)
 );

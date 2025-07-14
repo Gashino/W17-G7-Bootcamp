@@ -4,6 +4,8 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"database/sql"
+	"github.com/go-sql-driver/mysql"
+	"strings"
 )
 
 type ProductSql struct {
@@ -43,7 +45,21 @@ const (
 		seller_id,
 		width,
 		height,
-		length FROM products WHERE ID = ?`
+		length FROM products WHERE id = ?`
+	Delete = `DELETE FROM products WHERE id = ?`
+	Create = `INSERT INTO products (
+		product_code,
+		description,
+		net_weight,
+		expiration_rate,
+		recommended_freezing_temperature,
+		freezing_rate,
+		product_type_id,
+		seller_id,
+		width,
+		height,
+		length
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 )
 
 func (p ProductSql) GetAll() map[int]models.Product {
@@ -109,13 +125,67 @@ func (p ProductSql) GetById(id int) (*models.Product, error) {
 }
 
 func (p ProductSql) Delete(id int) error {
-	//TODO implement me
-	panic("implement me")
+	rows, err := p.db.Exec(Delete, id)
+
+	if err != nil {
+		return pkg.ServiceErrors[pkg.ErrConflict]
+	}
+
+	rAffected, errRows := rows.RowsAffected()
+
+	if errRows != nil {
+		return pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+	if rAffected == 0 {
+		return pkg.ServiceErrors[pkg.ErrNotFound]
+	}
+
+	return nil
 }
 
 func (p ProductSql) Create(product models.Product) (*models.Product, error) {
-	//TODO implement me
-	panic("implement me")
+	result, err := p.db.Exec(Create,
+		product.ProductCode,
+		product.Description,
+		product.NetWeight,
+		product.ExpirationRate,
+		product.RecommendedFreezingTemperature,
+		product.FreezingRate,
+		product.ProductTypeId,
+		product.SellerId,
+		product.Width,
+		product.Height,
+		product.Length,
+	)
+	if err != nil {
+		var errorResponse pkg.ServiceError
+		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+			switch mysqlErr.Number {
+			case 1062:
+				errorResponse = pkg.ServiceErrors[pkg.ErrConflict]
+				errorResponse.Message = "product_code already exists"
+				return nil, errorResponse
+			case 1452:
+				errorResponse = pkg.ServiceErrors[pkg.ErrNotFound]
+				if strings.Contains(mysqlErr.Message, "product_type_id") {
+					errorResponse.Message = "invalid product_type_id"
+				} else if strings.Contains(mysqlErr.Message, "seller_id") {
+					errorResponse.Message = "invalid seller_id"
+				}
+				return nil, errorResponse
+			}
+		}
+		return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+
+	lastId, errId := result.LastInsertId()
+	if errId != nil {
+		return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+
+	product.ID = int(lastId)
+	return &product, nil
+
 }
 
 func (p ProductSql) Update(id int, product models.Product) error {
@@ -140,15 +210,3 @@ func (p ProductSql) Update(id int, product models.Product) error {
 //	return nil
 //}
 //
-//func (p *ProductSql) existsProductID(id int) bool {
-//	for _, section := range *p.dbSection {
-//		for _, batch := range section.ProductBatches {
-//			for _, productID := range batch.ProductIDs {
-//				if productID == id {
-//					return true
-//				}
-//			}
-//		}
-//	}
-//	return false
-//}
