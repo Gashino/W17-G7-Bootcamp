@@ -176,6 +176,7 @@ func (a *ServerChi) Run() (err error) {
 			r.Post("/", employeeHandler.CreateEmployee)
 			r.Patch("/{id}", employeeHandler.UpdateEmployee)
 			r.Delete("/{id}", employeeHandler.DeleteEmployee)
+			r.Get("/reportEmployees", employeeHandler.GetEmployeeInboundOrdersReport)
 		})
 
 		rt.Route("/products", func(r chi.Router) {

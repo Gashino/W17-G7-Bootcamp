@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/bootcamp-go/web/response"
 	"github.com/go-chi/chi/v5"
@@ -124,8 +125,8 @@ func (h *EmployeeHandler) DeleteEmployee(w http.ResponseWriter, r *http.Request)
 func (h *EmployeeHandler) GetEmployeeInboundOrdersReport(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 	var idPtr *int
-
-	if id != "" {
+	fmt.Println("id", id)
+	if strings.TrimSpace(id) != "" {
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
 			srvError := pkg.ServiceErrors[pkg.ErrBadRequest]

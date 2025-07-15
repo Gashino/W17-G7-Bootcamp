@@ -22,6 +22,7 @@ func NewEmployeeRepository(db *sql.DB) EmployeeRepository {
 
 func (r *EmployeeRepositoryMap) FindAll() (map[int]models.Employee, error) {
 	rows, err := r.db.Query("SELECT id, card_number_id, first_name, last_name, warehouse_id FROM employees")
+	fmt.Println("rows", rows)
 	if err != nil {
 		return nil, err
 	}
@@ -141,14 +142,31 @@ func (r *EmployeeRepositoryMap) ReportInboundOrdersCountByEmployee(id *int) ([]m
 		return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
 	defer rows.Close()
+
 	var reports []models.EmployeeReport
+	hasResults := false
+
 	for rows.Next() {
+		hasResults = true
 		var r models.EmployeeReport
 		if err := rows.Scan(&r.ID, &r.CardNumberID, &r.FirstName, &r.LastName, &r.InboundOrdersCount); err != nil {
 			return nil, err
 		}
 		reports = append(reports, r)
 	}
+
+	// Verificar si hubo errores durante la iteración
+	if err = rows.Err(); err != nil {
+		return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+
+	// Si se buscó un empleado específico y no hay resultados, es un error
+	if id != nil && *id > 0 && !hasResults {
+		srvError := pkg.ServiceErrors[pkg.ErrNotFound]
+		srvError.InternalError = fmt.Errorf("Employee with ID %d not found", *id)
+		return nil, srvError
+	}
+
 	return reports, nil
 }
 
