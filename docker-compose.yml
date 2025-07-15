@@ -8,7 +8,7 @@ services:
     container_name: mercado_fresco_mysql
     restart: always
     ports:
-      - "3307:3307"
+      - "3307:3306"
     environment:
       MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
       MYSQL_DATABASE: frescos

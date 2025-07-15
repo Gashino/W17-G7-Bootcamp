@@ -44,7 +44,7 @@ docker-compose down
 Para conectarte a la base de datos desde la línea de comandos:
 
 ```bash
-docker exec -it mercado_fresco_mysql mysql -uroot -ppassword frescos
+docker exec -it mercado_fresco_mysql mysql -uroot -p"" frescos
 ```
 
 ## Configuración de la aplicación
