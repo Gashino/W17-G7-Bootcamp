@@ -28,7 +28,7 @@ func (h *CarryDefault) SearchByLocality() http.HandlerFunc {
 		query := r.URL.Query()
 		id := query.Get("id")
 
-		// Inicializa idInt con -1 por defecto
+		// Inicializa idInt con -1
 		idInt := -1
 
 		// Si el parámetro id no está vacío, intenta convertirlo a un int
@@ -36,7 +36,6 @@ func (h *CarryDefault) SearchByLocality() http.HandlerFunc {
 			var err error
 			idInt, err = strconv.Atoi(id)
 			if err != nil {
-				// Maneja el error adecuadamente, por ejemplo, loguearlo
 				response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
 				return
 			}

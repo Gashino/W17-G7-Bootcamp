@@ -1,11 +1,13 @@
 package repository
 
 import (
+	"app/pkg"
 	"app/pkg/models"
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 // CarrySql is a function that returns a new instance of CarrySql
@@ -28,8 +30,25 @@ func (r *CarrySql) Create(v models.Carry) (c models.Carry, err error) {
 	)
 
 	if err != nil {
-		fmt.Println(err.Error())
-		err = errors.New("SQL Error")
+		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+			switch mysqlErr.Number {
+			case 1062:
+				// Duplicate entry error
+				srvError := pkg.ServiceErrors[pkg.ErrConflict]
+				srvError.InternalError = fmt.Errorf("cid already exists")
+				return models.Carry{}, srvError
+			case 1452:
+				// locality not found error
+				srvError := pkg.ServiceErrors[pkg.ErrConflict]
+				srvError.InternalError = fmt.Errorf("locality not found")
+				return models.Carry{}, srvError
+			default:
+				fmt.Println(err.Error())
+				// Other MySQL error
+				return models.Carry{}, pkg.ServiceErrors[pkg.ErrInternalServer]
+			}
+		}
+		//err = errors.New("SQL Error")
 		return
 	}
 	c = v
