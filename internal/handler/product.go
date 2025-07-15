@@ -5,11 +5,12 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"errors"
+	"net/http"
+	"strconv"
+
 	"github.com/bootcamp-go/web/request"
 	"github.com/bootcamp-go/web/response"
 	"github.com/go-chi/chi/v5"
-	"net/http"
-	"strconv"
 )
 
 func NewProductDefault(sv service.IProductService) *ProductDefault {
@@ -151,6 +152,11 @@ func (d ProductDefault) ReportRecords() http.HandlerFunc {
 		result, errResult := d.sv.GetProductRecords(id)
 		if errResult != nil {
 			response.Error(writer, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, errResult.Error())
+			return
+		}
+
+		if result == nil {
+			response.Error(writer, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
 			return
 		}
 
