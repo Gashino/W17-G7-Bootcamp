@@ -32,7 +32,7 @@ func (h *InboundOrderHandler) CreateInboundOrder(w http.ResponseWriter, r *http.
 		return
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"data": order.MapToDTO(),
 	}
 
