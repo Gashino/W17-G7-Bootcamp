@@ -32,8 +32,8 @@ CREATE TABLE warehouses (
     warehouse_code VARCHAR(10) NOT NULL UNIQUE,
     address VARCHAR(100) NOT NULL,
     telephone VARCHAR(15) NOT NULL,
-    minimum_capacity FLOAT NOT NULL,
-    minimum_temperature FLOAT NOT NULL
+    minimun_capacity FLOAT NOT NULL,
+    minimun_temperature FLOAT NOT NULL
 );
 
 -- Tabla buyers (base)
@@ -236,7 +236,7 @@ INSERT INTO localities (locality_name, province_name, country_name) VALUES
 ('San Juan', 'San Juan', 'Argentina');
 
 -- Seed para warehouses (primeros 10 del archivo JSON)
-INSERT INTO warehouses (id, warehouse_code, address, telephone, minimum_capacity, minimum_temperature) VALUES
+INSERT INTO warehouses (id, warehouse_code, address, telephone, minimun_capacity, minimun_temperature) VALUES
 (1, 'WH001', '7 Calle Principal, Ciudad 1, País', '+1234567001', 3694, -4),
 (2, 'WH002', '14 Calle Principal, Ciudad 2, País', '+1234567002', 4930, -24),
 (3, 'WH003', '21 Calle Principal, Ciudad 3, País', '+1234567003', 2722, -14),
