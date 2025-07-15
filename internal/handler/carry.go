@@ -60,7 +60,7 @@ func (h *CarryDefault) SearchByLocality() http.HandlerFunc {
 func (h *CarryDefault) Create() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Almaceno la del body
-		var data models.Carry
+		var data models.CarryDoc
 		decoder := json.NewDecoder(r.Body)
 		err := decoder.Decode(&data)
 		defer r.Body.Close()
@@ -79,8 +79,16 @@ func (h *CarryDefault) Create() http.HandlerFunc {
 			return
 		}
 
+		carry := models.Carry{
+			Cid:         data.Cid,
+			CompanyName: data.CompanyName,
+			Address:     data.Address,
+			Telephone:   data.Telephone,
+			LocalityId:  data.LocalityId,
+		}
+
 		// Llamo al service
-		carry, err := h.sv.Create(data)
+		carry, err = h.sv.Create(carry)
 
 		if err != nil {
 			svcErr := pkg.ServiceErrors[pkg.ErrInternalServer]
@@ -90,7 +98,7 @@ func (h *CarryDefault) Create() http.HandlerFunc {
 		}
 
 		writeResponse(w, http.StatusCreated, map[string]any{
-			"data": carry,
+			"data": data,
 		}, nil)
 		return
 	}

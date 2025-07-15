@@ -18,7 +18,7 @@ INSERT INTO `warehouses` (`id`, `warehouse_code`, `address`, `telephone`, `minim
 drop table if exists carries;
 CREATE TABLE if not exists carries (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    cid INT NOT NULL UNIQUE,
+    cid VARCHAR(12) NOT NULL UNIQUE,
     company_name VARCHAR(255) NOT NULL,
     address VARCHAR(255) NOT NULL,
     telephone VARCHAR(20) NOT NULL,

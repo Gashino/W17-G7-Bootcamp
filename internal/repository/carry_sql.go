@@ -19,9 +19,11 @@ type CarrySql struct {
 }
 
 func (r *CarrySql) Create(v models.Carry) (c models.Carry, err error) {
+
+	fmt.Println(v)
 	_, err = r.db.Exec(
 		"INSERT INTO carries (cid, company_name, address, telephone, locality_id) VALUES (?, ?, ?, ?, ?)",
-		c.Cid, c.CompanyName, c.Address, c.Telephone, c.LocalityId,
+		v.Cid, v.CompanyName, v.Address, v.Telephone, v.LocalityId,
 	)
 
 	if err != nil {
