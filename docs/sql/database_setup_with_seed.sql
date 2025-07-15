@@ -5,6 +5,10 @@
 -- organizadas por dependencias y datos de seed iniciales
 -- =====================================================
 
+DROP DATABASE IF EXISTS frescos;
+CREATE DATABASE frescos;
+USE frescos;
+
 -- Configuración inicial
 SET FOREIGN_KEY_CHECKS = 0;
 
