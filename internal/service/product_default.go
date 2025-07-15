@@ -13,6 +13,10 @@ type ProductService struct {
 	rp repository.ProductRepository
 }
 
+func (p ProductService) GetProductRecords(id *int) ([]models.ProductRecordResponse, error) {
+	return p.rp.GetProductRecords(id)
+}
+
 func (p ProductService) Update(id int, product models.Product) (*models.Product, error) {
 	productToUpdate, errId := p.rp.GetById(id)
 	if errId != nil {

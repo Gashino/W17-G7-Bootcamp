@@ -134,3 +134,28 @@ func (d ProductDefault) Patch() http.HandlerFunc {
 		})
 	}
 }
+
+func (d ProductDefault) ReportRecords() http.HandlerFunc {
+	return func(writer http.ResponseWriter, r *http.Request) {
+		idStr := r.URL.Query().Get("id")
+		var id *int
+		if idStr != "" {
+			val, err := strconv.Atoi(idStr)
+			if err != nil {
+				response.Error(writer, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, pkg.ServiceErrors[pkg.ErrInternalServer].Error())
+				return
+			} else {
+				id = &val
+			}
+		}
+		result, errResult := d.sv.GetProductRecords(id)
+		if errResult != nil {
+			response.Error(writer, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, errResult.Error())
+			return
+		}
+
+		response.JSON(writer, http.StatusOK, map[string]any{
+			"data": result,
+		})
+	}
+}

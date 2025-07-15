@@ -148,6 +148,13 @@ func (a *ServerChi) Run() (err error) {
 	if err != nil {
 		return err
 	}
+
+	// create product_record handler with dependences
+	hdProdRec, err := a.BuildProductRecordHandler(db)
+	if err != nil {
+		return err
+	}
+
 	// router
 	rt := chi.NewRouter()
 	// - middlewares
@@ -185,6 +192,8 @@ func (a *ServerChi) Run() (err error) {
 			r.Post("/", prodHandler.Create())
 			r.Delete("/{id}", prodHandler.Delete())
 			r.Patch("/{id}", prodHandler.Patch())
+			// - GET /reportRecords
+			r.Get("/reportRecords", prodHandler.ReportRecords())
 		})
 
 		rt.Route("/sections", func(rt chi.Router) {
@@ -226,6 +235,10 @@ func (a *ServerChi) Run() (err error) {
 
 		rt.Route("/purchaseOrders", func(r chi.Router) {
 			r.Post("/", purchaseOrderHd.Create())
+		})
+
+		rt.Route("/productRecords", func(rt chi.Router) {
+			rt.Post("/", hdProdRec.Create())
 		})
 
 		rt.Route("/inboundOrders", func(r chi.Router) {
@@ -426,6 +439,18 @@ func (a *ServerChi) BuildLocalityHandler(localityDb *sql.DB) (*handler.LocalityD
 	// - handler
 	hdLocality := handler.NewLocalityDefault(svLocality)
 	return hdLocality, nil
+}
+
+func (a *ServerChi) BuildProductRecordHandler(db *sql.DB) (*handler.ProductRecordhDefault, error) {
+	// - repository
+	prodRecRepository := repository.NewProductRecordSqlRepository(db)
+
+	// - service
+	svLocality := service.NewProductRecordDefault(prodRecRepository)
+
+	// - handler
+	hdProdRecHandler := handler.NewProductRecordDefault(svLocality)
+	return hdProdRecHandler, nil
 }
 
 func (a *ServerChi) BuildInboundOrderHandler(db *sql.DB) (*handler.InboundOrderHandler, error) {
