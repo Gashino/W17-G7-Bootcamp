@@ -4,8 +4,9 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"database/sql"
-	"github.com/go-sql-driver/mysql"
 	"strings"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 type ProductSql struct {
@@ -229,7 +230,9 @@ func (p ProductSql) GetProductRecords(id *int) ([]models.ProductRecordResponse, 
 	}
 	defer rows.Close()
 
+	hasRecords := false
 	for rows.Next() {
+		hasRecords = true
 		var prodReport models.ProductRecordResponse
 		err := rows.Scan(
 			&prodReport.ProductId,
@@ -242,8 +245,23 @@ func (p ProductSql) GetProductRecords(id *int) ([]models.ProductRecordResponse, 
 		productRecordists = append(productRecordists, prodReport)
 	}
 
-	return productRecordists, nil
+	if !hasRecords && id != nil {
+		prod, err := p.GetById(*id)
+		if err == nil && prod != nil {
+			description := ""
+			if prod.Description != nil {
+				description = *prod.Description
+			}
+			prodReport := models.ProductRecordResponse{
+				ProductId:    prod.ID,
+				Description:  description,
+				RecordsCount: 0,
+			}
+			productRecordists = append(productRecordists, prodReport)
+		}
+	}
 
+	return productRecordists, nil
 }
 
 func errorCreateUpdate(err error) pkg.ServiceError {
