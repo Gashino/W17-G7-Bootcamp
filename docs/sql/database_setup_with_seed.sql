@@ -175,7 +175,7 @@ DROP TABLE IF EXISTS inbound_orders;
 CREATE TABLE inbound_orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_date DATE NOT NULL,
-    order_number VARCHAR(64) NOT NULL,
+    order_number VARCHAR(64) NOT NULL UNIQUE,
     employee_id INT NOT NULL,
     product_batch_id INT NOT NULL,
     warehouse_id INT NOT NULL,
