@@ -72,6 +72,14 @@ const (
 		width = COALESCE(?, width),
 		height = COALESCE(?, height),
 		length = COALESCE(?, length) WHERE id = ?`
+	JoinToProductRecord = `SELECT
+		p.id,
+		p.description,
+		COUNT(*) as records_count FROM
+		products p INNER JOIN product_records pr ON p.id = pr.product_id WHERE
+		(? IS NULL OR p.id = ?)
+		GROUP BY
+    	p.id, p.description`
 )
 
 func (p ProductSql) GetAll() map[int]models.Product {
@@ -209,6 +217,32 @@ func (p ProductSql) Update(id int, product models.Product) error {
 	}
 
 	return nil
+
+}
+
+func (p ProductSql) GetProductRecords(id *int) ([]models.ProductRecordResponse, error) {
+	var productRecordists []models.ProductRecordResponse
+
+	rows, err := p.db.Query(JoinToProductRecord, id, id)
+	if err != nil {
+		return nil, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var prodReport models.ProductRecordResponse
+		err := rows.Scan(
+			&prodReport.ProductId,
+			&prodReport.Description,
+			&prodReport.RecordsCount,
+		)
+		if err != nil {
+			continue
+		}
+		productRecordists = append(productRecordists, prodReport)
+	}
+
+	return productRecordists, nil
 
 }
 

@@ -10,6 +10,12 @@ type ProductRecord struct {
 	ProductId      *int       `json:"product_id"`
 }
 
+type ProductRecordResponse struct {
+	ProductId    int    `json:"product_id"`
+	Description  string `json:"description"`
+	RecordsCount int    `json:"records_count"`
+}
+
 func (data *ProductRecord) Validate() bool {
 	if data.LastUpdateDate == nil {
 		return false

@@ -187,6 +187,8 @@ func (a *ServerChi) Run() (err error) {
 			r.Post("/", prodHandler.Create())
 			r.Delete("/{id}", prodHandler.Delete())
 			r.Patch("/{id}", prodHandler.Patch())
+			// - GET /reportRecords
+			r.Get("/reportRecords", prodHandler.ReportRecords())
 		})
 
 		rt.Route("/sections", func(rt chi.Router) {
