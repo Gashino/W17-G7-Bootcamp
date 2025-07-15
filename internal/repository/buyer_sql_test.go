@@ -14,6 +14,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -21,20 +22,54 @@ var (
 	cardIDMutex   sync.Mutex
 )
 
-func init() {
-	// Register txdb driver for testing
-	user := getEnvOrDefault("DB_USER", "root")
-	password := getEnvOrDefault("DB_PASSWORD", "asda1125")
-	host := getEnvOrDefault("DB_HOST", "localhost")
-	port := getEnvOrDefault("DB_PORT", "3306")
-	dbname := getEnvOrDefault("DB_NAME", "db_test")
+// Estructura para leer la configuración de la base de datos desde config.yml
+type BuyerDBConfig struct {
+	Database struct {
+		User     string `yaml:"user"`
+		Password string `yaml:"password"`
+		Host     string `yaml:"host"`
+		Port     string `yaml:"port"`
+		Name     string `yaml:"name"`
+	} `yaml:"database"`
+}
 
+// Cargar la configuración desde config.yml
+func loadBuyerConfig() BuyerDBConfig {
+	var config BuyerDBConfig
+
+	// Intentar leer el archivo de configuración
+	data, err := os.ReadFile("../../config.yml")
+	if err != nil {
+		// Si hay un error, mostrar un mensaje y terminar el test
+		panic(fmt.Sprintf("Error al leer el archivo config.yml: %v\nAsegúrate de que el archivo config.yml existe en la raíz del proyecto", err))
+	}
+
+	// Parsear el archivo YAML
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		// Si hay un error al parsear el YAML, mostrar un mensaje y terminar el test
+		panic(fmt.Sprintf("Error al parsear el archivo config.yml: %v\nVerifica que el formato del archivo sea correcto", err))
+	}
+
+	// Verificar que la configuración de la base de datos esté completa
+	if config.Database.User == "" || config.Database.Host == "" || config.Database.Port == "" || config.Database.Name == "" {
+		panic("La configuración de la base de datos en config.yml está incompleta")
+	}
+
+	return config
+}
+
+func init() {
+	// Leer la configuración desde config.yml
+	config := loadBuyerConfig()
+
+	// Configurar la conexión MySQL usando los valores del config.yml
 	cfg := mysql.Config{
-		User:                 user,
-		Passwd:               password,
+		User:                 config.Database.User,
+		Passwd:               config.Database.Password,
 		Net:                  "tcp",
-		Addr:                 fmt.Sprintf("%s:%s", host, port),
-		DBName:               dbname,
+		Addr:                 fmt.Sprintf("%s:%s", config.Database.Host, config.Database.Port),
+		DBName:               config.Database.Name,
 		ParseTime:            true,
 		AllowNativePasswords: true,
 	}
