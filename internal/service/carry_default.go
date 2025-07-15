@@ -15,7 +15,7 @@ type CarryDefault struct {
 	rp repository.CarryRepository
 }
 
-func (s *CarryDefault) SearchByLocality(locality_id int) (c map[int]models.Carry, err error) {
+func (s *CarryDefault) SearchByLocality(locality_id int) (c map[string]models.CarryByLocality, err error) {
 	c, err = s.rp.SearchByLocality(locality_id)
 	return
 }
