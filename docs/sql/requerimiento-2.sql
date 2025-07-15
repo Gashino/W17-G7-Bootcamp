@@ -22,5 +22,6 @@ CREATE TABLE if not exists carries (
     company_name VARCHAR(255) NOT NULL,
     address VARCHAR(255) NOT NULL,
     telephone VARCHAR(20) NOT NULL,
-    locality_id INT NOT NULL
+    locality_id INT NOT NULL,
+   FOREIGN KEY (locality_id) REFERENCES localities(id)
 );

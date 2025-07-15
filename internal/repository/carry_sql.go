@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // CarrySql is a function that returns a new instance of CarrySql
@@ -36,15 +37,18 @@ func (r *CarrySql) Create(v models.Carry) (c models.Carry, err error) {
 	return
 }
 
-func (r *CarrySql) SearchByLocality(locality_id int) (v map[int]models.Carry, err error) {
-	v = make(map[int]models.Carry)
-	query_str := "SELECT id, cid, company_name, address, telephone, locality_id FROM carries"
+func (r *CarrySql) SearchByLocality(locality_id int) (v map[string]models.CarryByLocality, err error) {
+	v = make(map[string]models.CarryByLocality)
+
 	var rows *sql.Rows
 
+	query_str := "SELECT l.id AS locality_id, l.locality_name, COUNT(c.id) AS carries_count FROM localities l LEFT JOIN carries c ON l.id = c.locality_id !WHERE_COND! GROUP BY l.id, l.locality_name"
+
 	if locality_id >= 0 {
-		query_str += " WHERE locality_id = ?"
+		query_str = strings.Replace(query_str, "!WHERE_COND!", "where l.id = ?", -1)
 		rows, err = r.db.Query(query_str, locality_id)
 	} else {
+		query_str = strings.Replace(query_str, "!WHERE_COND!", "", -1)
 		rows, err = r.db.Query(query_str)
 	}
 
@@ -55,12 +59,12 @@ func (r *CarrySql) SearchByLocality(locality_id int) (v map[int]models.Carry, er
 	defer rows.Close()
 
 	for rows.Next() {
-		var carry models.Carry
-		err := rows.Scan(&carry.ID, &carry.Cid, &carry.CompanyName, &carry.Address, &carry.Telephone, &carry.LocalityId)
+		var carryByLoc models.CarryByLocality
+		err := rows.Scan(&carryByLoc.LocalityId, &carryByLoc.LocalityName, &carryByLoc.CarriesCount)
 		if err != nil {
 			return nil, err
 		}
-		v[carry.ID] = carry
+		v[carryByLoc.LocalityId] = carryByLoc
 	}
 
 	return

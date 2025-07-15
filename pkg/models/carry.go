@@ -24,3 +24,9 @@ func (v *CarryDoc) AreFieldsValid() bool {
 	}
 	return true
 }
+
+type CarryByLocality struct {
+	LocalityId   string `json:"locality_id"`
+	LocalityName string `json:"locality_name"`
+	CarriesCount int    `json:"carries_count"`
+}
