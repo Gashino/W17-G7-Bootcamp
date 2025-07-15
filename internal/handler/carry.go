@@ -49,9 +49,19 @@ func (h *CarryDefault) SearchByLocality() http.HandlerFunc {
 			return
 		}
 
+		returnSlice := make([]models.CarryByLocality, 0)
+		for _, value := range data {
+			returnSlice = append(returnSlice, value)
+		}
+
+		if len(returnSlice) == 0 {
+			response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, "Not found")
+			return
+		}
+
 		// response
 		writeResponse(w, http.StatusCreated, map[string]any{
-			"data": data,
+			"data": returnSlice,
 		}, nil)
 	}
 }
