@@ -8,7 +8,6 @@ import (
 	"app/pkg/models"
 	"database/sql"
 	"fmt"
-
 	"log"
 	"net/http"
 	"os"
@@ -144,6 +143,11 @@ func (a *ServerChi) Run() (err error) {
 	if err != nil {
 		return err
 	}
+	// Create inbound order handler with dependencies
+	inboundOrderHd, err := a.BuildInboundOrderHandler(db)
+	if err != nil {
+		return err
+	}
 
 	// create product_record handler with dependences
 	hdProdRec, err := a.BuildProductRecordHandler(db)
@@ -179,6 +183,7 @@ func (a *ServerChi) Run() (err error) {
 			r.Post("/", employeeHandler.CreateEmployee)
 			r.Patch("/{id}", employeeHandler.UpdateEmployee)
 			r.Delete("/{id}", employeeHandler.DeleteEmployee)
+			r.Get("/reportEmployees", employeeHandler.GetEmployeeInboundOrdersReport)
 		})
 
 		rt.Route("/products", func(r chi.Router) {
@@ -234,6 +239,10 @@ func (a *ServerChi) Run() (err error) {
 
 		rt.Route("/productRecords", func(rt chi.Router) {
 			rt.Post("/", hdProdRec.Create())
+		})
+
+		rt.Route("/inboundOrders", func(r chi.Router) {
+			r.Post("/", inboundOrderHd.CreateInboundOrder)
 		})
 
 	})
@@ -442,4 +451,16 @@ func (a *ServerChi) BuildProductRecordHandler(db *sql.DB) (*handler.ProductRecor
 	// - handler
 	hdProdRecHandler := handler.NewProductRecordDefault(svLocality)
 	return hdProdRecHandler, nil
+}
+
+func (a *ServerChi) BuildInboundOrderHandler(db *sql.DB) (*handler.InboundOrderHandler, error) {
+	// - repository
+	inboundOrderRp := repository.NewInboundOrderSQL(db)
+
+	// - service
+	inboundOrderSv := service.NewInboundOrderServiceDefault(inboundOrderRp)
+
+	// - handler
+	inboundOrderHd := handler.NewInboundOrderHandler(inboundOrderSv)
+	return inboundOrderHd, nil
 }
