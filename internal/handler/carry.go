@@ -28,7 +28,7 @@ func (h *CarryDefault) SearchByLocality() http.HandlerFunc {
 		query := r.URL.Query()
 		id := query.Get("id")
 
-		// Inicializa idInt con -1 por defecto
+		// Inicializa idInt con -1
 		idInt := -1
 
 		// Si el parámetro id no está vacío, intenta convertirlo a un int
@@ -36,7 +36,6 @@ func (h *CarryDefault) SearchByLocality() http.HandlerFunc {
 			var err error
 			idInt, err = strconv.Atoi(id)
 			if err != nil {
-				// Maneja el error adecuadamente, por ejemplo, loguearlo
 				response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
 				return
 			}
@@ -50,9 +49,19 @@ func (h *CarryDefault) SearchByLocality() http.HandlerFunc {
 			return
 		}
 
+		returnSlice := make([]models.CarryByLocality, 0)
+		for _, value := range data {
+			returnSlice = append(returnSlice, value)
+		}
+
+		if len(returnSlice) == 0 {
+			response.Error(w, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, "Not found")
+			return
+		}
+
 		// response
 		writeResponse(w, http.StatusCreated, map[string]any{
-			"data": data,
+			"data": returnSlice,
 		}, nil)
 	}
 }
@@ -60,7 +69,7 @@ func (h *CarryDefault) SearchByLocality() http.HandlerFunc {
 func (h *CarryDefault) Create() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Almaceno la del body
-		var data models.Carry
+		var data models.CarryDoc
 		decoder := json.NewDecoder(r.Body)
 		err := decoder.Decode(&data)
 		defer r.Body.Close()
@@ -79,8 +88,16 @@ func (h *CarryDefault) Create() http.HandlerFunc {
 			return
 		}
 
+		carry := models.Carry{
+			Cid:         data.Cid,
+			CompanyName: data.CompanyName,
+			Address:     data.Address,
+			Telephone:   data.Telephone,
+			LocalityId:  data.LocalityId,
+		}
+
 		// Llamo al service
-		carry, err := h.sv.Create(data)
+		carry, err = h.sv.Create(carry)
 
 		if err != nil {
 			svcErr := pkg.ServiceErrors[pkg.ErrInternalServer]
@@ -90,7 +107,7 @@ func (h *CarryDefault) Create() http.HandlerFunc {
 		}
 
 		writeResponse(w, http.StatusCreated, map[string]any{
-			"data": carry,
+			"data": data,
 		}, nil)
 		return
 	}

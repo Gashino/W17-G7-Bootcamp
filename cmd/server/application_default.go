@@ -174,7 +174,7 @@ func (a *ServerChi) Run() (err error) {
 
 		rt.Route("/carries", func(rt chi.Router) {
 			rt.Post("/", carryHd.Create())
-			rt.Get("/localities/reportCarries", carryHd.SearchByLocality())
+			//rt.Get("/localities/reportCarries", carryHd.SearchByLocality())
 		})
 
 		rt.Route("/employees", func(r chi.Router) {
@@ -231,6 +231,7 @@ func (a *ServerChi) Run() (err error) {
 		rt.Route("/localities", func(rt chi.Router) {
 			rt.Get("/reportSellers/{id}", hdLocalities.SellersByLocality())
 			rt.Post("/", hdLocalities.Create())
+			rt.Get("/reportCarries", carryHd.SearchByLocality())
 		})
 
 		rt.Route("/purchaseOrders", func(r chi.Router) {
