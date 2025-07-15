@@ -9,6 +9,34 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
+const (
+	selectAllEmployees = `
+		SELECT id, card_number_id, first_name, last_name, warehouse_id
+		FROM employees
+	`
+	selectEmployeeById = `
+		SELECT id, card_number_id, first_name, last_name, warehouse_id
+		FROM employees
+		WHERE id = ?
+	`
+	insertEmployee                     = "INSERT INTO employees (card_number_id, first_name, last_name, warehouse_id) VALUES (?, ?, ?, ?)"
+	updateEmployee                     = "UPDATE employees SET card_number_id = ?, first_name = ?, last_name = ?, warehouse_id = ? WHERE id = ?"
+	deleteEmployee                     = "DELETE FROM employees WHERE id = ?"
+	reportInboundOrdersCountByEmployee = `
+		SELECT e.id, e.card_number_id, e.first_name, e.last_name, COUNT(io.id) AS inbound_orders_count
+		FROM employees e
+		LEFT JOIN inbound_orders io ON e.id = io.employee_id
+		GROUP BY e.id, e.card_number_id, e.first_name, e.last_name
+	`
+	reportInboundOrdersCountByEmployeeWithId = `
+		SELECT e.id, e.card_number_id, e.first_name, e.last_name, COUNT(io.id) AS inbound_orders_count
+		FROM employees e
+		LEFT JOIN inbound_orders io ON e.id = io.employee_id
+		WHERE e.id = ?
+		GROUP BY e.id, e.card_number_id, e.first_name, e.last_name
+	`
+)
+
 type EmployeeRepositoryMap struct {
 	db *sql.DB
 }
@@ -21,8 +49,7 @@ func NewEmployeeRepository(db *sql.DB) EmployeeRepository {
 }
 
 func (r *EmployeeRepositoryMap) FindAll() (map[int]models.Employee, error) {
-	rows, err := r.db.Query("SELECT id, card_number_id, first_name, last_name, warehouse_id FROM employees")
-	fmt.Println("rows", rows)
+	rows, err := r.db.Query(selectAllEmployees)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +69,7 @@ func (r *EmployeeRepositoryMap) FindAll() (map[int]models.Employee, error) {
 }
 
 func (r *EmployeeRepositoryMap) FindById(id int) (models.Employee, error) {
-	rows, err := r.db.Query("SELECT id, card_number_id, first_name, last_name, warehouse_id FROM employees WHERE id = ?", id)
+	rows, err := r.db.Query(selectEmployeeById, id)
 	if err != nil {
 		return models.Employee{}, err
 	}
@@ -63,10 +90,7 @@ func (r *EmployeeRepositoryMap) FindById(id int) (models.Employee, error) {
 
 func (r *EmployeeRepositoryMap) Save(employee models.Employee) (models.Employee, error) {
 	// Validate that the WarehouseID exists
-	_, err := r.db.Exec(
-		"INSERT INTO employees (card_number_id, first_name, last_name, warehouse_id) VALUES (?, ?, ?, ?)",
-		employee.CardNumberID, employee.FirstName, employee.LastName, employee.WarehouseID,
-	)
+	data, err := r.db.Exec(insertEmployee, employee.CardNumberID, employee.FirstName, employee.LastName, employee.WarehouseID)
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 			switch mysqlErr.Number {
@@ -89,11 +113,17 @@ func (r *EmployeeRepositoryMap) Save(employee models.Employee) (models.Employee,
 		return models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
 
+	lastInsertId, err := data.LastInsertId()
+	if err != nil {
+		return models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+	employee.ID = int(lastInsertId)
+
 	return employee, nil
 }
 
 func (r *EmployeeRepositoryMap) Update(employee models.Employee, id int) (models.Employee, error) {
-	_, err := r.db.Exec("UPDATE employees SET card_number_id = ?, first_name = ?, last_name = ?, warehouse_id = ? WHERE id = ?", employee.CardNumberID, employee.FirstName, employee.LastName, employee.WarehouseID, id)
+	_, err := r.db.Exec(updateEmployee, employee.CardNumberID, employee.FirstName, employee.LastName, employee.WarehouseID, id)
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 			switch mysqlErr.Number {
@@ -121,21 +151,10 @@ func (r *EmployeeRepositoryMap) ReportInboundOrdersCountByEmployee(id *int) ([]m
 
 	if id != nil && *id > 0 {
 		// Consulta solo para un empleado específico
-		rows, err = r.db.Query(`
-            SELECT e.id, e.card_number_id, e.first_name, e.last_name, COUNT(io.id) AS inbound_orders_count
-            FROM employees e
-            LEFT JOIN inbound_orders io ON e.id = io.employee_id
-            WHERE e.id = ?
-            GROUP BY e.id, e.card_number_id, e.first_name, e.last_name
-        `, id)
+		rows, err = r.db.Query(reportInboundOrdersCountByEmployeeWithId, id)
 	} else {
 		// Consulta para todos los empleados
-		rows, err = r.db.Query(`
-            SELECT e.id, e.card_number_id, e.first_name, e.last_name, COUNT(io.id) AS inbound_orders_count
-            FROM employees e
-            LEFT JOIN inbound_orders io ON e.id = io.employee_id
-            GROUP BY e.id, e.card_number_id, e.first_name, e.last_name
-        `)
+		rows, err = r.db.Query(reportInboundOrdersCountByEmployee)
 	}
 
 	if err != nil {
@@ -171,10 +190,9 @@ func (r *EmployeeRepositoryMap) ReportInboundOrdersCountByEmployee(id *int) ([]m
 }
 
 func (r *EmployeeRepositoryMap) Delete(id int) error {
-	_, err := r.db.Exec("DELETE FROM employees WHERE id = ?", id)
+	_, err := r.db.Exec(deleteEmployee, id)
 	if err != nil {
 		return pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
-
 	return nil
 }
