@@ -8,4 +8,5 @@ type ProductRepository interface {
 	Delete(id int) error
 	Create(product models.Product) (*models.Product, error)
 	Update(id int, product models.Product) error
+	GetProductRecords(id *int) ([]models.ProductRecordResponse, error)
 }
