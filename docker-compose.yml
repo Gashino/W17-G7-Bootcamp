@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  mysql:
+    build:
+      context: .
+      dockerfile: docker/mysql/Dockerfile
+    container_name: mercado_fresco_mysql
+    restart: always
+    ports:
+      - "3307:3307"
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: frescos
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - mercado_fresco_network
+
+networks:
+  mercado_fresco_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
