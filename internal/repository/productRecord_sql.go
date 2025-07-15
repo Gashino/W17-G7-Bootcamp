@@ -29,8 +29,7 @@ func (p ProductRecordSql) Insert(record models.ProductRecord) (*models.ProductRe
 	)
 
 	if err != nil {
-		var errorResponse pkg.ServiceError
-		errorResponse = pkg.ServiceErrors[pkg.ErrNotFound]
+		errorResponse := pkg.ServiceErrors[pkg.ErrNotFound]
 		errorResponse.Message = "invalid product_id"
 		return nil, errorResponse
 	}
