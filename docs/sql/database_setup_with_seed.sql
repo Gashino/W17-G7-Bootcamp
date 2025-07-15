@@ -60,14 +60,14 @@ CREATE TABLE product_types (
 
 -- Tabla carries (depende de localities)
 DROP TABLE IF EXISTS carries;
-CREATE TABLE carries (
+CREATE TABLE if not exists carries (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    cid INT NOT NULL UNIQUE,
+    cid VARCHAR(12) NOT NULL UNIQUE,
     company_name VARCHAR(255) NOT NULL,
     address VARCHAR(255) NOT NULL,
     telephone VARCHAR(20) NOT NULL,
     locality_id INT NOT NULL,
-    FOREIGN KEY (locality_id) REFERENCES localities(id)
+   FOREIGN KEY (locality_id) REFERENCES localities(id)
 );
 
 -- Tabla sellers (depende de localities)
@@ -300,11 +300,11 @@ INSERT INTO buyers (id, card_number_id, first_name, last_name) VALUES
 
 -- Seed para carries
 INSERT INTO carries (cid, company_name, address, telephone, locality_id) VALUES
-(1001, 'Transporte Rápido SA', 'Av. Libertador 1000', '4444-5555', 1),
-(1002, 'Logística Express', 'Calle Falsa 123', '4444-6666', 2),
-(1003, 'Carga Segura SRL', 'Av. Rivadavia 2000', '4444-7777', 3),
-(1004, 'Envíos del Norte', 'San Martín 500', '4444-8888', 4),
-(1005, 'Transportes del Sur', 'Belgrano 300', '4444-9999', 5);
+    ('C001', 'Company Alpha', '123 Alpha St', '123-456-7890', 1),
+    ('C002', 'Beta Solutions', '456 Beta Ave', '234-567-8901', 2),
+    ('C003', 'Gamma Enterprises', '789 Gamma Blvd', '345-678-9012', 1),
+    ('C004', 'Delta Corp', '321 Delta Rd', '456-789-0123', 2),
+    ('C005', 'Epsilon LLC', '654 Epsilon Pl', '567-890-1234', 3);
 
 -- Seed para sellers (del archivo JSON)
 INSERT INTO sellers (id, cid, company_name, address, telephone, locality_id) VALUES
