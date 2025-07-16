@@ -49,11 +49,11 @@ func (r *ProductBatchRepositorySql) InsertProductBatch(pb models.ProductBatch) (
 			switch mysqlErr.Number {
 			case 1062:
 				svcErr := pkg.ServiceErrors[pkg.ErrConflict]
-				svcErr.InternalError = fmt.Errorf("batch_number duplicado: %v", mysqlErr.Message)
+				svcErr.InternalError = fmt.Errorf("batch_number duplicado")
 				return models.ProductBatch{}, svcErr
 			case 1452:
 				svcErr := pkg.ServiceErrors[pkg.ErrConflict]
-				svcErr.InternalError = fmt.Errorf("product_id o section_id no existen: %v", mysqlErr.Message)
+				svcErr.InternalError = fmt.Errorf("product_id o section_id no existen")
 				return models.ProductBatch{}, svcErr
 			}
 		}
