@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/bootcamp-go/web/response"
 	"github.com/go-chi/chi/v5"
@@ -121,6 +122,31 @@ func (h *EmployeeHandler) DeleteEmployee(w http.ResponseWriter, r *http.Request)
 	writeResponse(w, http.StatusNoContent, nil, nil)
 }
 
+func (h *EmployeeHandler) GetEmployeeInboundOrdersReport(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	var idPtr *int
+	fmt.Println("id", id)
+	if strings.TrimSpace(id) != "" {
+		idInt, err := strconv.Atoi(id)
+		if err != nil {
+			srvError := pkg.ServiceErrors[pkg.ErrBadRequest]
+			srvError.InternalError = fmt.Errorf("Invalid ID format")
+			handleServiceError(w, srvError)
+			return
+		}
+		idPtr = &idInt
+	}
+	// Si id está vacío, idPtr será nil
+
+	report, err := h.service.ReportInboundOrdersCountByEmployee(idPtr)
+	if err != nil {
+		handleServiceError(w, err)
+		return
+	}
+	response := models.EmployeeReportsResponse{Data: report}
+	writeResponse(w, http.StatusOK, response, nil)
+}
+
 // Functions to handle the responses
 
 // writeResponse is a helper function to write JSON responses with status code
@@ -145,7 +171,6 @@ func writeResponse(w http.ResponseWriter, status int, data interface{}, err erro
 func handleServiceError(w http.ResponseWriter, err error) {
 	var srvError pkg.ServiceError
 	if errors.As(err, &srvError) {
-
 		response.Error(w, srvError.ResponseCode, srvError.Error())
 	} else {
 		srvError := pkg.ServiceErrors[pkg.ErrInternalServer]

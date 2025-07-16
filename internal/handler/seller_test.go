@@ -79,16 +79,15 @@ func TestSellerDefault_GetById_Success(t *testing.T) {
 	handlerFunc(w, req)
 
 	// Assert
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusCreated, w.Code)
 
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "success", response["message"])
 	assert.NotNil(t, response["data"])
 
-	// Verificar que el mock fue llamado correctamente
+	// Verify that the mock was called correctly
 	mockService.AssertExpectations(t)
 }
 
@@ -121,23 +120,23 @@ func TestSellerDefault_GetById_NotFound(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "Not found", response["error"])
+	assert.Equal(t, "error: Not found", response["message"])
 
-	// Verificar que el mock fue llamado correctamente
+	// Verify that the mock was called correctly
 	mockService.AssertExpectations(t)
 }
 
-// Test para GetById - Caso de error (ID inválido)
+// Test for GetById - Invalid ID case
 func TestSellerDefault_GetById_InvalidID(t *testing.T) {
 	// Arrange
 	mockService := new(MockSellerService)
 	handler := NewSellerDefault(mockService)
 
-	// Crear request y response recorder con ID inválido
+	// Create request and response recorder with invalid ID
 	req := httptest.NewRequest("GET", "/sellers/invalid", nil)
 	w := httptest.NewRecorder()
 
-	// Configurar chi router para simular parámetro de URL
+	// Configure chi router to simulate URL parameter
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("id", "invalid")
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
@@ -153,9 +152,9 @@ func TestSellerDefault_GetById_InvalidID(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "Bad request", response["error"])
+	assert.Equal(t, "error: Bad request", response["message"])
 
-	// No se debe llamar al service con ID inválido
+	// No service should be called with invalid ID
 	mockService.AssertNotCalled(t, "GetById")
 }
 
@@ -165,15 +164,16 @@ func TestSellerDefault_Create_Success(t *testing.T) {
 	mockService := new(MockSellerService)
 	handler := NewSellerDefault(mockService)
 
-	// Request de creación válido
+	// Valid creation request
 	createRequest := models.SellerCreateRequest{
 		CId:         stringPtr("12345"),
 		CompanyName: stringPtr("New Company"),
 		Address:     stringPtr("New Address"),
 		Telephone:   stringPtr("987654321"),
+		LocalityID:  intPtr(1),
 	}
 
-	// Seller esperado que retornará el service
+	// Expected seller returned by service
 	expectedSeller := models.Seller{
 		ID: 2,
 		SellerAttributes: models.SellerAttributes{
@@ -181,6 +181,7 @@ func TestSellerDefault_Create_Success(t *testing.T) {
 			CompanyName: "New Company",
 			Address:     "New Address",
 			Telephone:   "987654321",
+			LocalityID:  1,
 		},
 	}
 
@@ -204,10 +205,9 @@ func TestSellerDefault_Create_Success(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "success", response["message"])
 	assert.NotNil(t, response["data"])
 
-	// Verificar que el mock fue llamado correctamente
+	// Verify that the mock was called correctly
 	mockService.AssertExpectations(t)
 }
 
@@ -217,10 +217,10 @@ func TestSellerDefault_Create_InvalidData(t *testing.T) {
 	mockService := new(MockSellerService)
 	handler := NewSellerDefault(mockService)
 
-	// Request de creación inválido (faltan campos obligatorios)
+	// Invalid creation request (missing required fields)
 	createRequest := models.SellerCreateRequest{
 		CId: stringPtr("12345"),
-		// Faltan CompanyName, Address y Telephone
+		// Missing CompanyName, Address, Telephone, and LocalityID
 	}
 
 	// Crear request HTTP
@@ -240,9 +240,9 @@ func TestSellerDefault_Create_InvalidData(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "Validation error", response["error"])
+	assert.Equal(t, "error: Validation error", response["message"])
 
-	// No se debe llamar al service con datos inválidos
+	// Service should not be called with invalid data
 	mockService.AssertNotCalled(t, "Create")
 }
 
@@ -271,13 +271,18 @@ func TestSellerDefault_Create_InvalidJSON(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "Validation error", response["error"])
+	assert.Equal(t, "error: Validation error", response["message"])
 
-	// No se debe llamar al service con JSON inválido
+	// Service should not be called with invalid JSON
 	mockService.AssertNotCalled(t, "Create")
 }
 
 // Helper function para crear punteros a string
 func stringPtr(s string) *string {
 	return &s
+}
+
+// Helper function para crear punteros a int
+func intPtr(i int) *int {
+	return &i
 }

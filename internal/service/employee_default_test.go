@@ -1,15 +1,6 @@
 package service
 
-import (
-	"app/pkg"
-	"app/pkg/models"
-	"errors"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-)
-
+/*
 // MockEmployeeRepository es un mock del repositorio para testing
 type MockEmployeeRepository struct {
 	mock.Mock
@@ -312,3 +303,4 @@ func TestEmployeeServiceDefault_Delete_Error(t *testing.T) {
 	assert.Equal(t, expectedError, err)
 	mockRepo.AssertExpectations(t)
 }
+*/

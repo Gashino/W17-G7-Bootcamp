@@ -5,11 +5,12 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"errors"
+	"net/http"
+	"strconv"
+
 	"github.com/bootcamp-go/web/request"
 	"github.com/bootcamp-go/web/response"
 	"github.com/go-chi/chi/v5"
-	"net/http"
-	"strconv"
 )
 
 func NewProductDefault(sv service.IProductService) *ProductDefault {
@@ -127,6 +128,36 @@ func (d ProductDefault) Patch() http.HandlerFunc {
 			response.Error(writer, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, pkg.ServiceErrors[pkg.ErrInternalServer].Error())
 			return
 
+		}
+
+		response.JSON(writer, http.StatusOK, map[string]any{
+			"data": result,
+		})
+	}
+}
+
+func (d ProductDefault) ReportRecords() http.HandlerFunc {
+	return func(writer http.ResponseWriter, r *http.Request) {
+		idStr := r.URL.Query().Get("id")
+		var id *int
+		if idStr != "" {
+			val, err := strconv.Atoi(idStr)
+			if err != nil {
+				response.Error(writer, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, pkg.ServiceErrors[pkg.ErrInternalServer].Error())
+				return
+			} else {
+				id = &val
+			}
+		}
+		result, errResult := d.sv.GetProductRecords(id)
+		if errResult != nil {
+			response.Error(writer, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, errResult.Error())
+			return
+		}
+
+		if result == nil {
+			response.Error(writer, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, pkg.ServiceErrors[pkg.ErrNotFound].Error())
+			return
 		}
 
 		response.JSON(writer, http.StatusOK, map[string]any{

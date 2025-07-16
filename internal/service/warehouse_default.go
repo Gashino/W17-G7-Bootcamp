@@ -38,20 +38,19 @@ func (s *WarehouseDefault) Add(v models.WarehouseDoc) (w models.Warehouse, err e
 	}
 
 	// Obtengo el nuevo ID
-	id, err := s.rp.FindAvailableID()
-	if err != nil {
-		return
-	}
+	//id, err := s.rp.FindAvailableID()
+	//if err != nil {
+	//	return
+	//}
 
 	w = models.Warehouse{
-		ID:             id,
 		WarehouseCode:  v.WarehouseCode,
 		Address:        v.Address,
 		Telephone:      v.Telephone,
 		MinCapacity:    v.MinCapacity,
 		MinTemperature: v.MinTemperature,
 	}
-	err = s.rp.Add(w)
+	w, err = s.rp.Add(w)
 
 	return
 }
@@ -65,12 +64,6 @@ func (s *WarehouseDefault) Update(id int, v models.WarehouseDoc) (w models.Wareh
 	total_changes := 0
 	fmt.Println(v.WarehouseCode, "-", warehouse.WarehouseCode)
 	if v.WarehouseCode != "" && warehouse.WarehouseCode != v.WarehouseCode {
-		// Verfico que el codigo sea unico
-		_, err = s.rp.FindWarehouseByCode(v.WarehouseCode)
-		if err == nil {
-			err = errors.New("Warehouse Code is not unique")
-			return
-		}
 		warehouse.WarehouseCode = v.WarehouseCode
 		total_changes++
 	}
@@ -96,7 +89,7 @@ func (s *WarehouseDefault) Update(id int, v models.WarehouseDoc) (w models.Wareh
 	}
 
 	if total_changes > 0 {
-		err = s.rp.Add(warehouse)
+		warehouse, err = s.rp.Update(warehouse.ID, warehouse)
 	}
 
 	w = warehouse

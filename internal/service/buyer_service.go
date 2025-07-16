@@ -14,4 +14,6 @@ type ServiceBuyer interface {
 	Update(id int, buyer models.Buyer) (b models.Buyer, err error)
 	// Delete is a method that deletes a buyer by its ID
 	Delete(id int) (err error)
+	// GetPurchaseOrdersReport is a method that returns a purchase order report for all buyers or a specific buyer
+	GetPurchaseOrdersReport(buyerID *int) (reports []models.BuyerPurchaseOrderReport, err error)
 }

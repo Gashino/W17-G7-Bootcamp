@@ -329,3 +329,41 @@ func (h *SectionDefault) Delete() http.HandlerFunc {
 		})
 	}
 }
+
+func (h *SectionDefault) ReportProducts() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// request
+		// ...
+		idString := r.URL.Query().Get("id")
+		var idPtr *int
+
+		if idString != "" {
+			idInt, err := strconv.Atoi(idString)
+			if err != nil {
+				response.Error(w, pkg.ServiceErrors[pkg.ErrBadRequest].ResponseCode, pkg.ServiceErrors[pkg.ErrBadRequest].Error())
+				return
+			}
+			idPtr = &idInt
+		}
+
+		// process
+		// - get all sections
+		v, err := h.sv.ReportProductsBySection(idPtr)
+		if err != nil {
+			svcErr := pkg.ServiceError{}
+			if errors.As(err, &svcErr) {
+				response.Error(w, svcErr.ResponseCode, svcErr.Error())
+				return
+			}
+			response.Error(w, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, pkg.ServiceErrors[pkg.ErrInternalServer].Error())
+			return
+		}
+
+		// response
+		data := v
+		response.JSON(w, http.StatusOK, map[string]any{
+			"data": data,
+		})
+	}
+
+}

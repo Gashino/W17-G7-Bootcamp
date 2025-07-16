@@ -13,6 +13,10 @@ type ProductService struct {
 	rp repository.ProductRepository
 }
 
+func (p ProductService) GetProductRecords(id *int) ([]models.ProductRecordResponse, error) {
+	return p.rp.GetProductRecords(id)
+}
+
 func (p ProductService) Update(id int, product models.Product) (*models.Product, error) {
 	productToUpdate, errId := p.rp.GetById(id)
 	if errId != nil {
@@ -20,7 +24,12 @@ func (p ProductService) Update(id int, product models.Product) (*models.Product,
 	}
 	product.MapDataToStruct(productToUpdate)
 
-	return productToUpdate, p.rp.Update(id, *productToUpdate)
+	err := p.rp.Update(id, *productToUpdate)
+	if err != nil {
+		return nil, err
+	}
+
+	return productToUpdate, nil
 }
 
 func (p ProductService) Create(product models.Product) (*models.Product, error) {
