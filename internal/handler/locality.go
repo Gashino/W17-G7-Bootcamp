@@ -23,7 +23,7 @@ type LocalityDefault struct {
 	sv service.LocalityService
 }
 
-// Create is a method that returns a handler for de route POST /Sellers
+// Create is a method that returns a handler for the route POST /localities
 func (h *LocalityDefault) Create() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// request
@@ -56,7 +56,7 @@ func (h *LocalityDefault) Create() http.HandlerFunc {
 	}
 }
 
-// Create is a method that returns a handler for de route POST /Sellers
+// SellersByLocality is a method that returns a handler for the route GET /localities/reportSellers/{id}
 func (h *LocalityDefault) SellersByLocality() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// request

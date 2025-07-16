@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// SellerSql is an in-memory repository for managing sellers
+// SellerSql is a repository for managing seller data with SQL database
 type SellerSql struct {
 	db *sql.DB
 }
@@ -31,7 +31,7 @@ const (
 	queryDeleteSeller = `DELETE FROM sellers WHERE id = ?`
 )
 
-// NewSellerSql creates a new seller repository with initial data
+// NewSellerSql creates a new seller repository with SQL database connection
 func NewSellerSql(db *sql.DB) *SellerSql {
 	return &SellerSql{
 		db: db,
@@ -64,7 +64,7 @@ func (r *SellerSql) FindAll() (v map[int]models.Seller, err error) {
 	return result, nil
 }
 
-// Create is a method that create a Seller if not exists
+// Create is a method that creates a Seller if it doesn't exist
 func (r *SellerSql) Create(seller models.Seller) (models.Seller, error) {
 	// Check if seller with same CId already exists
 	var existingId int
@@ -94,7 +94,7 @@ func (r *SellerSql) Create(seller models.Seller) (models.Seller, error) {
 	return seller, nil
 }
 
-// GetById is a method that returns a Seller if exists
+// GetById is a method that returns a Seller by its ID if it exists
 func (r *SellerSql) GetById(id int) (models.Seller, error) {
 	var seller models.Seller
 	err := r.db.QueryRow(querySelectSellerById, id).Scan(
@@ -114,7 +114,7 @@ func (r *SellerSql) GetById(id int) (models.Seller, error) {
 	return seller, nil
 }
 
-// UpdateFields is a method that modify a Seller if exists
+// UpdateFields is a method that updates a Seller's fields if it exists
 func (r *SellerSql) UpdateFields(id int, data models.SellerCreateRequest) (models.Seller, error) {
 	// First, check if seller exists
 	_, err := r.GetById(id)
@@ -168,7 +168,7 @@ func (r *SellerSql) UpdateFields(id int, data models.SellerCreateRequest) (model
 	return r.GetById(id)
 }
 
-// DeleteSeller is a method that delete a Seller if exists
+// DeleteSeller is a method that deletes a Seller if it exists
 func (r *SellerSql) DeleteSeller(id int) error {
 	_, err := r.GetById(id)
 	if err != nil {
