@@ -9,7 +9,7 @@ La base de datos está configurada con los siguientes parámetros:
 - **Usuario**: root
 - **Contraseña**: ""
 - **Base de datos**: frescos
-- **Puerto**: 3307
+- **Puerto**: 3306
 - **Host**: localhost (cuando se accede desde la máquina host)
 - **Host**: mysql (cuando se accede desde otros contenedores en la misma red)
 
@@ -20,7 +20,7 @@ La base de datos está configurada con los siguientes parámetros:
 Desde la raíz del proyecto, ejecuta:
 
 ```bash
-docker-compose up -d
+docker-compose up --build
 ```
 
 Esto construirá la imagen de Docker y ejecutará el contenedor en segundo plano.
@@ -55,8 +55,8 @@ Para conectar tu aplicación a esta base de datos dockerizada, asegúrate de que
 database:
   user: root
   password: ""
-  host: localhost
-  port: 3307
+  host: mysql
+  port: 3306
   name: frescos
 ```
 
