@@ -23,7 +23,7 @@ type SellerDefault struct {
 	sv service.SellerService
 }
 
-// GetAll is a method that returns a handler for the route GET /Sellers
+// GetAll is a method that returns a handler for the route GET /sellers
 func (h *SellerDefault) GetAll() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// request
@@ -50,7 +50,7 @@ func (h *SellerDefault) GetAll() http.HandlerFunc {
 	}
 }
 
-// GetById is a method that returns a handler for the route GET /Sellers/Id
+// GetById is a method that returns a handler for the route GET /sellers/{id}
 func (h *SellerDefault) GetById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// request
@@ -82,7 +82,7 @@ func (h *SellerDefault) GetById() http.HandlerFunc {
 	}
 }
 
-// Create is a method that returns a handler for de route POST /Sellers
+// Create is a method that returns a handler for the route POST /sellers
 func (h *SellerDefault) Create() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// request
@@ -115,7 +115,7 @@ func (h *SellerDefault) Create() http.HandlerFunc {
 	}
 }
 
-// Update is a method that returns a handler for de route PATCH /Sellers/Id
+// Update is a method that returns a handler for the route PATCH /sellers/{id}
 func (h *SellerDefault) Update() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// request
@@ -150,7 +150,7 @@ func (h *SellerDefault) Update() http.HandlerFunc {
 	}
 }
 
-// Delete is a method that returns a handler for de route DELETE /Sellers/Id
+// Delete is a method that returns a handler for the route DELETE /sellers/{id}
 func (h *SellerDefault) Delete() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// request

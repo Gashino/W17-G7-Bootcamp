@@ -8,7 +8,7 @@ import (
 	"fmt"
 )
 
-// LocalitySql is an in-memory repository for managing locality
+// LocalitySql is a repository for managing locality data with SQL database
 type LocalitySql struct {
 	db *sql.DB
 }
@@ -28,28 +28,28 @@ const (
 	GROUP BY l.id, l.locality_name;`
 )
 
-// NewLocalitySql creates a new seller repository with initial data
+// NewLocalitySql creates a new locality repository with initial data
 func NewLocalitySql(db *sql.DB) *LocalitySql {
 	return &LocalitySql{
 		db: db,
 	}
 }
 
-// Create is a method that create a Locality if not exists
+// Create is a method that creates a Locality if it doesn't exist
 func (r *LocalitySql) Create(locality models.Locality) (models.Locality, error) {
-	// Check if seller with same CId already exists
+	// Check if locality with same name already exists
 	var existingId int
 	err := r.db.QueryRow(queryCheckLocalityByName, locality.LocalityName).Scan(&existingId)
 
 	if err == nil {
-		// Seller with this CId already exists
+		// Locality with this name already exists
 		return models.Locality{}, pkg.ServiceErrors[pkg.ErrConflict]
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		// Some other error occurred
 		return models.Locality{}, pkg.ServiceErrors[pkg.ErrNotFound]
 	}
 
-	// Insert new seller
+	// Insert new locality
 	result, err := r.db.Exec(queryInsertLocality, locality.LocalityName, locality.ProvinceName, locality.CountryName)
 	if err != nil {
 		return models.Locality{}, fmt.Errorf("failed to create Locality: %w", err)
@@ -65,7 +65,7 @@ func (r *LocalitySql) Create(locality models.Locality) (models.Locality, error) 
 	return locality, nil
 }
 
-// GetById is a method that returns a Seller if exists
+// GetById is a method that returns a Locality if it exists
 func (r *LocalitySql) GetById(id int) (models.Locality, error) {
 	var locality models.Locality
 	err := r.db.QueryRow(querySelectLocalityById, id).Scan(
@@ -83,7 +83,7 @@ func (r *LocalitySql) GetById(id int) (models.Locality, error) {
 	return locality, nil
 }
 
-// GetById is a method that returns a Seller if exists
+// GetCantSellersByLocality is a method that returns sellers count by locality
 func (r *LocalitySql) GetCantSellersByLocality(id int) (models.LocalityBySellerResponse, error) {
 	var locality models.LocalityBySellerResponse
 	err := r.db.QueryRow(queryCantSellersByLocality, id).Scan(
