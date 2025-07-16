@@ -100,7 +100,7 @@ func (h *CarryDefault) Create() http.HandlerFunc {
 		carry, err = h.sv.Create(carry)
 
 		if err != nil {
-			svcErr := pkg.ServiceErrors[pkg.ErrInternalServer]
+			svcErr := pkg.ServiceErrors[pkg.ErrConflict]
 			svcErr.InternalError = fmt.Errorf(err.Error())
 			response.Error(w, svcErr.ResponseCode, svcErr.Error())
 			return
