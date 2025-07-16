@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mysql:
     build:
@@ -16,6 +14,27 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       - mercado_fresco_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mercado_fresco_app
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=
+      - DB_NAME=frescos
+    depends_on:
+      - mysql
+    networks:
+      - mercado_fresco_network
+    volumes:
+      - ./config.yml:/app/config.yml
 
 networks:
   mercado_fresco_network:
