@@ -104,7 +104,7 @@ func (r *SectionRepositorySql) Create(section models.Section) (s models.Section,
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1062 {
 			svcErr := pkg.ServiceErrors[pkg.ErrConflict]
-			svcErr.InternalError = fmt.Errorf("valor duplicado: %v", mysqlErr.Message)
+			svcErr.InternalError = fmt.Errorf("valor duplicado")
 			return models.Section{}, svcErr
 		}
 		return models.Section{}, pkg.ServiceErrors[pkg.ErrInternalServer]
@@ -143,7 +143,7 @@ func (r *SectionRepositorySql) Update(id int, section models.Section) (s models.
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1062 {
 			svcErr := pkg.ServiceErrors[pkg.ErrConflict]
-			svcErr.InternalError = fmt.Errorf("valor duplicado: %v", mysqlErr.Message)
+			svcErr.InternalError = fmt.Errorf("valor duplicado")
 			return models.Section{}, svcErr
 		}
 		return models.Section{}, pkg.ServiceErrors[pkg.ErrInternalServer]

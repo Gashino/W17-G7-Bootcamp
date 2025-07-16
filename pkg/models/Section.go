@@ -29,7 +29,7 @@ type ProductBatchAttributes struct {
 	DueDate            string  `json:"due_date"`
 	InitialQuantity    int     `json:"initial_quantity"`
 	ManufacturingDate  string  `json:"manufacturing_date"`
-	ManufacturingHour  string  `json:"manufacturing_hour"`
+	ManufacturingHour  int     `json:"manufacturing_hour"`
 	MinumumTemperature float64 `json:"minumum_temperature"`
 	ProductId          int     `json:"product_id"`
 	SectionId          int     `json:"section_id"`
@@ -42,7 +42,7 @@ type ProductBatchPost struct {
 	DueDate            string  `json:"due_date"`
 	InitialQuantity    int     `json:"initial_quantity"`
 	ManufacturingDate  string  `json:"manufacturing_date"`
-	ManufacturingHour  string  `json:"manufacturing_hour"`
+	ManufacturingHour  int     `json:"manufacturing_hour"`
 	MinumumTemperature float64 `json:"minumum_temperature"`
 	ProductID          int     `json:"product_id"`
 	SectionID          int     `json:"section_id"`
@@ -62,7 +62,7 @@ type ProductBatchDoc struct {
 	DueDate            string  `json:"due_date"`
 	InitialQuantity    int     `json:"initial_quantity"`
 	ManufacturingDate  string  `json:"manufacturing_date"`
-	ManufacturingHour  string  `json:"manufacturing_hour"`
+	ManufacturingHour  int     `json:"manufacturing_hour"`
 	MinumumTemperature float64 `json:"minumum_temperature"`
 	ProductId          int     `json:"product_id"`
 	SectionId          int     `json:"section_id"`

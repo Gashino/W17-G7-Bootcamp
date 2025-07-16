@@ -102,7 +102,7 @@ func (h *ProductBatchDefault) ValidatePostProductBatch(batch models.ProductBatch
 		batch.DueDate == "" ||
 		batch.InitialQuantity == 0 ||
 		batch.ManufacturingDate == "" ||
-		batch.ManufacturingHour == "" ||
+		batch.ManufacturingHour == 0 ||
 		batch.MinumumTemperature == 0.0 ||
 		batch.ProductId == 0 ||
 		batch.SectionId == 0 ||
