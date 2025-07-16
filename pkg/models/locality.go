@@ -22,20 +22,20 @@ type LocalityCreateRequest struct {
 	CountryName  *string `json:"country_name,omitempty"`
 }
 
-// LocalityBySellerResponse is a struct that represents a Locality in JSON format (Request)
+// LocalityBySellerResponse is a struct that represents a Locality response with seller count
 type LocalityBySellerResponse struct {
 	ID           int     `json:"id"`
 	LocalityName *string `json:"locality_name"`
 	SellerCount  *string `json:"seller_count"`
 }
 
-// Seller is a struct that represents a Locality
+// Locality is a struct that represents a Locality
 type Locality struct {
 	ID int `json:"id"`
 	LocalitiesAttributes
 }
 
-// ToSellerDoc convierte un Seller en su versión externa (para response JSON).
+// ToLocalityDoc converts a Locality to its external version (for JSON response).
 func ToLocalityDoc(s Locality) LocalitiesDoc {
 	return LocalitiesDoc{
 		ID:           s.ID,
@@ -45,8 +45,8 @@ func ToLocalityDoc(s Locality) LocalitiesDoc {
 	}
 }
 
-// FromSellerDoc convierte un LocalitiesDoc (por ejemplo de una base de datos o input externo) a un Locality interno.
-func FromSellerDocLocality(d LocalitiesDoc) Locality {
+// FromLocalityDoc converts a LocalitiesDoc (e.g., from database or external input) to an internal Locality.
+func FromLocalityDoc(d LocalitiesDoc) Locality {
 	return Locality{
 		ID: d.ID,
 		LocalitiesAttributes: LocalitiesAttributes{
@@ -57,10 +57,10 @@ func FromSellerDocLocality(d LocalitiesDoc) Locality {
 	}
 }
 
-// FromCreateRequest convierte una solicitud de creación a un Locality interno.
+// FromCreateRequestLocality converts a creation request to an internal Locality.
 func FromCreateRequestLocality(r LocalityCreateRequest) Locality {
 	return Locality{
-		ID: 0, // Se puede reemplazar al insertar
+		ID: 0, // Can be replaced when inserting
 		LocalitiesAttributes: LocalitiesAttributes{
 			LocalityName: *r.LocalityName,
 			ProvinceName: *r.ProvinceName,
@@ -69,12 +69,12 @@ func FromCreateRequestLocality(r LocalityCreateRequest) Locality {
 	}
 }
 
-// IsValidCreateRequest valida que los campos obligatorios estén presentes.
+// IsValidCreateRequestLocalities validates that required fields are present.
 func IsValidCreateRequestLocalities(r LocalityCreateRequest) bool {
 	return !IsNullOrEmpty(r.LocalityName) && !IsNullOrEmpty(r.ProvinceName) && !IsNullOrEmpty(r.CountryName)
 }
 
-// IsNullOrEmpty valida que un *string este vacio o nulo
+// IsNullOrEmpty validates that a *string is empty or null
 func IsNullOrEmpty(cadena *string) bool {
 	if cadena == nil || *cadena == "" {
 		return true
