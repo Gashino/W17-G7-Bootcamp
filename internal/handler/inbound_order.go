@@ -5,6 +5,7 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/bootcamp-go/web/response"
@@ -23,6 +24,14 @@ func (h *InboundOrderHandler) CreateInboundOrder(w http.ResponseWriter, r *http.
 	if err := json.NewDecoder(r.Body).Decode(&inboundOrder); err != nil {
 		srvError := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
 		response.Error(w, srvError.ResponseCode, srvError.Error())
+		return
+	}
+
+	// Validate the inbound order data
+	if err := models.ValidateInboundOrder(inboundOrder, false); err != nil {
+		srvError := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
+		srvError.InternalError = fmt.Errorf(err.Error())
+		response.Error(w, http.StatusUnprocessableEntity, srvError.Error())
 		return
 	}
 
