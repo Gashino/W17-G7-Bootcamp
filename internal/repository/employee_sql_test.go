@@ -17,6 +17,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Helper functions for creating pointers
+func StringPtr(s string) *string {
+	return &s
+}
+
+func IntPtr(i int) *int {
+	return &i
+}
+
 // Variables para controlar el registro del driver txdb para employee tests
 var (
 	employeeTxdbRegistered bool = false
@@ -122,10 +131,10 @@ func createTestEmployee() models.Employee {
 	cardNumber := timestamp[len(timestamp)-8:] // Tomar los últimos 8 dígitos
 
 	return models.Employee{
-		CardNumberID: cardNumber,
-		FirstName:    "John",
-		LastName:     "Doe",
-		WarehouseID:  1, // Usar un warehouse_id válido según el script de base de datos
+		CardNumberID: StringPtr(cardNumber),
+		FirstName:    StringPtr("John"),
+		LastName:     StringPtr("Doe"),
+		WarehouseID:  IntPtr(1), // Usar un warehouse_id válido según el script de base de datos
 	}
 }
 
@@ -183,15 +192,15 @@ func TestEmployeeSQL_Save(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, createdEmployee)
 		assert.NotZero(t, createdEmployee.ID)
-		assert.Equal(t, newEmployee.CardNumberID, createdEmployee.CardNumberID)
-		assert.Equal(t, newEmployee.FirstName, createdEmployee.FirstName)
-		assert.Equal(t, newEmployee.LastName, createdEmployee.LastName)
-		assert.Equal(t, newEmployee.WarehouseID, createdEmployee.WarehouseID)
+		assert.Equal(t, *newEmployee.CardNumberID, *createdEmployee.CardNumberID)
+		assert.Equal(t, *newEmployee.FirstName, *createdEmployee.FirstName)
+		assert.Equal(t, *newEmployee.LastName, *createdEmployee.LastName)
+		assert.Equal(t, *newEmployee.WarehouseID, *createdEmployee.WarehouseID)
 
 		// Verificar que el empleado fue creado en la base de datos
-		savedEmployee, err := repo.FindById(createdEmployee.ID)
+		savedEmployee, err := repo.FindById(*createdEmployee.ID)
 		assert.NoError(t, err)
-		assert.Equal(t, createdEmployee.CardNumberID, savedEmployee.CardNumberID)
+		assert.Equal(t, *newEmployee.CardNumberID, *savedEmployee.CardNumberID)
 	})
 
 	t.Run("create employee with duplicate card number", func(t *testing.T) {
@@ -206,7 +215,7 @@ func TestEmployeeSQL_Save(t *testing.T) {
 
 		// Intentar crear un segundo empleado con el mismo card number
 		employee2 := createTestEmployee()
-		employee2.CardNumberID = createdEmployee.CardNumberID // Usar el mismo card number
+		*employee2.CardNumberID = *createdEmployee.CardNumberID // Usar el mismo card number
 
 		// Act
 		duplicateEmployee, err := repo.Save(employee2)
@@ -223,7 +232,8 @@ func TestEmployeeSQL_Save(t *testing.T) {
 
 		// Arrange - Crear un empleado con un warehouse_id inválido
 		invalidEmployee := createTestEmployee()
-		invalidEmployee.WarehouseID = 999 // ID que no existe
+		warehouseID := 999
+		*invalidEmployee.WarehouseID = warehouseID // ID que no existe
 
 		// Act
 		createdEmployee, err := repo.Save(invalidEmployee)
@@ -248,27 +258,27 @@ func TestEmployeeSQL_Update(t *testing.T) {
 
 		// Actualizar el empleado
 		updatedEmployee := models.Employee{
-			CardNumberID: "87654321",
-			FirstName:    "Jane",
-			LastName:     "Smith",
-			WarehouseID:  1,
+			CardNumberID: StringPtr("87654321"),
+			FirstName:    StringPtr("Jane"),
+			LastName:     StringPtr("Smith"),
+			WarehouseID:  IntPtr(1),
 		}
 
 		// Act
-		resultEmployee, err := repo.Update(updatedEmployee, createdEmployee.ID)
+		resultEmployee, err := repo.Update(updatedEmployee, *createdEmployee.ID)
 
 		// Assert
 		assert.NoError(t, err)
-		assert.Equal(t, updatedEmployee.CardNumberID, resultEmployee.CardNumberID)
-		assert.Equal(t, updatedEmployee.FirstName, resultEmployee.FirstName)
-		assert.Equal(t, updatedEmployee.LastName, resultEmployee.LastName)
+		assert.Equal(t, *updatedEmployee.CardNumberID, *resultEmployee.CardNumberID)
+		assert.Equal(t, *updatedEmployee.FirstName, *resultEmployee.FirstName)
+		assert.Equal(t, *updatedEmployee.LastName, *resultEmployee.LastName)
 
 		// Verificar que el empleado fue actualizado
-		savedEmployee, err := repo.FindById(createdEmployee.ID)
+		savedEmployee, err := repo.FindById(*createdEmployee.ID)
 		assert.NoError(t, err)
-		assert.Equal(t, updatedEmployee.CardNumberID, savedEmployee.CardNumberID)
-		assert.Equal(t, updatedEmployee.FirstName, savedEmployee.FirstName)
-		assert.Equal(t, updatedEmployee.LastName, savedEmployee.LastName)
+		assert.Equal(t, *updatedEmployee.CardNumberID, *savedEmployee.CardNumberID)
+		assert.Equal(t, *updatedEmployee.FirstName, *savedEmployee.FirstName)
+		assert.Equal(t, *updatedEmployee.LastName, *savedEmployee.LastName)
 	})
 
 	t.Run("update with duplicate card number", func(t *testing.T) {
@@ -287,25 +297,25 @@ func TestEmployeeSQL_Update(t *testing.T) {
 		// Intentar actualizar el empleado 2 con el card number del empleado 1
 		updatedEmployee := models.Employee{
 			CardNumberID: createdEmployee1.CardNumberID, // Card number duplicado (mismo que createdEmployee1)
-			FirstName:    "Updated",
-			LastName:     "Name",
-			WarehouseID:  1,
+			FirstName:    StringPtr("Updated"),
+			LastName:     StringPtr("Name"),
+			WarehouseID:  IntPtr(1),
 		}
 
 		// Act
-		_, err = repo.Update(updatedEmployee, createdEmployee2.ID)
+		_, err = repo.Update(updatedEmployee, *createdEmployee2.ID)
 
 		// Assert
 		assert.Error(t, err)
 		assert.Equal(t, pkg.ServiceErrors[pkg.ErrConflict].Code, err.(pkg.ServiceError).Code)
 
 		// Verificar que el empleado no fue actualizado
-		savedEmployee, err := repo.FindById(createdEmployee2.ID)
+		savedEmployee, err := repo.FindById(*createdEmployee2.ID)
 		assert.NoError(t, err)
-		assert.Equal(t, createdEmployee2.CardNumberID, savedEmployee.CardNumberID)
+		assert.Equal(t, *createdEmployee2.CardNumberID, *savedEmployee.CardNumberID)
 
 		// Verificar que el empleado 1 sigue existiendo
-		_, err = repo.FindById(createdEmployee1.ID)
+		_, err = repo.FindById(*createdEmployee1.ID)
 		assert.NoError(t, err)
 	})
 
@@ -320,14 +330,14 @@ func TestEmployeeSQL_Update(t *testing.T) {
 
 		// Intentar actualizar con warehouse_id inválido
 		updatedEmployee := models.Employee{
-			CardNumberID: "87654321",
-			FirstName:    "Jane",
-			LastName:     "Smith",
-			WarehouseID:  999, // ID que no existe
+			CardNumberID: StringPtr("87654321"),
+			FirstName:    StringPtr("Jane"),
+			LastName:     StringPtr("Smith"),
+			WarehouseID:  IntPtr(999), // ID que no existe
 		}
 
 		// Act
-		_, err = repo.Update(updatedEmployee, createdEmployee.ID)
+		_, err = repo.Update(updatedEmployee, *createdEmployee.ID)
 
 		// Assert
 		assert.Error(t, err)
@@ -347,13 +357,13 @@ func TestEmployeeSQL_Delete(t *testing.T) {
 		require.NotEmpty(t, createdEmployee)
 
 		// Act
-		err = repo.Delete(createdEmployee.ID)
+		err = repo.Delete(*createdEmployee.ID)
 
 		// Assert
 		assert.NoError(t, err)
 
 		// Verificar que el empleado fue eliminado
-		_, err = repo.FindById(createdEmployee.ID)
+		_, err = repo.FindById(*createdEmployee.ID)
 		assert.Error(t, err)
 		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
 	})
@@ -399,16 +409,16 @@ func TestEmployeeSQL_ReportInboundOrdersCountByEmployee(t *testing.T) {
 
 		// Act
 		employeeID := createdEmployee.ID
-		reports, err := repo.ReportInboundOrdersCountByEmployee(&employeeID)
+		reports, err := repo.ReportInboundOrdersCountByEmployee(employeeID)
 
 		// Assert
 		assert.NoError(t, err)
 		assert.NotNil(t, reports)
 		assert.Len(t, reports, 1)
 		assert.Equal(t, createdEmployee.ID, reports[0].ID)
-		assert.Equal(t, createdEmployee.CardNumberID, reports[0].CardNumberID)
-		assert.Equal(t, createdEmployee.FirstName, reports[0].FirstName)
-		assert.Equal(t, createdEmployee.LastName, reports[0].LastName)
+		assert.Equal(t, *createdEmployee.CardNumberID, reports[0].CardNumberID)
+		assert.Equal(t, *createdEmployee.FirstName, reports[0].FirstName)
+		assert.Equal(t, *createdEmployee.LastName, reports[0].LastName)
 		// El empleado recién creado no tiene inbound orders asociadas
 		assert.Equal(t, 0, reports[0].InboundOrdersCount)
 	})

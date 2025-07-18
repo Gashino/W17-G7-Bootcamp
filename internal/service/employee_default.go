@@ -4,6 +4,7 @@ import (
 	"app/internal/repository"
 	"app/pkg"
 	"app/pkg/models"
+	"fmt"
 )
 
 type EmployeeServiceDefault struct {
@@ -29,29 +30,14 @@ func (s *EmployeeServiceDefault) Save(employee models.Employee) (models.Employee
 }
 
 func (s *EmployeeServiceDefault) Update(employee models.Employee, id int) (models.Employee, error) {
-	e, err := s.repository.FindById(id)
-	if err != nil {
-		return models.Employee{}, err
-	}
-	if employee.WarehouseID != 0 {
-		e.WarehouseID = employee.WarehouseID
-	}
-	if employee.FirstName != "" {
-		e.FirstName = employee.FirstName
-	}
-	if employee.LastName != "" {
-		e.LastName = employee.LastName
-	}
-	if employee.CardNumberID != "" {
-		e.CardNumberID = employee.CardNumberID
-	}
-	// Validar el empleado actualizado
-	if err := models.ValidateEmployee(e, true); err != nil {
+	// Validate the partial update data using the new validation function
+	fmt.Println("employee", employee)
+	if err := models.ValidateEmployeeUpdate(employee); err != nil {
 		srvError := pkg.ServiceErrors[pkg.ErrUnprocessableEntity]
 		srvError.InternalError = err
 		return models.Employee{}, srvError
 	}
-	return s.repository.Update(e, id)
+	return s.repository.Update(employee, id)
 }
 
 func (s *EmployeeServiceDefault) Delete(id int) error {
