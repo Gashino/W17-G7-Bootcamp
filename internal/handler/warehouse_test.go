@@ -1,14 +1,75 @@
 package handler
 
-import "testing"
+import (
+	"app/pkg/models"
+	"app/test/warehouse"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestWarehouse_GetAll(t *testing.T) {
 	t.Run("Cuando la petición sea exitosa el backend devolverá un listado de todas los warehouses existentes", func(t *testing.T) {
 		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+		expectedWarehouses := map[int]models.Warehouse{
+			1: {
+				ID:             1,
+				WarehouseCode:  "TEST1",
+				Address:        "Fake Street",
+				Telephone:      "123456789",
+				MinCapacity:    1,
+				MinTemperature: 2,
+			},
+			2: {
+				ID:             2,
+				WarehouseCode:  "TEST2",
+				Address:        "Fake 2 Street",
+				Telephone:      "987654321",
+				MinCapacity:    10,
+				MinTemperature: 20,
+			},
+		}
+
+		mockService.On("FindAll").Return(expectedWarehouses, nil)
 
 		// Act
+		hd := NewWarehouseDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/warehouse", nil)
+		res := httptest.NewRecorder()
+		hd.GetAll()(res, req)
 
 		// Assert
+		expectedCode := http.StatusOK
+		expectedBody := `{
+			"data": {
+				"1": {
+					"id": 1,
+					"warehouse_code": "TEST1",
+					"address": "Fake Street",
+					"telephone": "123456789",
+					"minimun_capacity": 1,
+					"minimun_temperature": 2
+				},
+				"2": {
+					"id": 2,
+					"warehouse_code": "TEST2",
+					"address": "Fake 2 Street",
+					"telephone": "987654321",
+					"minimun_capacity": 10,
+					"minimun_temperature": 20
+				}
+			}
+		}`
+
+		actualBody := res.Body.String()
+		require.Equal(t, expectedCode, res.Code)
+
+		mockService.AssertCalled(t, "FindAll")
+
+		require.JSONEq(t, expectedBody, actualBody)
 	})
 }
 
