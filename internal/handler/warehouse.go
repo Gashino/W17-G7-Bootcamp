@@ -45,7 +45,7 @@ func (h *WarehouseDefault) GetAll() http.HandlerFunc {
 			}
 		}
 
-		writeResponse(w, http.StatusCreated, map[string]any{
+		writeResponse(w, http.StatusOK, map[string]any{
 			"data": data,
 		}, nil)
 
