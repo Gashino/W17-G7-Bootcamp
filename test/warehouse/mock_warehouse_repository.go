@@ -22,6 +22,9 @@ type MockWarehouseRepository struct {
 
 func (m *MockWarehouseRepository) FindAll() (v map[int]models.Warehouse, err error) {
 	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(map[int]models.Warehouse), args.Error(1)
 }
 
@@ -43,4 +46,14 @@ func (m *MockWarehouseRepository) Update(id int, v models.Warehouse) (w models.W
 func (m *MockWarehouseRepository) Delete(id int) (err error) {
 	args := m.Called(id)
 	return args.Error(0)
+}
+
+func (m *MockWarehouseRepository) FindAvailableID() (id int, err error) {
+	args := m.Called()
+	return args.Get(0).(int), args.Error(1)
+}
+
+func (m *MockWarehouseRepository) FindWarehouseByCode(code string) (v models.Warehouse, err error) {
+	args := m.Called(code)
+	return args.Get(0).(models.Warehouse), args.Error(1)
 }
