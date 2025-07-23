@@ -96,7 +96,7 @@ func (h *EmployeeHandler) UpdateEmployee(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	employeeModel := employee.ToEmployee()
+	employeeModel := employee.ToEmployeeForUpdate()
 	updatedEmployee, err := h.service.Update(employeeModel, id)
 	if err != nil {
 		handleServiceError(w, err)
