@@ -92,15 +92,15 @@ func (h *BuyerHandler) Create() http.HandlerFunc {
 
 		// Validate required fields
 		if buyer.CardNumberID == "" {
-			response.Error(w, http.StatusBadRequest, "card_number_id is required")
+			response.Error(w, http.StatusUnprocessableEntity, "error: card_number_id is required")
 			return
 		}
 		if buyer.FirstName == "" {
-			response.Error(w, http.StatusBadRequest, "first_name is required")
+			response.Error(w, http.StatusUnprocessableEntity, "error: first_name is required")
 			return
 		}
 		if buyer.LastName == "" {
-			response.Error(w, http.StatusBadRequest, "last_name is required")
+			response.Error(w, http.StatusUnprocessableEntity, "error: last_name is required")
 			return
 		}
 
