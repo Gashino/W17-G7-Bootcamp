@@ -7,12 +7,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/go-chi/chi/v5"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHandler_Create(t *testing.T) {
@@ -231,4 +232,58 @@ func TestHandler_Find(t *testing.T) {
 		require.Equal(t, http.StatusOK, res.Code)
 		require.Equal(t, expectedBodyJson, res.Body.Bytes())
 	})
+}
+
+func TestHandler_Update(t *testing.T) {
+	t.Run("update_ok", func(t *testing.T) {})
+
+	t.Run("update_non_existent", func(t *testing.T) {})
+
+}
+
+func TestHandler_Delete(t *testing.T) {
+	t.Run("delete_ok", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+
+		hd := NewProductDefault(mockProductService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		mockProductService.On("Delete", 1).Return(nil)
+
+		//act
+		hd.Delete()(res, req)
+
+		//assert
+		mockProductService.AssertExpectations(t)
+		require.Equal(t, http.StatusNoContent, res.Code)
+		require.Empty(t, res.Body)
+	})
+
+	t.Run("delete_non_existent", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+
+		hd := NewProductDefault(mockProductService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		mockProductService.On("Delete", 1).Return(pkg.ServiceErrors[pkg.ErrNotFound])
+
+		//act
+		hd.Delete()(res, req)
+
+		//assert
+		mockProductService.AssertExpectations(t)
+		require.Equal(t, http.StatusNotFound, res.Code)
+		require.NotEmpty(t, res.Body)
+	})
+
 }
