@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type responseStruct struct {
+type responseSellerStruct struct {
 	Data    map[int]models.SellerDoc `json:"data"`
 	Message string                   `json:"message"`
 }
@@ -53,11 +53,11 @@ func TestSellerDefault_GetAll(t *testing.T) {
 		hd.GetAll()(res, req)
 
 		// Assert
-		actualResp := responseStruct{}
+		actualResp := responseSellerStruct{}
 		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
 		require.NoError(t, err)
 		expectedCode := http.StatusOK
-		expectedResp := responseStruct{
+		expectedResp := responseSellerStruct{
 			Data: map[int]models.SellerDoc{
 				1: {ID: 1, CId: "12345", CompanyName: "Test Company", Address: "Test Address", Telephone: "123456789", LocalityID: 1},
 				2: {ID: 2, CId: "123456", CompanyName: "Test Company 2", Address: "Test Address 2", Telephone: "987654321", LocalityID: 2},
