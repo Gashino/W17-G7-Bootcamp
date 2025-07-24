@@ -192,11 +192,11 @@ func TestSellerDefault_Post(t *testing.T) {
 		mockService.On("Create", mock.AnythingOfType("models.Seller")).Return(expectedSeller, nil)
 
 		createRequest := models.SellerCreateRequest{
-			CId:         stringPtr("12345"),
-			CompanyName: stringPtr("New Company"),
-			Address:     stringPtr("New Address"),
-			Telephone:   stringPtr("987654321"),
-			LocalityID:  intPtr(1),
+			CId:         models.StringPtr("12345"),
+			CompanyName: models.StringPtr("New Company"),
+			Address:     models.StringPtr("New Address"),
+			Telephone:   models.StringPtr("987654321"),
+			LocalityID:  models.IntPtr(1),
 		}
 
 		hd := NewSellerDefault(mockService)
@@ -234,7 +234,7 @@ func TestSellerDefault_Post(t *testing.T) {
 
 		// Datos incompletos - faltan campos requeridos
 		createRequest := models.SellerCreateRequest{
-			CId: stringPtr("12345"),
+			CId: models.StringPtr("12345"),
 			// Faltan: CompanyName, Address, Telephone, LocalityID
 		}
 
@@ -266,11 +266,11 @@ func TestSellerDefault_Post(t *testing.T) {
 		mockService.On("Create", mock.AnythingOfType("models.Seller")).Return(models.Seller{}, fmt.Errorf("seller already exists"))
 
 		createRequest := models.SellerCreateRequest{
-			CId:         stringPtr("12345"),
-			CompanyName: stringPtr("Existing Company"),
-			Address:     stringPtr("Existing Address"),
-			Telephone:   stringPtr("987654321"),
-			LocalityID:  intPtr(1),
+			CId:         models.StringPtr("12345"),
+			CompanyName: models.StringPtr("Existing Company"),
+			Address:     models.StringPtr("Existing Address"),
+			Telephone:   models.StringPtr("987654321"),
+			LocalityID:  models.IntPtr(1),
 		}
 
 		hd := NewSellerDefault(mockService)
@@ -313,8 +313,8 @@ func TestSellerDefault_Update(t *testing.T) {
 		mockService.On("UpdateFields", 1, mock.AnythingOfType("models.SellerCreateRequest")).Return(expectedSeller, nil)
 
 		updateRequest := models.SellerCreateRequest{
-			CompanyName: stringPtr("Updated Company"),
-			Address:     stringPtr("Updated Address"),
+			CompanyName: models.StringPtr("Updated Company"),
+			Address:     models.StringPtr("Updated Address"),
 		}
 
 		hd := NewSellerDefault(mockService)
@@ -357,7 +357,7 @@ func TestSellerDefault_Update(t *testing.T) {
 		mockService.On("UpdateFields", 999, mock.AnythingOfType("models.SellerCreateRequest")).Return(models.Seller{}, fmt.Errorf("seller not found"))
 
 		updateRequest := models.SellerCreateRequest{
-			CompanyName: stringPtr("Updated Company"),
+			CompanyName: models.StringPtr("Updated Company"),
 		}
 
 		hd := NewSellerDefault(mockService)
