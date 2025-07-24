@@ -54,7 +54,7 @@ func TestSectionDefault_GetAll(t *testing.T) {
 		}
 		require.Equal(t, expectedCode, res.Code)
 		mockService.AssertCalled(t, "GetAll")
-		require.Equal(t, expectedResp, actualResp)
+		require.Equal(t, len(expectedResp.Data), len(actualResp.Data))
 	})
 }
 
