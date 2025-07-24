@@ -5,7 +5,10 @@ import (
 	"app/pkg/models"
 	"app/test/product"
 	"bytes"
+	"context"
 	"encoding/json"
+	"github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
@@ -60,7 +63,7 @@ func TestHandler_Create(t *testing.T) {
 		hd.Create()(res, req)
 
 		//assert
-		require.NoError(t, errParsing)
+		assert.NoError(t, errParsing)
 		mockProductService.AssertExpectations(t)
 		require.Equal(t, res.Code, http.StatusCreated)
 		require.NotEmpty(t, res.Body)
@@ -112,16 +115,120 @@ func TestHandler_Create(t *testing.T) {
 }
 
 func TestHandler_Find(t *testing.T) {
+	// helpers for pointers
+	str := func(s string) *string { return &s }
+	f64 := func(f float64) *float64 { return &f }
+	i := func(x int) *int { return &x }
+
+	testProducts := map[int]models.Product{
+		1: {
+			ID: 1,
+			ProductAttributes: models.ProductAttributes{
+				ProductCode:                    str("P001"),
+				Description:                    str("Product test 1"),
+				NetWeight:                      f64(10.5),
+				ExpirationRate:                 i(30),
+				RecommendedFreezingTemperature: f64(-18.0),
+				FreezingRate:                   i(5),
+				ProductTypeId:                  i(1),
+				SellerId:                       i(1),
+			},
+			Dimensions: models.Dimensions{
+				Width:  f64(2.0),
+				Height: f64(3.0),
+				Length: f64(4.0),
+			},
+		},
+		2: {
+			ID: 2,
+			ProductAttributes: models.ProductAttributes{
+				ProductCode:                    str("P002"),
+				Description:                    str("Product test 2"),
+				NetWeight:                      f64(20.0),
+				ExpirationRate:                 i(60),
+				RecommendedFreezingTemperature: f64(-20.0),
+				FreezingRate:                   i(10),
+				ProductTypeId:                  i(2),
+				SellerId:                       i(2),
+			},
+			Dimensions: models.Dimensions{
+				Width:  f64(2.5),
+				Height: f64(3.5),
+				Length: f64(4.5),
+			},
+		},
+	}
 
 	t.Run("find_all", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+
+		expectedBody := map[string]any{"data": testProducts}
+		expectedJson, errParsing := json.Marshal(expectedBody)
+
+		hd := NewProductDefault(mockProductService)
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
+
+		mockProductService.On("GetAll").Return(testProducts, nil)
+
+		//act
+		hd.GetAll()(res, req)
+
+		//assert
+		assert.NoError(t, errParsing)
+		mockProductService.AssertExpectations(t)
+		require.Equal(t, expectedJson, res.Body.Bytes())
+		require.Equal(t, http.StatusOK, res.Code)
 
 	})
 
 	t.Run("find_by_id_non_existent", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+
+		hd := NewProductDefault(mockProductService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/products/", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		mockProductService.On("GetById", 1).Return(&models.Product{}, pkg.ServiceErrors[pkg.ErrNotFound])
+
+		//act
+		hd.GetById()(res, req)
+
+		//assert
+		mockProductService.AssertExpectations(t)
+		require.Equal(t, `{"status":"Not Found","message":"error: Not found"}`, string(res.Body.Bytes()))
+		require.Equal(t, http.StatusNotFound, res.Code)
 
 	})
 
 	t.Run("find_by_id_existent", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		productTest := testProducts[0]
+		hd := NewProductDefault(mockProductService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/products/", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
 
+		mockProductService.On("GetById", 1).Return(&productTest, nil)
+
+		expectedBody := map[string]any{"data": productTest}
+		expectedBodyJson, errParsing := json.Marshal(expectedBody)
+
+		//act
+		hd.GetById()(res, req)
+
+		//assert
+		assert.NoError(t, errParsing)
+		mockProductService.AssertExpectations(t)
+		require.Equal(t, http.StatusOK, res.Code)
+		require.Equal(t, expectedBodyJson, res.Body.Bytes())
 	})
 }
