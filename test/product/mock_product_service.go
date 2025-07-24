@@ -13,7 +13,9 @@ type MockProductService struct {
 // Create implements service.IProductService.
 func (m MockProductService) Create(product models.Product) (*models.Product, error) {
 	args := m.Called(product)
-	return args.Get(0).(*models.Product), args.Error(1)
+	prod := args.Get(0).(*models.Product)
+	prod.ID = 1
+	return prod, args.Error(1)
 }
 
 // Delete implements service.IProductService.
