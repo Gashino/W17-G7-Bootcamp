@@ -6,6 +6,7 @@ import (
 	"app/test/employee"
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,6 +14,43 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGetEmployee(t *testing.T) {
+	t.Run("find_by_id_invalid_format", func(t *testing.T) {
+		mockService := new(employee.MockEmployeeService)
+		hd := NewEmployeeHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees/abc", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "abc")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		hd.GetEmployee(res, req)
+
+		expected := `{"message":"error: Invalid ID format", "status":"Bad Request"}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+
+	t.Run("find_by_id_missing", func(t *testing.T) {
+		mockService := new(employee.MockEmployeeService)
+		hd := NewEmployeeHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees/", nil)
+		routeCtx := chi.NewRouteContext()
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		hd.GetEmployee(res, req)
+
+		expected := `{"message":"error: ID is required", "status":"Bad Request"}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+}
 
 func TestCreateEmployee(t *testing.T) {
 	t.Run("create_ok", func(t *testing.T) {
@@ -110,6 +148,24 @@ func TestCreateEmployee(t *testing.T) {
 		expectedCode := 409
 
 		// then
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+	t.Run("create_fail_invalid_json", func(t *testing.T) {
+		mockService := new(employee.MockEmployeeService)
+		hd := NewEmployeeHandler(mockService)
+
+		body := `{
+			invalid json
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/employees", reqBody)
+		res := httptest.NewRecorder()
+
+		hd.CreateEmployee(res, req)
+
+		expected := `{"message":"error: Validation error", "status":"Unprocessable Entity"}`
+		expectedCode := 422
 		require.Equal(t, expectedCode, res.Code)
 		require.JSONEq(t, expected, res.Body.String())
 	})
@@ -312,6 +368,47 @@ func TestUpdateEmployee(t *testing.T) {
 		require.Equal(t, expectedCode, res.Code)
 		require.JSONEq(t, expected, res.Body.String())
 	})
+	t.Run("update_invalid_json", func(t *testing.T) {
+		mockService := new(employee.MockEmployeeService)
+		hd := NewEmployeeHandler(mockService)
+
+		body := `{
+			invalid json
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/employees/3", reqBody)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "3")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		hd.UpdateEmployee(res, req)
+
+		expected := `{"message":"error: Validation error", "status":"Unprocessable Entity"}`
+		expectedCode := 422
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+
+	t.Run("update_empty_fields", func(t *testing.T) {
+		mockService := new(employee.MockEmployeeService)
+		hd := NewEmployeeHandler(mockService)
+
+		body := `{}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/employees/3", reqBody)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "3")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		hd.UpdateEmployee(res, req)
+
+		expected := `{"message":"error: Validation error", "status":"Unprocessable Entity"}`
+		expectedCode := 422
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 }
 
 func TestDeleteEmployee(t *testing.T) {
@@ -350,5 +447,266 @@ func TestDeleteEmployee(t *testing.T) {
 		hd.DeleteEmployee(res, req)
 		// then
 		require.Equal(t, expectedCode, res.Code)
+	})
+}
+
+func TestGetEmployeeInboundOrdersReport(t *testing.T) {
+	t.Run("get_report_all_employees", func(t *testing.T) {
+		mockService := new(employee.MockEmployeeService)
+
+		reports := []models.EmployeeReport{
+			{
+				ID:                 1,
+				CardNumberID:       "11223342",
+				FirstName:          "Carlos",
+				LastName:           "López",
+				WarehouseID:        3,
+				InboundOrdersCount: 5,
+			},
+		}
+
+		mockService.On("ReportInboundOrdersCountByEmployee", (*int)(nil)).Return(reports, nil)
+		hd := NewEmployeeHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees/report/inbound-orders", nil)
+		res := httptest.NewRecorder()
+
+		hd.GetEmployeeInboundOrdersReport(res, req)
+
+		expectedCode := 200
+		require.Equal(t, expectedCode, res.Code)
+		require.NotEmpty(t, res.Body.String())
+	})
+
+	t.Run("get_report_specific_employee", func(t *testing.T) {
+		mockService := new(employee.MockEmployeeService)
+
+		id := 1
+		reports := []models.EmployeeReport{
+			{
+				ID:                 1,
+				CardNumberID:       "11223342",
+				FirstName:          "Carlos",
+				LastName:           "López",
+				WarehouseID:        3,
+				InboundOrdersCount: 5,
+			},
+		}
+
+		mockService.On("ReportInboundOrdersCountByEmployee", &id).Return(reports, nil)
+		hd := NewEmployeeHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees/report/inbound-orders?id=1", nil)
+		res := httptest.NewRecorder()
+
+		hd.GetEmployeeInboundOrdersReport(res, req)
+
+		expectedCode := 200
+		require.Equal(t, expectedCode, res.Code)
+		require.NotEmpty(t, res.Body.String())
+	})
+
+	t.Run("get_report_invalid_id", func(t *testing.T) {
+		mockService := new(employee.MockEmployeeService)
+		hd := NewEmployeeHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees/report/inbound-orders?id=abc", nil)
+		res := httptest.NewRecorder()
+
+		hd.GetEmployeeInboundOrdersReport(res, req)
+
+		expected := `{"message":"error: Invalid ID format", "status":"Bad Request"}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+
+	t.Run("get_report_not_found", func(t *testing.T) {
+		mockService := new(employee.MockEmployeeService)
+
+		id := 999
+		mockService.On("ReportInboundOrdersCountByEmployee", &id).Return(
+			[]models.EmployeeReport{},
+			pkg.ServiceErrors[pkg.ErrNotFound],
+		)
+		hd := NewEmployeeHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees/report/inbound-orders?id=999", nil)
+		res := httptest.NewRecorder()
+
+		hd.GetEmployeeInboundOrdersReport(res, req)
+
+		expected := `{"message":"error: Not found", "status":"Not Found"}`
+		expectedCode := 404
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+}
+
+func TestWriteResponse(t *testing.T) {
+	t.Run("write_success_response", func(t *testing.T) {
+		// arrange
+		w := httptest.NewRecorder()
+		data := struct {
+			Message string `json:"message"`
+		}{
+			Message: "test message",
+		}
+
+		// act
+		writeResponse(w, http.StatusOK, data, nil)
+
+		// assert
+		// Verificar el status code
+		require.Equal(t, http.StatusOK, w.Code)
+
+		// Verificar el Content-Type
+		require.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		// Verificar el body
+		expected := `{"message":"test message"}`
+		require.JSONEq(t, expected, w.Body.String())
+	})
+
+	t.Run("write_error_response", func(t *testing.T) {
+		// arrange
+		w := httptest.NewRecorder()
+		testError := fmt.Errorf("test error")
+
+		// act
+		writeResponse(w, http.StatusBadRequest, nil, testError)
+
+		// assert
+		// Verificar el status code
+		require.Equal(t, http.StatusBadRequest, w.Code)
+
+		// Verificar el Content-Type
+		require.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		// Verificar el body
+		expected := `{"error":"test error"}`
+		require.JSONEq(t, expected, w.Body.String())
+	})
+
+	t.Run("write_nil_data_response", func(t *testing.T) {
+		// arrange
+		w := httptest.NewRecorder()
+
+		// act
+		writeResponse(w, http.StatusNoContent, nil, nil)
+
+		// assert
+		// Verificar el status code
+		require.Equal(t, http.StatusNoContent, w.Code)
+
+		// Verificar el Content-Type
+		require.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		// Verificar que el body está vacío o es "null" (dependiendo de cómo json.Encoder maneje nil)
+		require.Contains(t, []string{"", "null\n"}, w.Body.String())
+	})
+
+	t.Run("write_complex_data_response", func(t *testing.T) {
+		// arrange
+		w := httptest.NewRecorder()
+		data := struct {
+			Items []struct {
+				ID   int    `json:"id"`
+				Name string `json:"name"`
+			} `json:"items"`
+			Total int `json:"total"`
+		}{
+			Items: []struct {
+				ID   int    `json:"id"`
+				Name string `json:"name"`
+			}{
+				{ID: 1, Name: "Item 1"},
+				{ID: 2, Name: "Item 2"},
+			},
+			Total: 2,
+		}
+
+		// act
+		writeResponse(w, http.StatusOK, data, nil)
+
+		// assert
+		// Verificar el status code
+		require.Equal(t, http.StatusOK, w.Code)
+
+		// Verificar el Content-Type
+		require.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		// Verificar el body
+		expected := `{
+			"items": [
+				{"id": 1, "name": "Item 1"},
+				{"id": 2, "name": "Item 2"}
+			],
+			"total": 2
+		}`
+		require.JSONEq(t, expected, w.Body.String())
+	})
+
+	t.Run("write_response_with_empty_struct", func(t *testing.T) {
+		// arrange
+		w := httptest.NewRecorder()
+		data := struct{}{}
+
+		// act
+		writeResponse(w, http.StatusOK, data, nil)
+
+		// assert
+		// Verificar el status code
+		require.Equal(t, http.StatusOK, w.Code)
+
+		// Verificar el Content-Type
+		require.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		// Verificar el body
+		expected := `{}`
+		require.JSONEq(t, expected, w.Body.String())
+	})
+}
+
+func TestHandleServiceError(t *testing.T) {
+	t.Run("handle_service_error", func(t *testing.T) {
+		// arrange
+		w := httptest.NewRecorder()
+		err := pkg.ServiceErrors[pkg.ErrNotFound]
+
+		// act
+		handleServiceError(w, err)
+
+		// assert
+		require.Equal(t, http.StatusNotFound, w.Code)
+		expected := `{"message":"error: Not found", "status":"Not Found"}`
+		require.JSONEq(t, expected, w.Body.String())
+	})
+
+	t.Run("handle_non_service_error", func(t *testing.T) {
+		// arrange
+		w := httptest.NewRecorder()
+		err := fmt.Errorf("un error cualquiera que no es ServiceError")
+
+		// act
+		handleServiceError(w, err)
+
+		// assert
+		require.Equal(t, http.StatusInternalServerError, w.Code)
+		expected := `{"message":"error: Internal server error", "status":"Internal Server Error"}`
+		require.JSONEq(t, expected, w.Body.String())
+	})
+
+	t.Run("handle_nil_error", func(t *testing.T) {
+		// arrange
+		w := httptest.NewRecorder()
+
+		// act
+		handleServiceError(w, nil)
+
+		// assert
+		require.Equal(t, http.StatusInternalServerError, w.Code)
+		expected := `{"message":"error: Internal server error", "status":"Internal Server Error"}`
+		require.JSONEq(t, expected, w.Body.String())
 	})
 }
