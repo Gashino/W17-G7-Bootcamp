@@ -43,9 +43,9 @@ func TestLocalityDefault_Create(t *testing.T) {
 		mockService.On("Create", mock.AnythingOfType("models.Locality")).Return(expectedLocality, nil)
 
 		createRequest := models.LocalityCreateRequest{
-			LocalityName: stringPtr("Buenos Aires"),
-			ProvinceName: stringPtr("Buenos Aires"),
-			CountryName:  stringPtr("Argentina"),
+			LocalityName: models.StringPtr("Buenos Aires"),
+			ProvinceName: models.StringPtr("Buenos Aires"),
+			CountryName:  models.StringPtr("Argentina"),
 		}
 
 		hd := NewLocalityDefault(mockService)
@@ -81,7 +81,7 @@ func TestLocalityDefault_Create(t *testing.T) {
 
 		// Datos incompletos - faltan campos requeridos
 		createRequest := models.LocalityCreateRequest{
-			LocalityName: stringPtr("Buenos Aires"),
+			LocalityName: models.StringPtr("Buenos Aires"),
 			// Faltan: ProvinceName y CountryName
 		}
 
@@ -113,9 +113,9 @@ func TestLocalityDefault_Create(t *testing.T) {
 		mockService.On("Create", mock.AnythingOfType("models.Locality")).Return(models.Locality{}, fmt.Errorf("locality already exists"))
 
 		createRequest := models.LocalityCreateRequest{
-			LocalityName: stringPtr("Buenos Aires"),
-			ProvinceName: stringPtr("Buenos Aires"),
-			CountryName:  stringPtr("Argentina"),
+			LocalityName: models.StringPtr("Buenos Aires"),
+			ProvinceName: models.StringPtr("Buenos Aires"),
+			CountryName:  models.StringPtr("Argentina"),
 		}
 
 		hd := NewLocalityDefault(mockService)
@@ -147,8 +147,8 @@ func TestLocalityDefault_SellersByLocality(t *testing.T) {
 		mockService := new(locality.MockLocalityService)
 		expectedResponse := models.LocalityBySellerResponse{
 			ID:           1,
-			LocalityName: stringPtr("Buenos Aires"),
-			SellerCount:  stringPtr("5"),
+			LocalityName: models.StringPtr("Buenos Aires"),
+			SellerCount:  models.StringPtr("5"),
 		}
 		mockService.On("GetCantSellersByLocality", 1).Return(expectedResponse, nil)
 
@@ -172,8 +172,8 @@ func TestLocalityDefault_SellersByLocality(t *testing.T) {
 		expectedResp := localityReportResponseStruct{
 			Data: models.LocalityBySellerResponse{
 				ID:           1,
-				LocalityName: stringPtr("Buenos Aires"),
-				SellerCount:  stringPtr("5"),
+				LocalityName: models.StringPtr("Buenos Aires"),
+				SellerCount:  models.StringPtr("5"),
 			},
 		}
 		require.Equal(t, expectedCode, res.Code)
@@ -239,14 +239,4 @@ func TestLocalityDefault_SellersByLocality(t *testing.T) {
 		mockService.AssertCalled(t, "GetCantSellersByLocality", 999)
 		require.Equal(t, expectedResp, actualResp)
 	})
-}
-
-// Helper function para crear punteros a string
-func stringPtr(s string) *string {
-	return &s
-}
-
-// Helper function para crear punteros a string
-func intPtr(i int) *int {
-	return &i
 }

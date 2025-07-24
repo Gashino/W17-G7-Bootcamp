@@ -11,8 +11,6 @@ import (
 )
 
 // Helper functions for creating pointers
-func stringPtr(s string) *string    { return &s }
-func intPtr(i int) *int             { return &i }
 func float64Ptr(f float64) *float64 { return &f }
 
 // Function to create a test product
@@ -20,14 +18,14 @@ func createTestProduct() models.Product {
 	return models.Product{
 		ID: 1,
 		ProductAttributes: models.ProductAttributes{
-			ProductCode:                    stringPtr("TEST001"),
-			Description:                    stringPtr("Test Product"),
+			ProductCode:                    models.StringPtr("TEST001"),
+			Description:                    models.StringPtr("Test Product"),
 			NetWeight:                      float64Ptr(10.5),
-			ExpirationRate:                 intPtr(30),
+			ExpirationRate:                 models.IntPtr(30),
 			RecommendedFreezingTemperature: float64Ptr(-18.0),
-			FreezingRate:                   intPtr(10),
-			ProductTypeId:                  intPtr(101),
-			SellerId:                       intPtr(1),
+			FreezingRate:                   models.IntPtr(10),
+			ProductTypeId:                  models.IntPtr(101),
+			SellerId:                       models.IntPtr(1),
 		},
 		Dimensions: models.Dimensions{
 			Width:  float64Ptr(10.0),
@@ -180,7 +178,7 @@ func TestProductService_Update(t *testing.T) {
 		updatedProduct := models.Product{
 			ID: 1,
 			ProductAttributes: models.ProductAttributes{
-				Description: stringPtr("Updated Description"),
+				Description: models.StringPtr("Updated Description"),
 				NetWeight:   float64Ptr(15.0),
 			},
 		}
@@ -211,7 +209,7 @@ func TestProductService_Update(t *testing.T) {
 		updatedProduct := models.Product{
 			ID: 999,
 			ProductAttributes: models.ProductAttributes{
-				Description: stringPtr("Updated Description"),
+				Description: models.StringPtr("Updated Description"),
 			},
 		}
 
@@ -236,7 +234,7 @@ func TestProductService_Update(t *testing.T) {
 		updatedProduct := models.Product{
 			ID: 1,
 			ProductAttributes: models.ProductAttributes{
-				ProductCode: stringPtr("DUPLICATE"),
+				ProductCode: models.StringPtr("DUPLICATE"),
 			},
 		}
 

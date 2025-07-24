@@ -192,8 +192,8 @@ func TestSellerService_UpdateFields(t *testing.T) {
 		// Arrange
 		mockRepo := new(seller.MockSellerRepository)
 		updateData := models.SellerCreateRequest{
-			CompanyName: stringPtr("Updated Company"),
-			Address:     stringPtr("Updated Address"),
+			CompanyName: models.StringPtr("Updated Company"),
+			Address:     models.StringPtr("Updated Address"),
 		}
 		expectedSeller := models.Seller{
 			ID: 1,
@@ -225,7 +225,7 @@ func TestSellerService_UpdateFields(t *testing.T) {
 		// Arrange
 		mockRepo := new(seller.MockSellerRepository)
 		updateData := models.SellerCreateRequest{
-			CompanyName: stringPtr("Updated Company"),
+			CompanyName: models.StringPtr("Updated Company"),
 		}
 		expectedError := pkg.ServiceErrors[pkg.ErrNotFound]
 
@@ -247,7 +247,7 @@ func TestSellerService_UpdateFields(t *testing.T) {
 		// Arrange
 		mockRepo := new(seller.MockSellerRepository)
 		updateData := models.SellerCreateRequest{
-			CId: stringPtr("67890"), // CId que ya existe
+			CId: models.StringPtr("67890"), // CId que ya existe
 		}
 		expectedError := pkg.ServiceErrors[pkg.ErrConflict]
 
@@ -315,9 +315,4 @@ func TestSellerService_DeleteSeller(t *testing.T) {
 		require.Equal(t, expectedError, err)
 		mockRepo.AssertCalled(t, "DeleteSeller", 1)
 	})
-}
-
-// Helper function para crear punteros a string
-func stringPtr(s string) *string {
-	return &s
 }
