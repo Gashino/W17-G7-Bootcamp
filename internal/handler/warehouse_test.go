@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"app/pkg"
 	"app/pkg/models"
 	"app/test/warehouse"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 )
 
@@ -76,17 +79,70 @@ func TestWarehouse_GetAll(t *testing.T) {
 func TestWarehouse_GetOne(t *testing.T) {
 	t.Run("Cuando la petición sea exitosa el backend devolverá la información del warehouse solicitado", func(t *testing.T) {
 		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+		expectedWarehouse := models.Warehouse{
+			ID:             1,
+			WarehouseCode:  "TEST1",
+			Address:        "Fake Street",
+			Telephone:      "123456789",
+			MinCapacity:    1,
+			MinTemperature: 2,
+		}
+		mockService.On("FindByID", 1).Return(expectedWarehouse, nil)
+
+		hd := NewWarehouseDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/warehouse/1", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
 
 		// Act
+		hd.GetOne()(res, req)
 
 		// Assert
+		expectedCode := http.StatusOK
+		expectedBody := `{
+							"data": {
+									"id": 1,
+									"warehouse_code": "TEST1",
+									"address": "Fake Street",
+									"telephone": "123456789",
+									"minimun_capacity": 1,
+									"minimun_temperature": 2
+							}
+						}`
+		actualBody := res.Body.String()
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "FindByID", 1)
+		require.JSONEq(t, expectedBody, actualBody)
 	})
 	t.Run("Cuando el warehouse no exista se devolverá un código 404", func(t *testing.T) {
 		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
+		mockService.On("FindByID", 1).Return(models.Warehouse{}, svcErr)
+
+		hd := NewWarehouseDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/warehouse/1", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
 
 		// Act
+		hd.GetOne()(res, req)
 
 		// Assert
+		expectedCode := http.StatusNotFound
+		expectedBody := `{
+							"status": "Not Found",
+							"message": "error: Not found"
+						}`
+		actualBody := res.Body.String()
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "FindByID", 1)
+		require.JSONEq(t, expectedBody, actualBody)
 	})
 }
 
