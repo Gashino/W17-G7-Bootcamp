@@ -51,6 +51,8 @@ func TestHandler_Create(t *testing.T) {
 		//arrange
 
 		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
 		mockProductService.On("Create", productMock).Return(&productMock, nil)
 
 		body, errParsing := json.Marshal(productMock)
@@ -58,7 +60,6 @@ func TestHandler_Create(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		res := httptest.NewRecorder()
-		hd := NewProductDefault(mockProductService)
 
 		//act
 		hd.Create()(res, req)
@@ -76,19 +77,20 @@ func TestHandler_Create(t *testing.T) {
 		productMock := models.Product{}
 
 		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
 
 		body, errParsing := json.Marshal(productMock)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		res := httptest.NewRecorder()
-		hd := NewProductDefault(mockProductService)
 
 		//act
 		hd.Create()(res, req)
 
 		//assert
 		require.NoError(t, errParsing)
+		mockProductService.AssertNotCalled(t, "Create")
 		require.Equal(t, http.StatusUnprocessableEntity, res.Code)
 
 	})
@@ -110,7 +112,7 @@ func TestHandler_Create(t *testing.T) {
 
 		//assert
 		require.NoError(t, errParsing)
-		mockProductService.AssertExpectations(t)
+		mockProductService.AssertCalled(t, "Create", productMock)
 		require.Equal(t, http.StatusConflict, res.Code)
 	})
 }
@@ -163,11 +165,11 @@ func TestHandler_Find(t *testing.T) {
 	t.Run("find_all", func(t *testing.T) {
 		//arrange
 		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
 
 		expectedBody := map[string]any{"data": testProducts}
 		expectedJson, errParsing := json.Marshal(expectedBody)
 
-		hd := NewProductDefault(mockProductService)
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
 
@@ -178,7 +180,7 @@ func TestHandler_Find(t *testing.T) {
 
 		//assert
 		assert.NoError(t, errParsing)
-		mockProductService.AssertExpectations(t)
+		mockProductService.AssertCalled(t, "GetAll")
 		require.Equal(t, expectedJson, res.Body.Bytes())
 		require.Equal(t, http.StatusOK, res.Code)
 
@@ -187,8 +189,8 @@ func TestHandler_Find(t *testing.T) {
 	t.Run("find_by_id_non_existent", func(t *testing.T) {
 		//arrange
 		mockProductService := new(product.MockProductService)
-
 		hd := NewProductDefault(mockProductService)
+
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/products/", nil)
 		routeCtx := chi.NewRouteContext()
 		routeCtx.URLParams.Add("id", "1")
@@ -201,7 +203,7 @@ func TestHandler_Find(t *testing.T) {
 		hd.GetById()(res, req)
 
 		//assert
-		mockProductService.AssertExpectations(t)
+		mockProductService.AssertCalled(t, "GetById", 1)
 		require.Equal(t, `{"status":"Not Found","message":"error: Not found"}`, string(res.Body.Bytes()))
 		require.Equal(t, http.StatusNotFound, res.Code)
 
@@ -210,9 +212,11 @@ func TestHandler_Find(t *testing.T) {
 	t.Run("find_by_id_existent", func(t *testing.T) {
 		//arrange
 		mockProductService := new(product.MockProductService)
-		productTest := testProducts[0]
 		hd := NewProductDefault(mockProductService)
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/products/", nil)
+
+		productTest := testProducts[1]
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
 		routeCtx := chi.NewRouteContext()
 		routeCtx.URLParams.Add("id", "1")
 		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
@@ -228,16 +232,92 @@ func TestHandler_Find(t *testing.T) {
 
 		//assert
 		assert.NoError(t, errParsing)
-		mockProductService.AssertExpectations(t)
+		mockProductService.AssertCalled(t, "GetById", 1)
 		require.Equal(t, http.StatusOK, res.Code)
 		require.Equal(t, expectedBodyJson, res.Body.Bytes())
 	})
 }
 
 func TestHandler_Update(t *testing.T) {
-	t.Run("update_ok", func(t *testing.T) {})
+	// helpers for pointers
+	str := func(s string) *string { return &s }
+	f64 := func(f float64) *float64 { return &f }
+	i := func(x int) *int { return &x }
 
-	t.Run("update_non_existent", func(t *testing.T) {})
+	testProducts := map[int]models.Product{
+		1: {
+			ID: 1,
+			ProductAttributes: models.ProductAttributes{
+				ProductCode:                    str("P001"),
+				Description:                    str("Product test 1"),
+				NetWeight:                      f64(10.5),
+				ExpirationRate:                 i(30),
+				RecommendedFreezingTemperature: f64(-18.0),
+				FreezingRate:                   i(5),
+				ProductTypeId:                  i(1),
+				SellerId:                       i(1),
+			},
+			Dimensions: models.Dimensions{
+				Width:  f64(2.0),
+				Height: f64(3.0),
+				Length: f64(4.0),
+			},
+		},
+	}
+
+	t.Run("update_ok", func(t *testing.T) {
+		//arrange
+
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		testProduct := testProducts[1]
+		productJson, errParsing := json.Marshal(testProduct)
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/products/", bytes.NewReader(productJson))
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		mockProductService.On("Update", 1, testProduct).Return(&testProduct, nil)
+
+		//act
+		hd.Patch()(res, req)
+
+		//assert
+		assert.NoError(t, errParsing)
+		mockProductService.AssertCalled(t, "Update", 1, testProduct)
+		require.Equal(t, http.StatusOK, res.Code)
+		require.NotEmpty(t, res.Body)
+	})
+
+	t.Run("update_non_existent", func(t *testing.T) {
+		//arrange
+
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		testProduct := testProducts[1]
+		productJson, errParsing := json.Marshal(testProduct)
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/products/", bytes.NewReader(productJson))
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		mockProductService.On("Update", 1, testProduct).Return(&models.Product{}, pkg.ServiceErrors[pkg.ErrNotFound])
+
+		//act
+		hd.Patch()(res, req)
+
+		//assert
+		assert.NoError(t, errParsing)
+		mockProductService.AssertCalled(t, "Update", 1, testProduct)
+		require.Equal(t, http.StatusNotFound, res.Code)
+		require.NotEmpty(t, res.Body)
+	})
 
 }
 
@@ -245,8 +325,8 @@ func TestHandler_Delete(t *testing.T) {
 	t.Run("delete_ok", func(t *testing.T) {
 		//arrange
 		mockProductService := new(product.MockProductService)
-
 		hd := NewProductDefault(mockProductService)
+
 		req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/", nil)
 		routeCtx := chi.NewRouteContext()
 		routeCtx.URLParams.Add("id", "1")
@@ -259,7 +339,7 @@ func TestHandler_Delete(t *testing.T) {
 		hd.Delete()(res, req)
 
 		//assert
-		mockProductService.AssertExpectations(t)
+		mockProductService.AssertCalled(t, "Delete", 1)
 		require.Equal(t, http.StatusNoContent, res.Code)
 		require.Empty(t, res.Body)
 	})
@@ -267,8 +347,8 @@ func TestHandler_Delete(t *testing.T) {
 	t.Run("delete_non_existent", func(t *testing.T) {
 		//arrange
 		mockProductService := new(product.MockProductService)
-
 		hd := NewProductDefault(mockProductService)
+
 		req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/", nil)
 		routeCtx := chi.NewRouteContext()
 		routeCtx.URLParams.Add("id", "1")
@@ -281,7 +361,7 @@ func TestHandler_Delete(t *testing.T) {
 		hd.Delete()(res, req)
 
 		//assert
-		mockProductService.AssertExpectations(t)
+		mockProductService.AssertCalled(t, "Delete", 1)
 		require.Equal(t, http.StatusNotFound, res.Code)
 		require.NotEmpty(t, res.Body)
 	})
