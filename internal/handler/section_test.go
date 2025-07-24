@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -138,57 +140,175 @@ func TestSectionDefault_GetByID(t *testing.T) {
 func TestSectionDefault_PostSection(t *testing.T) {
 	t.Run("Cuando el ingreso de datos sea exitoso se devolverá un código 201 junto con el objeto ingresado.", func(t *testing.T) {
 		// Arrange
-
+		mockService := new(section.MockSectionService)
+		requestBody := `{"section_number": 10, "current_temperature": 5, "minimum_temperature": 2, "current_capacity": 50, "minimum_capacity": 10, "maximum_capacity": 100, "warehouse_id": 1, "product_type_id": 200}`
+		expectedSection := models.Section{
+			ID: 1,
+			SectionAttributes: models.SectionAttributes{
+				SectionNumber:      10,
+				CurrentTemperature: 5,
+				MinimumTemperature: 2,
+				CurrentCapacity:    50,
+				MinimumCapacity:    10,
+				MaximumCapacity:    100,
+				WarehouseID:        1,
+				ProductTypeID:      200,
+				ProductBatches:     nil,
+			},
+		}
+		mockService.On("Create", mock.AnythingOfType("models.Section")).Return(expectedSection, nil)
+		hd := NewSectionDefault(mockService)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/sections", strings.NewReader(requestBody))
+		res := httptest.NewRecorder()
 		// Act
-
+		hd.PostSection()(res, req)
 		// Assert
+		expectedCode := http.StatusCreated
+		expectedBody := `{"data":{"id":1,"section_number":10,"current_temperature":5,"minimum_temperature":2,"current_capacity":50,"minimum_capacity":10,"maximum_capacity":100,"warehouse_id":1,"product_type_id":200}}`
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Create", mock.AnythingOfType("models.Section"))
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
-	t.Run("Si el objeto JSON no contiene los campos necesarios se devolverá un código 422", func(t *testing.T) {
+	t.Run("Si el objeto JSON no contiene los campos necesarios se devolverá un código 400", func(t *testing.T) {
 		// Arrange
-
+		mockService := new(section.MockSectionService)
+		// Falta el campo "section_number"
+		requestBody := `{"current_temperature": 5, "minimum_temperature": 2, "current_capacity": 50, "minimum_capacity": 10, "maximum_capacity": 100, "warehouse_id": 1, "product_type_id": 200}`
+		hd := NewSectionDefault(mockService)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/sections", strings.NewReader(requestBody))
+		res := httptest.NewRecorder()
 		// Act
-
+		hd.PostSection()(res, req)
 		// Assert
+		expectedCode := http.StatusBadRequest
+		expectedBody := `{"message":"error: section is not valid", "status":"Bad Request"}`
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
 	t.Run("Si el section_number ya existe devuelve un error 409 Conflict", func(t *testing.T) {
 		// Arrange
-
+		mockService := new(section.MockSectionService)
+		// Falta el campo "section_number"
+		requestBody := `{"section_number":10, "current_temperature": 5, "minimum_temperature": 2, "current_capacity": 50, "minimum_capacity": 10, "maximum_capacity": 100, "warehouse_id": 1, "product_type_id": 200}`
+		svcErr := pkg.ServiceErrors[pkg.ErrConflict]
+		svcErr.InternalError = fmt.Errorf("valor duplicado")
+		mockService.On("Create", mock.AnythingOfType("models.Section")).Return(models.Section{}, svcErr)
+		hd := NewSectionDefault(mockService)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/sections", strings.NewReader(requestBody))
+		res := httptest.NewRecorder()
 		// Act
-
+		hd.PostSection()(res, req)
 		// Assert
+		expectedCode := http.StatusConflict
+		expectedBody := `{"message":"error: valor duplicado", "status":"Conflict"}`
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
 }
 
 func TestSectionDefault_Update(t *testing.T) {
-	t.Run("Cuando la actualización de datos sea exitosa se devolverá la section con la información actualizada junto con un código 200", func(t *testing.T) {
+	t.Run("Cuando la actualización de datos sea exitosa se devolverá la section con la información actualizada junto con un código 201", func(t *testing.T) {
 		// Arrange
-
+		mockService := new(section.MockSectionService)
+		requestBody := `{"section_number": 10, "current_temperature": 5, "minimum_temperature": 2, "current_capacity": 50, "minimum_capacity": 10, "maximum_capacity": 100, "warehouse_id": 1, "product_type_id": 200}`
+		expectedSection := models.Section{
+			ID: 1,
+			SectionAttributes: models.SectionAttributes{
+				SectionNumber:      10,
+				CurrentTemperature: 5,
+				MinimumTemperature: 2,
+				CurrentCapacity:    50,
+				MinimumCapacity:    10,
+				MaximumCapacity:    100,
+				WarehouseID:        1,
+				ProductTypeID:      200,
+				ProductBatches:     nil,
+			},
+		}
+		mockService.On("Update", 1, mock.AnythingOfType("models.Section")).Return(expectedSection, nil)
+		hd := NewSectionDefault(mockService)
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/sections/1", strings.NewReader(requestBody))
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
 		// Act
-
+		hd.Update()(res, req)
 		// Assert
+		expectedCode := http.StatusCreated
+		expectedBody := `{"data":{"id":1,"section_number":10,"current_temperature":5,"minimum_temperature":2,"current_capacity":50,"minimum_capacity":10,"maximum_capacity":100,"warehouse_id":1,"product_type_id":200}}`
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Update", 1, mock.AnythingOfType("models.Section"))
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
 	t.Run("Si el section que se desea actualizar no existe se devolverá un código 404", func(t *testing.T) {
 		// Arrange
+		mockService := new(section.MockSectionService)
+		requestBody := `{"section_number": 10, "current_temperature": 5, "minimum_temperature": 2, "current_capacity": 50, "minimum_capacity": 10, "maximum_capacity": 100, "warehouse_id": 1, "product_type_id": 200}`
 
+		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
+		svcErr.InternalError = fmt.Errorf("section con id 1 no encontrada")
+		mockService.On("Update", 1, mock.AnythingOfType("models.Section")).Return(models.Section{}, svcErr)
+		hd := NewSectionDefault(mockService)
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/sections/1", strings.NewReader(requestBody))
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
 		// Act
-
+		hd.Update()(res, req)
 		// Assert
+		expectedCode := http.StatusNotFound
+		expectedBody := `{
+							"status": "Not Found",
+							"message": "error: section con id 1 no encontrada"
+						}`
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Update", 1, mock.AnythingOfType("models.Section"))
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
 }
 
+// Reemplaza el test de Delete por este:
 func TestSectionDefault_Delete(t *testing.T) {
 	t.Run("Cuando el section no existe se devolverá un código 404", func(t *testing.T) {
 		// Arrange
+		mockService := new(section.MockSectionService)
+		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
+		svcErr.InternalError = fmt.Errorf("section con id 1 no encontrada")
+		mockService.On("Delete", 1).Return(svcErr)
+		hd := NewSectionDefault(mockService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/sections/1", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
 
-		// Act
+		//Act
+		hd.Delete()(res, req)
 
-		// Assert
+		//Assert
+		require.Equal(t, http.StatusNotFound, res.Code)
+		mockService.AssertCalled(t, "Delete", 1)
 	})
+
 	t.Run("Cuando la eliminación sea exitosa se devolverá un código 204", func(t *testing.T) {
+
 		// Arrange
+		mockService := new(section.MockSectionService)
+		mockService.On("Delete", 1).Return(nil)
+		hd := NewSectionDefault(mockService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/sections/1", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
 
 		// Act
+		hd.Delete()(res, req)
 
 		// Assert
+		require.Equal(t, http.StatusNoContent, res.Code)
+		mockService.AssertCalled(t, "Delete", 1)
 	})
 }
