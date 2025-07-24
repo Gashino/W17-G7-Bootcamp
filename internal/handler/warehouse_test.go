@@ -376,17 +376,56 @@ func TestWarehouse_Update(t *testing.T) {
 func TestWarehouse_Delete(t *testing.T) {
 	t.Run("Cuando el warehouse no existe se devolverá un código 404", func(t *testing.T) {
 		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+		notFoundErr := pkg.ServiceErrors[pkg.ErrNotFound]
+		mockService.On("Delete", 999).Return(notFoundErr)
+
+		hd := NewWarehouseDefault(mockService)
 
 		// Act
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/warehouse/999", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "999")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+		hd.Delete()(res, req)
 
 		// Assert
+		expectedCode := http.StatusNotFound
+		expectedBody := `{
+			"status": "Not Found",
+			"message": "error: error: Not found"
+		}`
+
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Delete", 999)
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
 
 	t.Run("Cuando la eliminación sea exitosa se devolverá un código 204", func(t *testing.T) {
 		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+		mockService.On("Delete", 1).Return(nil)
+
+		hd := NewWarehouseDefault(mockService)
 
 		// Act
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/warehouse/1", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+		hd.Delete()(res, req)
 
 		// Assert
+		expectedCode := http.StatusNoContent
+		expectedBody := `{
+			"message": "success",
+			"data": "Deleted"
+		}`
+
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Delete", 1)
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
 }
