@@ -75,7 +75,7 @@ func TestCreateInboundOrder(t *testing.T) {
 		res := httptest.NewRecorder()
 		hd.CreateInboundOrder(res, req)
 		expected := `{
-				"message":"error: last_name is required", "status":"Unprocessable Entity"
+				"message":"error: Validation error", "status":"Unprocessable Entity"
 				}`
 		expectedCode := 422
 		require.Equal(t, expectedCode, res.Code)
