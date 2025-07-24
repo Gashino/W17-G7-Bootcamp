@@ -3,666 +3,535 @@ package handler
 import (
 	"app/pkg"
 	"app/pkg/models"
+	"app/test/buyer"
 	"bytes"
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-// MockBuyerService is a mock implementation of ServiceBuyer for testing
-type MockBuyerService struct {
-	mock.Mock
-}
+func TestCreateBuyer(t *testing.T) {
+	t.Run("create_ok", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		cardNumberID := "12345678"
+		firstName := "John"
+		lastName := "Doe"
+		id := 1
 
-func (m *MockBuyerService) GetAll() (b map[int]models.Buyer, err error) {
-	args := m.Called()
-	return args.Get(0).(map[int]models.Buyer), args.Error(1)
-}
-
-func (m *MockBuyerService) GetByID(id int) (b models.Buyer, err error) {
-	args := m.Called(id)
-	return args.Get(0).(models.Buyer), args.Error(1)
-}
-
-func (m *MockBuyerService) Create(buyer models.Buyer) (b models.Buyer, err error) {
-	args := m.Called(buyer)
-	return args.Get(0).(models.Buyer), args.Error(1)
-}
-
-func (m *MockBuyerService) Update(id int, buyer models.Buyer) (b models.Buyer, err error) {
-	args := m.Called(id, buyer)
-	return args.Get(0).(models.Buyer), args.Error(1)
-}
-
-func (m *MockBuyerService) Delete(id int) (err error) {
-	args := m.Called(id)
-	return args.Error(0)
-}
-
-func (m *MockBuyerService) GetPurchaseOrdersReport(buyerID *int) (reports []models.BuyerPurchaseOrderReport, err error) {
-	args := m.Called(buyerID)
-	return args.Get(0).([]models.BuyerPurchaseOrderReport), args.Error(1)
-}
-
-// setupBuyerTestHandler creates a handler with mock service
-func setupBuyerTestHandler() (*BuyerHandler, *MockBuyerService) {
-	mockService := &MockBuyerService{}
-	handler := NewBuyerHandler(mockService)
-	return handler, mockService
-}
-
-func TestBuyerGetAll(t *testing.T) {
-	handler, mockService := setupBuyerTestHandler()
-
-	expectedBuyers := map[int]models.Buyer{
-		1: {
-			ID: 1,
+		mockService.On("Create", models.Buyer{
 			BuyerAttributes: models.BuyerAttributes{
-				CardNumberID: "12345678",
-				FirstName:    "John",
-				LastName:     "Doe",
+				CardNumberID: cardNumberID,
+				FirstName:    firstName,
+				LastName:     lastName,
 			},
-		},
-		2: {
-			ID: 2,
+		}).Return(models.Buyer{
+			ID: id,
 			BuyerAttributes: models.BuyerAttributes{
-				CardNumberID: "87654321",
-				FirstName:    "Jane",
-				LastName:     "Smith",
+				CardNumberID: cardNumberID,
+				FirstName:    firstName,
+				LastName:     lastName,
 			},
-		},
-	}
+		}, nil)
 
-	mockService.On("GetAll").Return(expectedBuyers, nil)
+		hd := NewBuyerHandler(mockService)
+		body := `{
+			"card_number_id": "12345678",
+			"first_name": "John",
+			"last_name": "Doe"
+		}`
 
-	// Create request
-	req := httptest.NewRequest("GET", "/buyers", nil)
-	w := httptest.NewRecorder()
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/buyers", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-	// Call handler
-	handler.GetAll()(w, req)
+		expected := `{
+			"data": {
+				"id": 1,
+				"card_number_id": "12345678",
+				"first_name": "John",
+				"last_name": "Doe"
+			}
+		}`
+		expectedCode := 201
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 
-	// Assertions
-	assert.Equal(t, http.StatusOK, w.Code)
+	t.Run("create_fail missing card_number_id", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		hd := NewBuyerHandler(mockService)
+		body := `{
+			"first_name": "John",
+			"last_name": "Doe"
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/buyers", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Contains(t, response, "data")
+		expected := `{
+			"message":"error: card_number_id is required", "status":"Unprocessable Entity"
+		}`
+		expectedCode := 422
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 
-	buyersData := response["data"].([]interface{})
-	assert.Len(t, buyersData, 2)
+	t.Run("create_fail missing first_name", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		hd := NewBuyerHandler(mockService)
+		body := `{
+			"card_number_id": "12345678",
+			"last_name": "Doe"
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/buyers", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-	mockService.AssertExpectations(t)
+		expected := `{
+			"message":"error: first_name is required", "status":"Unprocessable Entity"
+		}`
+		expectedCode := 422
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+
+	t.Run("create_fail missing last_name", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		hd := NewBuyerHandler(mockService)
+		body := `{
+			"card_number_id": "12345678",
+			"first_name": "John"
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/buyers", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
+
+		expected := `{
+			"message":"error: last_name is required", "status":"Unprocessable Entity"
+		}`
+		expectedCode := 422
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+
+	t.Run("create_conflict duplicate card_number_id", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		cardNumberID := "12345678"
+		firstName := "John"
+		lastName := "Doe"
+
+		mockService.On("Create", models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: cardNumberID,
+				FirstName:    firstName,
+				LastName:     lastName,
+			},
+		}).Return(models.Buyer{}, pkg.ServiceErrors[pkg.ErrConflict])
+
+		hd := NewBuyerHandler(mockService)
+		body := `{
+			"card_number_id": "12345678",
+			"first_name": "John",
+			"last_name": "Doe"
+		}`
+
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/buyers", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
+
+		expected := `{"message":"Resource conflict", "status":"Conflict"}`
+		expectedCode := 409
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 }
 
-func TestBuyerGetByID(t *testing.T) {
-	handler, mockService := setupBuyerTestHandler()
+func TestFindBuyer(t *testing.T) {
+	t.Run("find_all", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		cardNumberID := "12345678"
+		firstName := "John"
+		lastName := "Doe"
+		id := 1
 
-	expectedBuyer := models.Buyer{
-		ID: 1,
-		BuyerAttributes: models.BuyerAttributes{
-			CardNumberID: "12345678",
-			FirstName:    "John",
-			LastName:     "Doe",
-		},
-	}
+		mockService.On("GetAll").Return(
+			map[int]models.Buyer{
+				1: {
+					ID: id,
+					BuyerAttributes: models.BuyerAttributes{
+						CardNumberID: cardNumberID,
+						FirstName:    firstName,
+						LastName:     lastName,
+					},
+				},
+			},
+			nil,
+		)
+		hd := NewBuyerHandler(mockService)
 
-	mockService.On("GetByID", 1).Return(expectedBuyer, nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers", nil)
+		res := httptest.NewRecorder()
+		expected := `{
+			"data": [
+				{
+					"id": 1,
+					"card_number_id": "12345678",
+					"first_name": "John",
+					"last_name": "Doe"
+				}
+			]
+		}`
+		expectedCode := 200
+		hd.GetAll()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 
-	// Create request with ID parameter
-	req := httptest.NewRequest("GET", "/buyers/1", nil)
-	w := httptest.NewRecorder()
+	t.Run("find_by_id_non_existent", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		mockService.On("GetByID", 999).Return(
+			models.Buyer{},
+			pkg.ServiceErrors[pkg.ErrNotFound],
+		)
+		hd := NewBuyerHandler(mockService)
 
-	// Add chi URL param
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "1")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers/999", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "999")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
 
-	// Call handler
-	handler.GetByID()(w, req)
+		expectedCode := 404
+		hd.GetByID()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
 
-	// Assertions
-	assert.Equal(t, http.StatusOK, w.Code)
+	t.Run("find_by_id_existent", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		cardNumberID := "12345678"
+		firstName := "John"
+		lastName := "Doe"
+		id := 1
 
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Contains(t, response, "data")
+		mockService.On("GetByID", 1).Return(
+			models.Buyer{
+				ID: id,
+				BuyerAttributes: models.BuyerAttributes{
+					CardNumberID: cardNumberID,
+					FirstName:    firstName,
+					LastName:     lastName,
+				},
+			},
+			nil,
+		)
+		hd := NewBuyerHandler(mockService)
 
-	buyerData := response["data"].(map[string]interface{})
-	assert.Equal(t, "John", buyerData["first_name"])
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers/1", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+		expected := `{
+			"data": {
+				"id": 1,
+				"card_number_id": "12345678",
+				"first_name": "John",
+				"last_name": "Doe"
+			}
+		}`
+		expectedCode := 200
+		hd.GetByID()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 
-	mockService.AssertExpectations(t)
+	t.Run("find_by_id_invalid_id", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		hd := NewBuyerHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers/invalid", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "invalid")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		expectedCode := 400
+		hd.GetByID()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
 }
 
-func TestBuyerGetByIDNotFound(t *testing.T) {
-	handler, mockService := setupBuyerTestHandler()
+func TestUpdateBuyer(t *testing.T) {
+	t.Run("update_ok", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		cardNumberID := "87654321"
+		firstName := "Jane"
+		lastName := "Smith"
+		id := 1
 
-	mockService.On("GetByID", 999).Return(models.Buyer{}, pkg.ServiceErrors[pkg.ErrNotFound])
+		mockService.On("Update", 1, models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: cardNumberID,
+				FirstName:    firstName,
+				LastName:     lastName,
+			},
+		}).Return(
+			models.Buyer{
+				ID: id,
+				BuyerAttributes: models.BuyerAttributes{
+					CardNumberID: cardNumberID,
+					FirstName:    firstName,
+					LastName:     lastName,
+				},
+			},
+			nil,
+		)
+		hd := NewBuyerHandler(mockService)
 
-	// Create request with non-existent ID
-	req := httptest.NewRequest("GET", "/buyers/999", nil)
-	w := httptest.NewRecorder()
+		body := `{
+			"card_number_id": "87654321",
+			"first_name": "Jane",
+			"last_name": "Smith"
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/buyers/1", reqBody)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+		expected := `{
+			"data": {
+				"id": 1,
+				"card_number_id": "87654321",
+				"first_name": "Jane",
+				"last_name": "Smith"
+			}
+		}`
+		expectedCode := 200
+		hd.Update()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 
-	// Add chi URL param
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "999")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	t.Run("update_non_existent", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		cardNumberID := "87654321"
+		firstName := "Jane"
+		lastName := "Smith"
 
-	// Call handler
-	handler.GetByID()(w, req)
+		mockService.On("Update", 999, models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: cardNumberID,
+				FirstName:    firstName,
+				LastName:     lastName,
+			},
+		}).Return(
+			models.Buyer{},
+			pkg.ServiceErrors[pkg.ErrNotFound],
+		)
+		hd := NewBuyerHandler(mockService)
 
-	// Assertions
-	assert.Equal(t, http.StatusNotFound, w.Code)
-	mockService.AssertExpectations(t)
+		body := `{
+			"card_number_id": "87654321",
+			"first_name": "Jane",
+			"last_name": "Smith"
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/buyers/999", reqBody)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "999")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		expectedCode := 404
+		hd.Update()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
+
+	t.Run("update_invalid_id", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		hd := NewBuyerHandler(mockService)
+
+		body := `{
+			"first_name": "Jane"
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/buyers/invalid", reqBody)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "invalid")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		expectedCode := 400
+		hd.Update()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
 }
 
-func TestBuyerGetByIDInvalidID(t *testing.T) {
-	handler, _ := setupBuyerTestHandler()
+func TestDeleteBuyer(t *testing.T) {
+	t.Run("delete_non_existent", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		mockService.On("Delete", 999).Return(
+			pkg.ServiceErrors[pkg.ErrNotFound],
+		)
+		hd := NewBuyerHandler(mockService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/buyers/999", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "999")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
 
-	// Create request with invalid ID
-	req := httptest.NewRequest("GET", "/buyers/invalid", nil)
-	w := httptest.NewRecorder()
+		expectedCode := 404
+		hd.Delete()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
 
-	// Add chi URL param
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "invalid")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	t.Run("delete_ok", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		mockService.On("Delete", 1).Return(nil)
+		hd := NewBuyerHandler(mockService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/buyers/1", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
 
-	// Call handler
-	handler.GetByID()(w, req)
+		expectedCode := 204
+		hd.Delete()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
 
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	t.Run("delete_invalid_id", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		hd := NewBuyerHandler(mockService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/buyers/invalid", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "invalid")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		expectedCode := 400
+		hd.Delete()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
 }
 
-func TestBuyerCreate(t *testing.T) {
-	handler, mockService := setupBuyerTestHandler()
+func TestGetPurchaseOrdersReport(t *testing.T) {
+	t.Run("get_all_buyers_report", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		expectedReports := []models.BuyerPurchaseOrderReport{
+			{
+				ID:                  1,
+				CardNumberID:        "12345678",
+				FirstName:           "John",
+				LastName:            "Doe",
+				PurchaseOrdersCount: 5,
+			},
+			{
+				ID:                  2,
+				CardNumberID:        "87654321",
+				FirstName:           "Jane",
+				LastName:            "Smith",
+				PurchaseOrdersCount: 3,
+			},
+		}
 
-	inputBuyer := models.Buyer{
-		BuyerAttributes: models.BuyerAttributes{
-			CardNumberID: "99999999",
-			FirstName:    "Alice",
-			LastName:     "Johnson",
-		},
-	}
-
-	expectedBuyer := models.Buyer{
-		ID: 3,
-		BuyerAttributes: models.BuyerAttributes{
-			CardNumberID: "99999999",
-			FirstName:    "Alice",
-			LastName:     "Johnson",
-		},
-	}
-
-	mockService.On("Create", inputBuyer).Return(expectedBuyer, nil)
-
-	// Create request body
-	buyerData := map[string]interface{}{
-		"card_number_id": "99999999",
-		"first_name":     "Alice",
-		"last_name":      "Johnson",
-	}
-	body, _ := json.Marshal(buyerData)
-
-	// Create request
-	req := httptest.NewRequest("POST", "/buyers", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Call handler
-	handler.Create()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusCreated, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Contains(t, response, "data")
-
-	buyerResponse := response["data"].(map[string]interface{})
-	assert.Equal(t, "Alice", buyerResponse["first_name"])
-
-	mockService.AssertExpectations(t)
-}
-
-func TestBuyerCreateMissingCardNumberID(t *testing.T) {
-	handler, _ := setupBuyerTestHandler()
-
-	// Create request body with missing card_number_id
-	buyerData := map[string]interface{}{
-		"first_name": "Alice",
-		"last_name":  "Johnson",
-	}
-	body, _ := json.Marshal(buyerData)
-
-	// Create request
-	req := httptest.NewRequest("POST", "/buyers", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Call handler
-	handler.Create()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestBuyerCreateMissingFirstName(t *testing.T) {
-	handler, _ := setupBuyerTestHandler()
-
-	// Create request body with missing first_name
-	buyerData := map[string]interface{}{
-		"card_number_id": "99999999",
-		"last_name":      "Johnson",
-	}
-	body, _ := json.Marshal(buyerData)
-
-	// Create request
-	req := httptest.NewRequest("POST", "/buyers", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Call handler
-	handler.Create()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestBuyerCreateMissingLastName(t *testing.T) {
-	handler, _ := setupBuyerTestHandler()
-
-	// Create request body with missing last_name
-	buyerData := map[string]interface{}{
-		"card_number_id": "99999999",
-		"first_name":     "Alice",
-	}
-	body, _ := json.Marshal(buyerData)
-
-	// Create request
-	req := httptest.NewRequest("POST", "/buyers", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Call handler
-	handler.Create()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestBuyerCreateInvalidJSON(t *testing.T) {
-	handler, _ := setupBuyerTestHandler()
-
-	// Create invalid JSON
-	body := bytes.NewBuffer([]byte("invalid json"))
-
-	// Create request
-	req := httptest.NewRequest("POST", "/buyers", body)
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Call handler
-	handler.Create()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestBuyerCreateDuplicateCardNumberID(t *testing.T) {
-	handler, mockService := setupBuyerTestHandler()
-
-	inputBuyer := models.Buyer{
-		BuyerAttributes: models.BuyerAttributes{
-			CardNumberID: "12345678",
-			FirstName:    "Alice",
-			LastName:     "Johnson",
-		},
-	}
-
-	mockService.On("Create", inputBuyer).Return(models.Buyer{}, pkg.ServiceErrors[pkg.ErrBadRequest])
-
-	// Create request body with duplicate card_number_id
-	buyerData := map[string]interface{}{
-		"card_number_id": "12345678",
-		"first_name":     "Alice",
-		"last_name":      "Johnson",
-	}
-	body, _ := json.Marshal(buyerData)
-
-	// Create request
-	req := httptest.NewRequest("POST", "/buyers", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Call handler
-	handler.Create()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	mockService.AssertExpectations(t)
-}
-
-func TestBuyerUpdate(t *testing.T) {
-	handler, mockService := setupBuyerTestHandler()
-
-	inputBuyer := models.Buyer{
-		BuyerAttributes: models.BuyerAttributes{
-			FirstName: "UpdatedJohn",
-			LastName:  "UpdatedDoe",
-		},
-	}
-
-	expectedBuyer := models.Buyer{
-		ID: 1,
-		BuyerAttributes: models.BuyerAttributes{
-			FirstName: "UpdatedJohn",
-			LastName:  "UpdatedDoe",
-		},
-	}
-
-	mockService.On("Update", 1, inputBuyer).Return(expectedBuyer, nil)
-
-	// Create request body
-	buyerData := map[string]interface{}{
-		"first_name": "UpdatedJohn",
-		"last_name":  "UpdatedDoe",
-	}
-	body, _ := json.Marshal(buyerData)
-
-	// Create request
-	req := httptest.NewRequest("PATCH", "/buyers/1", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Add chi URL param
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "1")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-	// Call handler
-	handler.Update()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Contains(t, response, "data")
-
-	mockService.AssertExpectations(t)
-}
-
-func TestBuyerUpdateNotFound(t *testing.T) {
-	handler, mockService := setupBuyerTestHandler()
-
-	inputBuyer := models.Buyer{
-		BuyerAttributes: models.BuyerAttributes{
-			FirstName: "UpdatedJohn",
-		},
-	}
-
-	mockService.On("Update", 999, inputBuyer).Return(models.Buyer{}, pkg.ServiceErrors[pkg.ErrNotFound])
-
-	// Create request body
-	buyerData := map[string]interface{}{
-		"first_name": "UpdatedJohn",
-	}
-	body, _ := json.Marshal(buyerData)
-
-	// Create request
-	req := httptest.NewRequest("PATCH", "/buyers/999", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Add chi URL param
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "999")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-	// Call handler
-	handler.Update()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusNotFound, w.Code)
-	mockService.AssertExpectations(t)
-}
-
-func TestBuyerUpdateInvalidID(t *testing.T) {
-	handler, _ := setupBuyerTestHandler()
-
-	// Create request body
-	buyerData := map[string]interface{}{
-		"first_name": "UpdatedJohn",
-	}
-	body, _ := json.Marshal(buyerData)
-
-	// Create request
-	req := httptest.NewRequest("PATCH", "/buyers/invalid", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Add chi URL param
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "invalid")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-	// Call handler
-	handler.Update()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestBuyerUpdateInvalidJSON(t *testing.T) {
-	handler, _ := setupBuyerTestHandler()
-
-	// Create invalid JSON
-	body := bytes.NewBuffer([]byte("invalid json"))
-
-	// Create request
-	req := httptest.NewRequest("PATCH", "/buyers/1", body)
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Add chi URL param
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "1")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-	// Call handler
-	handler.Update()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestBuyerDelete(t *testing.T) {
-	handler, mockService := setupBuyerTestHandler()
-
-	mockService.On("Delete", 1).Return(nil)
-
-	// Create request
-	req := httptest.NewRequest("DELETE", "/buyers/1", nil)
-	w := httptest.NewRecorder()
-
-	// Add chi URL param
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "1")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-	// Call handler
-	handler.Delete()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusNoContent, w.Code)
-	mockService.AssertExpectations(t)
-}
-
-func TestBuyerDeleteNotFound(t *testing.T) {
-	handler, mockService := setupBuyerTestHandler()
-
-	mockService.On("Delete", 999).Return(pkg.ServiceErrors[pkg.ErrNotFound])
-
-	// Create request
-	req := httptest.NewRequest("DELETE", "/buyers/999", nil)
-	w := httptest.NewRecorder()
-
-	// Add chi URL param
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "999")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-	// Call handler
-	handler.Delete()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusNotFound, w.Code)
-	mockService.AssertExpectations(t)
-}
-
-func TestBuyerDeleteInvalidID(t *testing.T) {
-	handler, _ := setupBuyerTestHandler()
-
-	// Create test request with invalid ID
-	req := httptest.NewRequest(http.MethodDelete, "/buyers/invalid", nil)
-	w := httptest.NewRecorder()
-
-	// Add URL parameter
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "invalid")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-	// Call handler
-	handler.Delete()(w, req)
-
-	// Check response
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	var response map[string]string
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Equal(t, "Bad Request", response["status"])
-	assert.Equal(t, "Invalid ID format", response["message"])
-}
-
-func TestBuyerGetPurchaseOrdersReport(t *testing.T) {
-	handler, mockService := setupBuyerTestHandler()
-
-	expectedReports := []models.BuyerPurchaseOrderReport{
-		{
-			ID:                  1,
-			CardNumberID:        "12345678",
-			FirstName:           "John",
-			LastName:            "Doe",
-			PurchaseOrdersCount: 5,
-		},
-		{
-			ID:                  2,
-			CardNumberID:        "87654321",
-			FirstName:           "Jane",
-			LastName:            "Smith",
-			PurchaseOrdersCount: 3,
-		},
-	}
-
-	t.Run("get all buyers report", func(t *testing.T) {
-		// Setup mock expectations
 		mockService.On("GetPurchaseOrdersReport", (*int)(nil)).Return(expectedReports, nil)
+		hd := NewBuyerHandler(mockService)
 
-		// Create test request
-		req := httptest.NewRequest(http.MethodGet, "/buyers/reportPurchaseOrders", nil)
-		w := httptest.NewRecorder()
-
-		// Call handler
-		handler.GetPurchaseOrdersReport()(w, req)
-
-		// Check response
-		assert.Equal(t, http.StatusOK, w.Code)
-		var response map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Contains(t, response, "data")
-
-		// Verify mock expectations
-		mockService.AssertExpectations(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers/reportPurchaseOrders", nil)
+		res := httptest.NewRecorder()
+		expected := `{
+			"data": [
+				{
+					"id": 1,
+					"card_number_id": "12345678",
+					"first_name": "John",
+					"last_name": "Doe",
+					"purchase_orders_count": 5
+				},
+				{
+					"id": 2,
+					"card_number_id": "87654321",
+					"first_name": "Jane",
+					"last_name": "Smith",
+					"purchase_orders_count": 3
+				}
+			]
+		}`
+		expectedCode := 200
+		hd.GetPurchaseOrdersReport()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
 	})
 
-	t.Run("get specific buyer report", func(t *testing.T) {
+	t.Run("get_specific_buyer_report", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
 		buyerID := 1
-		expectedSingleReport := []models.BuyerPurchaseOrderReport{expectedReports[0]}
+		expectedReport := []models.BuyerPurchaseOrderReport{
+			{
+				ID:                  1,
+				CardNumberID:        "12345678",
+				FirstName:           "John",
+				LastName:            "Doe",
+				PurchaseOrdersCount: 5,
+			},
+		}
 
-		// Setup mock expectations
-		mockService.On("GetPurchaseOrdersReport", &buyerID).Return(expectedSingleReport, nil)
+		mockService.On("GetPurchaseOrdersReport", &buyerID).Return(expectedReport, nil)
+		hd := NewBuyerHandler(mockService)
 
-		// Create test request with query parameter
-		req := httptest.NewRequest(http.MethodGet, "/buyers/reportPurchaseOrders?id=1", nil)
-		w := httptest.NewRecorder()
-
-		// Call handler
-		handler.GetPurchaseOrdersReport()(w, req)
-
-		// Check response
-		assert.Equal(t, http.StatusOK, w.Code)
-		var response map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Contains(t, response, "data")
-
-		// Verify mock expectations
-		mockService.AssertExpectations(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers/reportPurchaseOrders?id=1", nil)
+		res := httptest.NewRecorder()
+		expected := `{
+			"data": [
+				{
+					"id": 1,
+					"card_number_id": "12345678",
+					"first_name": "John",
+					"last_name": "Doe",
+					"purchase_orders_count": 5
+				}
+			]
+		}`
+		expectedCode := 200
+		hd.GetPurchaseOrdersReport()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
 	})
 
-	t.Run("invalid ID format", func(t *testing.T) {
-		// Create test request with invalid ID
-		req := httptest.NewRequest(http.MethodGet, "/buyers/reportPurchaseOrders?id=invalid", nil)
-		w := httptest.NewRecorder()
+	t.Run("invalid_id_format", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		hd := NewBuyerHandler(mockService)
 
-		// Call handler
-		handler.GetPurchaseOrdersReport()(w, req)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers/reportPurchaseOrders?id=invalid", nil)
+		res := httptest.NewRecorder()
 
-		// Check response
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-		var response map[string]string
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Equal(t, "Bad Request", response["status"])
-		assert.Equal(t, "Invalid ID format", response["message"])
-
-		// Verify that the service method was not called
-		mockService.AssertNotCalled(t, "GetPurchaseOrdersReport")
+		expectedCode := 400
+		hd.GetPurchaseOrdersReport()(res, req)
+		require.Equal(t, expectedCode, res.Code)
 	})
 
-	t.Run("buyer not found", func(t *testing.T) {
+	t.Run("buyer_not_found", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
 		buyerID := 999
-		// Setup mock expectations
 		mockService.On("GetPurchaseOrdersReport", &buyerID).Return([]models.BuyerPurchaseOrderReport{}, pkg.ServiceErrors[pkg.ErrNotFound])
+		hd := NewBuyerHandler(mockService)
 
-		// Create test request
-		req := httptest.NewRequest(http.MethodGet, "/buyers/reportPurchaseOrders?id=999", nil)
-		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers/reportPurchaseOrders?id=999", nil)
+		res := httptest.NewRecorder()
 
-		// Call handler
-		handler.GetPurchaseOrdersReport()(w, req)
-
-		// Check response
-		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response map[string]string
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Equal(t, "Not Found", response["status"])
-
-		// Verify mock expectations
-		mockService.AssertExpectations(t)
+		expectedCode := 404
+		hd.GetPurchaseOrdersReport()(res, req)
+		require.Equal(t, expectedCode, res.Code)
 	})
 }

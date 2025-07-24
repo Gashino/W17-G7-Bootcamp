@@ -68,7 +68,7 @@ func (r *BuyerSQL) Create(buyer models.Buyer) (b models.Buyer, err error) {
 			switch mysqlErr.Number {
 			case 1062:
 				// Duplicate entry error - card_number_id already exists
-				srvError := pkg.ServiceErrors[pkg.ErrBadRequest]
+				srvError := pkg.ServiceErrors[pkg.ErrConflict]
 				srvError.InternalError = fmt.Errorf("card_number_id already exists")
 				return models.Buyer{}, srvError
 			default:
@@ -134,7 +134,7 @@ func (r *BuyerSQL) Update(buyer models.Buyer) (b models.Buyer, err error) {
 			switch mysqlErr.Number {
 			case 1062:
 				// Duplicate entry error - card_number_id already exists
-				srvError := pkg.ServiceErrors[pkg.ErrBadRequest]
+				srvError := pkg.ServiceErrors[pkg.ErrConflict]
 				srvError.InternalError = fmt.Errorf("card_number_id already exists")
 				return models.Buyer{}, srvError
 			default:
