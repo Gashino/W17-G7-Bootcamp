@@ -275,18 +275,101 @@ func TestWarehouse_Add(t *testing.T) {
 func TestWarehouse_Update(t *testing.T) {
 	t.Run("Cuando la actualización de datos sea exitosa se devolverá el warehouse con la información actualizada junto con un código 200", func(t *testing.T) {
 		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+		warehouseDoc := models.WarehouseDoc{
+			WarehouseCode:  "UPDATED123",
+			Address:        "Updated Street 456",
+			Telephone:      "555-9999",
+			MinCapacity:    200,
+			MinTemperature: 10,
+		}
+		expectedWarehouse := models.Warehouse{
+			ID:             1,
+			WarehouseCode:  "UPDATED123",
+			Address:        "Updated Street 456",
+			Telephone:      "555-9999",
+			MinCapacity:    200,
+			MinTemperature: 10,
+		}
+		mockService.On("Update", 1, warehouseDoc).Return(expectedWarehouse, nil)
+
+		hd := NewWarehouseDefault(mockService)
+		requestBody := `{
+			"warehouse_code": "UPDATED123",
+			"address": "Updated Street 456",
+			"telephone": "555-9999",
+			"minimun_capacity": 200,
+			"minimun_temperature": 10
+		}`
 
 		// Act
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/warehouse/1", strings.NewReader(requestBody))
+		req.Header.Set("Content-Type", "application/json")
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+		hd.Update()(res, req)
 
 		// Assert
+		expectedCode := http.StatusCreated
+		expectedBody := `{
+			"data": {
+				"id": 1,
+				"warehouse_code": "UPDATED123",
+				"address": "Updated Street 456",
+				"telephone": "555-9999",
+				"minimun_capacity": 200,
+				"minimun_temperature": 10
+			}
+		}`
+
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Update", 1, warehouseDoc)
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
 
 	t.Run("Si el warehouse que se desea actualizar no existe se devolverá un código 404", func(t *testing.T) {
 		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+		warehouseDoc := models.WarehouseDoc{
+			WarehouseCode:  "NONEXISTENT123",
+			Address:        "Test Street 789",
+			Telephone:      "555-1111",
+			MinCapacity:    50,
+			MinTemperature: 15,
+		}
+		notFoundErr := pkg.ServiceErrors[pkg.ErrNotFound]
+		mockService.On("Update", 999, warehouseDoc).Return(models.Warehouse{}, notFoundErr)
+
+		hd := NewWarehouseDefault(mockService)
+		requestBody := `{
+			"warehouse_code": "NONEXISTENT123",
+			"address": "Test Street 789",
+			"telephone": "555-1111",
+			"minimun_capacity": 50,
+			"minimun_temperature": 15
+		}`
 
 		// Act
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/warehouse/999", strings.NewReader(requestBody))
+		req.Header.Set("Content-Type", "application/json")
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "999")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+		hd.Update()(res, req)
 
 		// Assert
+		expectedCode := http.StatusNotFound
+		expectedBody := `{
+			"status": "Not Found",
+			"message": "error: error: Not found"
+		}`
+
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Update", 999, warehouseDoc)
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
 }
 
