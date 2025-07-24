@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -149,26 +150,125 @@ func TestWarehouse_GetOne(t *testing.T) {
 func TestWarehouse_Add(t *testing.T) {
 	t.Run("Cuando el ingreso de datos sea exitoso se devolverá un código 201 junto con el objeto ingresado.", func(t *testing.T) {
 		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+		warehouseDoc := models.WarehouseDoc{
+			WarehouseCode:  "TEST123",
+			Address:        "Test Street 123",
+			Telephone:      "555-0123",
+			MinCapacity:    100,
+			MinTemperature: 5,
+		}
+		expectedWarehouse := models.Warehouse{
+			ID:             1,
+			WarehouseCode:  "TEST123",
+			Address:        "Test Street 123",
+			Telephone:      "555-0123",
+			MinCapacity:    100,
+			MinTemperature: 5,
+		}
+		mockService.On("Add", warehouseDoc).Return(expectedWarehouse, nil)
+
+		hd := NewWarehouseDefault(mockService)
+		requestBody := `{
+			"warehouse_code": "TEST123",
+			"address": "Test Street 123",
+			"telephone": "555-0123",
+			"minimun_capacity": 100,
+			"minimun_temperature": 5
+		}`
 
 		// Act
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/warehouse", strings.NewReader(requestBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+		hd.Add()(res, req)
 
 		// Assert
+		expectedCode := http.StatusCreated
+		expectedBody := `{
+			"data": {
+				"id": 1,
+				"warehouse_code": "TEST123",
+				"address": "Test Street 123",
+				"telephone": "555-0123",
+				"minimun_capacity": 100,
+				"minimun_temperature": 5
+			}
+		}`
+
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Add", warehouseDoc)
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
 
 	t.Run("Si el objeto JSON no contiene los campos necesarios se devolverá un código 422", func(t *testing.T) {
 		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+		hd := NewWarehouseDefault(mockService)
+		requestBody := `{
+			"warehouse_code": "",
+			"address": "Test Street 123",
+			"telephone": "555-0123",
+			"minimun_capacity": 100,
+			"minimun_temperature": 5
+		}`
 
 		// Act
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/warehouse", strings.NewReader(requestBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+		hd.Add()(res, req)
 
 		// Assert
+		expectedCode := http.StatusUnprocessableEntity
+		expectedBody := `{
+			"status": "Unprocessable Entity",
+			"message": "error: Validation error"
+		}`
+
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertNotCalled(t, "Add")
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
 
 	t.Run("Si el warehouse_code ya existe devuelve un error 409 Conflict", func(t *testing.T) {
 		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+		warehouseDoc := models.WarehouseDoc{
+			WarehouseCode:  "EXISTING123",
+			Address:        "Test Street 123",
+			Telephone:      "555-0123",
+			MinCapacity:    100,
+			MinTemperature: 5,
+		}
+		conflictErr := pkg.ServiceErrors[pkg.ErrConflict]
+		mockService.On("Add", warehouseDoc).Return(models.Warehouse{}, conflictErr)
+
+		hd := NewWarehouseDefault(mockService)
+		requestBody := `{
+			"warehouse_code": "EXISTING123",
+			"address": "Test Street 123",
+			"telephone": "555-0123",
+			"minimun_capacity": 100,
+			"minimun_temperature": 5
+		}`
 
 		// Act
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/warehouse", strings.NewReader(requestBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+		hd.Add()(res, req)
 
 		// Assert
+		expectedCode := http.StatusInternalServerError
+		expectedBody := `{
+			"status": "Internal Server Error",
+			"message": "error: error: Resource conflict"
+		}`
+
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Add", warehouseDoc)
+		require.JSONEq(t, expectedBody, res.Body.String())
 	})
 }
 
