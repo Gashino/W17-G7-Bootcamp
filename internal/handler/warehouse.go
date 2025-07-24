@@ -82,7 +82,7 @@ func (h *WarehouseDefault) GetOne() http.HandlerFunc {
 			MinTemperature: value.MinTemperature,
 		}
 
-		writeResponse(w, http.StatusCreated, map[string]any{
+		writeResponse(w, http.StatusOK, map[string]any{
 			"data": data,
 		}, nil)
 	}
