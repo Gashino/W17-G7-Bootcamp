@@ -88,7 +88,7 @@ func (r *WarehouseMap) Delete(id int) (err error) {
 
 	// Verifico Employee
 	for _, e := range *r.employeeDb {
-		if e.WarehouseID == id {
+		if e.WarehouseID == &id {
 			err = errors.New("FK restriction with Employee")
 			return
 		}

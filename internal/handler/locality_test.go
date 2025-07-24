@@ -2,6 +2,7 @@ package handler
 
 import (
 	"app/pkg/models"
+	"app/test/locality"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -11,289 +12,241 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-// MockLocalityService is a mock of locality service
-type MockLocalityService struct {
-	mock.Mock
+type localityResponseStruct struct {
+	Data models.LocalitiesDoc `json:"data"`
 }
 
-func (m *MockLocalityService) Create(locality models.Locality) (models.Locality, error) {
-	args := m.Called(locality)
-	return args.Get(0).(models.Locality), args.Error(1)
+type localityErrorResponseStruct struct {
+	Message string `json:"message"`
 }
 
-func (m *MockLocalityService) GetById(id int) (models.Locality, error) {
-	args := m.Called(id)
-	return args.Get(0).(models.Locality), args.Error(1)
+type localityReportResponseStruct struct {
+	Data models.LocalityBySellerResponse `json:"data"`
 }
 
-func (m *MockLocalityService) GetCantSellersByLocality(id int) (models.LocalityBySellerResponse, error) {
-	args := m.Called(id)
-	return args.Get(0).(models.LocalityBySellerResponse), args.Error(1)
+func TestLocalityDefault_Create(t *testing.T) {
+	t.Run("Cuando el ingreso de datos sea exitoso se devolverá un código 201 junto con el objeto ingresado", func(t *testing.T) {
+		// Arrange
+		mockService := new(locality.MockLocalityService)
+		expectedLocality := models.Locality{
+			ID: 1,
+			LocalitiesAttributes: models.LocalitiesAttributes{
+				LocalityName: "Buenos Aires",
+				ProvinceName: "Buenos Aires",
+				CountryName:  "Argentina",
+			},
+		}
+		mockService.On("Create", mock.AnythingOfType("models.Locality")).Return(expectedLocality, nil)
+
+		createRequest := models.LocalityCreateRequest{
+			LocalityName: stringPtr("Buenos Aires"),
+			ProvinceName: stringPtr("Buenos Aires"),
+			CountryName:  stringPtr("Argentina"),
+		}
+
+		hd := NewLocalityDefault(mockService)
+		reqBody, _ := json.Marshal(createRequest)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/localities", bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		// Act
+		hd.Create()(res, req)
+
+		// Assert
+		actualResp := localityResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusCreated
+		expectedResp := localityResponseStruct{
+			Data: models.LocalitiesDoc{
+				ID:           1,
+				LocalityName: "Buenos Aires",
+				ProvinceName: "Buenos Aires",
+				CountryName:  "Argentina",
+			},
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Create", mock.AnythingOfType("models.Locality"))
+		require.Equal(t, expectedResp, actualResp)
+	})
+
+	t.Run("Si el objeto JSON no contiene los campos necesarios se devolverá un código 422", func(t *testing.T) {
+		// Arrange
+		mockService := new(locality.MockLocalityService)
+
+		// Datos incompletos - faltan campos requeridos
+		createRequest := models.LocalityCreateRequest{
+			LocalityName: stringPtr("Buenos Aires"),
+			// Faltan: ProvinceName y CountryName
+		}
+
+		hd := NewLocalityDefault(mockService)
+		reqBody, _ := json.Marshal(createRequest)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/localities", bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		// Act
+		hd.Create()(res, req)
+
+		// Assert
+		actualResp := localityErrorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusUnprocessableEntity
+		expectedResp := localityErrorResponseStruct{
+			Message: "error: Validation error",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertNotCalled(t, "Create")
+		require.Equal(t, expectedResp, actualResp)
+	})
+
+	t.Run("Si la locality ya existe devuelve un error 409 Conflict", func(t *testing.T) {
+		// Arrange
+		mockService := new(locality.MockLocalityService)
+		mockService.On("Create", mock.AnythingOfType("models.Locality")).Return(models.Locality{}, fmt.Errorf("locality already exists"))
+
+		createRequest := models.LocalityCreateRequest{
+			LocalityName: stringPtr("Buenos Aires"),
+			ProvinceName: stringPtr("Buenos Aires"),
+			CountryName:  stringPtr("Argentina"),
+		}
+
+		hd := NewLocalityDefault(mockService)
+		reqBody, _ := json.Marshal(createRequest)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/localities", bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		// Act
+		hd.Create()(res, req)
+
+		// Assert
+		actualResp := localityErrorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusConflict
+		expectedResp := localityErrorResponseStruct{
+			Message: "error: Resource conflict",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Create", mock.AnythingOfType("models.Locality"))
+		require.Equal(t, expectedResp, actualResp)
+	})
 }
 
-// Test for Create - Success case
-func TestLocalityDefault_Create_Success(t *testing.T) {
-	// Arrange
-	mockService := new(MockLocalityService)
-	handler := NewLocalityDefault(mockService)
+func TestLocalityDefault_SellersByLocality(t *testing.T) {
+	t.Run("Cuando la petición sea exitosa el backend devolverá la información del reporte solicitado", func(t *testing.T) {
+		// Arrange
+		mockService := new(locality.MockLocalityService)
+		expectedResponse := models.LocalityBySellerResponse{
+			ID:           1,
+			LocalityName: stringPtr("Buenos Aires"),
+			SellerCount:  stringPtr("5"),
+		}
+		mockService.On("GetCantSellersByLocality", 1).Return(expectedResponse, nil)
 
-	// Valid creation request
-	createRequest := models.LocalityCreateRequest{
-		LocalityName: stringPtr("Buenos Aires"),
-		ProvinceName: stringPtr("Buenos Aires"),
-		CountryName:  stringPtr("Argentina"),
-	}
+		hd := NewLocalityDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/localities/reportSellers/1", nil)
+		res := httptest.NewRecorder()
 
-	// Expected locality returned by service
-	expectedLocality := models.Locality{
-		ID: 1,
-		LocalitiesAttributes: models.LocalitiesAttributes{
-			LocalityName: "Buenos Aires",
-			ProvinceName: "Buenos Aires",
-			CountryName:  "Argentina",
-		},
-	}
+		// Simular parámetro de URL
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
-	// Configure mock
-	mockService.On("Create", mock.AnythingOfType("models.Locality")).Return(expectedLocality, nil)
+		// Act
+		hd.SellersByLocality()(res, req)
 
-	// Create HTTP request
-	reqBody, _ := json.Marshal(createRequest)
-	req := httptest.NewRequest("POST", "/localities", bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+		// Assert
+		actualResp := localityReportResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusCreated
+		expectedResp := localityReportResponseStruct{
+			Data: models.LocalityBySellerResponse{
+				ID:           1,
+				LocalityName: stringPtr("Buenos Aires"),
+				SellerCount:  stringPtr("5"),
+			},
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "GetCantSellersByLocality", 1)
+		require.Equal(t, expectedResp, actualResp)
+	})
 
-	// Act
-	handlerFunc := handler.Create()
-	handlerFunc(w, req)
+	t.Run("Cuando el ID no sea válido se devolverá un código 400", func(t *testing.T) {
+		// Arrange
+		mockService := new(locality.MockLocalityService)
 
-	// Assert
-	assert.Equal(t, http.StatusCreated, w.Code)
+		hd := NewLocalityDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/localities/reportSellers/invalid", nil)
+		res := httptest.NewRecorder()
 
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
+		// Simular parámetro de URL inválido
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "invalid")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
-	assert.NotNil(t, response["data"])
+		// Act
+		hd.SellersByLocality()(res, req)
 
-	// Verify mock was called correctly
-	mockService.AssertExpectations(t)
+		// Assert
+		actualResp := localityErrorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusBadRequest
+		expectedResp := localityErrorResponseStruct{
+			Message: "error: Bad request",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertNotCalled(t, "GetCantSellersByLocality")
+		require.Equal(t, expectedResp, actualResp)
+	})
+
+	t.Run("Cuando la locality no exista se devolverá un código 404", func(t *testing.T) {
+		// Arrange
+		mockService := new(locality.MockLocalityService)
+		mockService.On("GetCantSellersByLocality", 999).Return(models.LocalityBySellerResponse{}, fmt.Errorf("locality not found"))
+
+		hd := NewLocalityDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/localities/reportSellers/999", nil)
+		res := httptest.NewRecorder()
+
+		// Simular parámetro de URL
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "999")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		// Act
+		hd.SellersByLocality()(res, req)
+
+		// Assert
+		actualResp := localityErrorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusNotFound
+		expectedResp := localityErrorResponseStruct{
+			Message: "error: Not found",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "GetCantSellersByLocality", 999)
+		require.Equal(t, expectedResp, actualResp)
+	})
 }
 
-// Test for Create - Invalid data case
-func TestLocalityDefault_Create_InvalidData(t *testing.T) {
-	// Arrange
-	mockService := new(MockLocalityService)
-	handler := NewLocalityDefault(mockService)
-
-	// Invalid creation request (missing required fields)
-	createRequest := models.LocalityCreateRequest{
-		LocalityName: stringPtr("Buenos Aires"),
-		// Missing ProvinceName and CountryName
-	}
-
-	// Create HTTP request
-	reqBody, _ := json.Marshal(createRequest)
-	req := httptest.NewRequest("POST", "/localities", bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Act
-	handlerFunc := handler.Create()
-	handlerFunc(w, req)
-
-	// Assert
-	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-
-	assert.Equal(t, "error: Validation error", response["message"])
-
-	// Service should not be called with invalid data
-	mockService.AssertNotCalled(t, "Create")
+// Helper function para crear punteros a string
+func stringPtr(s string) *string {
+	return &s
 }
 
-// Test for Create - JSON malformed case
-func TestLocalityDefault_Create_InvalidJSON(t *testing.T) {
-	// Arrange
-	mockService := new(MockLocalityService)
-	handler := NewLocalityDefault(mockService)
-
-	// Malformed JSON
-	invalidJSON := `{"locality_name": "Buenos Aires", "province_name": }`
-
-	// Create HTTP request
-	req := httptest.NewRequest("POST", "/localities", bytes.NewBuffer([]byte(invalidJSON)))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Act
-	handlerFunc := handler.Create()
-	handlerFunc(w, req)
-
-	// Assert
-	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-
-	assert.Equal(t, "error: Validation error", response["message"])
-
-	// Service should not be called with invalid JSON
-	mockService.AssertNotCalled(t, "Create")
-}
-
-// Test for Create - Conflict case
-func TestLocalityDefault_Create_Conflict(t *testing.T) {
-	// Arrange
-	mockService := new(MockLocalityService)
-	handler := NewLocalityDefault(mockService)
-
-	// Valid creation request
-	createRequest := models.LocalityCreateRequest{
-		LocalityName: stringPtr("Buenos Aires"),
-		ProvinceName: stringPtr("Buenos Aires"),
-		CountryName:  stringPtr("Argentina"),
-	}
-
-	// Configure mock to return conflict error
-	mockService.On("Create", mock.AnythingOfType("models.Locality")).Return(models.Locality{}, fmt.Errorf("locality already exists"))
-
-	// Create HTTP request
-	reqBody, _ := json.Marshal(createRequest)
-	req := httptest.NewRequest("POST", "/localities", bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Act
-	handlerFunc := handler.Create()
-	handlerFunc(w, req)
-
-	// Assert
-	assert.Equal(t, http.StatusConflict, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-
-	assert.Equal(t, "error: Resource conflict", response["message"])
-
-	// Verify mock was called correctly
-	mockService.AssertExpectations(t)
-}
-
-// Test for SellersByLocality - Success case
-func TestLocalityDefault_SellersByLocality_Success(t *testing.T) {
-	// Arrange
-	mockService := new(MockLocalityService)
-	handler := NewLocalityDefault(mockService)
-
-	// Expected response
-	expectedResponse := models.LocalityBySellerResponse{
-		ID:           1,
-		LocalityName: stringPtr("Buenos Aires"),
-		SellerCount:  stringPtr("5"),
-	}
-
-	// Configure mock to return response
-	mockService.On("GetCantSellersByLocality", 1).Return(expectedResponse, nil)
-
-	// Create request and response recorder
-	req := httptest.NewRequest("GET", "/localities/reportSellers/1", nil)
-	w := httptest.NewRecorder()
-
-	// Configure chi router to simulate URL parameter
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "1")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-	// Act
-	handlerFunc := handler.SellersByLocality()
-	handlerFunc(w, req)
-
-	// Assert
-	assert.Equal(t, http.StatusCreated, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-
-	assert.NotNil(t, response["data"])
-
-	// Verify mock was called correctly
-	mockService.AssertExpectations(t)
-}
-
-// Test for SellersByLocality - Not found case
-func TestLocalityDefault_SellersByLocality_NotFound(t *testing.T) {
-	// Arrange
-	mockService := new(MockLocalityService)
-	handler := NewLocalityDefault(mockService)
-
-	// Configure mock to return error
-	mockService.On("GetCantSellersByLocality", 999).Return(models.LocalityBySellerResponse{}, fmt.Errorf("locality not found"))
-
-	// Create request and response recorder
-	req := httptest.NewRequest("GET", "/localities/reportSellers/999", nil)
-	w := httptest.NewRecorder()
-
-	// Configure chi router to simulate URL parameter
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "999")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-	// Act
-	handlerFunc := handler.SellersByLocality()
-	handlerFunc(w, req)
-
-	// Assert
-	assert.Equal(t, http.StatusNotFound, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-
-	assert.Equal(t, "error: Not found", response["message"])
-
-	// Verify mock was called correctly
-	mockService.AssertExpectations(t)
-}
-
-// Test for SellersByLocality - Invalid ID case
-func TestLocalityDefault_SellersByLocality_InvalidID(t *testing.T) {
-	// Arrange
-	mockService := new(MockLocalityService)
-	handler := NewLocalityDefault(mockService)
-
-	// Create request and response recorder with invalid ID
-	req := httptest.NewRequest("GET", "/localities/reportSellers/invalid", nil)
-	w := httptest.NewRecorder()
-
-	// Configure chi router to simulate URL parameter
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "invalid")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-	// Act
-	handlerFunc := handler.SellersByLocality()
-	handlerFunc(w, req)
-
-	// Assert
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-
-	assert.Equal(t, "error: Bad request", response["message"])
-
-	// Service should not be called with invalid ID
-	mockService.AssertNotCalled(t, "GetCantSellersByLocality")
+// Helper function para crear punteros a string
+func intPtr(i int) *int {
+	return &i
 }
