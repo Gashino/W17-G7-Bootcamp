@@ -103,7 +103,7 @@ func (h *SectionDefault) GetByID() http.HandlerFunc {
 			ProductTypeID:      value.ProductTypeID,
 		}
 
-		writeResponse(w, http.StatusCreated, map[string]any{
+		writeResponse(w, http.StatusOK, map[string]any{
 			"data": data,
 		}, nil)
 	}
