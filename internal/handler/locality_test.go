@@ -280,3 +280,8 @@ func TestLocalityDefault_SellersByLocality(t *testing.T) {
 func stringPtr(s string) *string {
 	return &s
 }
+
+// Helper function para crear punteros a string
+func intPtr(i int) *int {
+	return &i
+}
