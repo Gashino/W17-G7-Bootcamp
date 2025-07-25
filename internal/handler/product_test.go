@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func float64Ptr(f float64) *float64 { return &f }
 func TestHandler_Create(t *testing.T) {
 	productCode := "TEST001"
 	description := "Test Product"
@@ -94,6 +96,49 @@ func TestHandler_Create(t *testing.T) {
 		require.Equal(t, http.StatusUnprocessableEntity, res.Code)
 
 	})
+	t.Run("create_json_parse_error", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		// Invalid JSON to trigger parse error
+		invalidJSON := []byte(`{"invalid":json}`)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(invalidJSON))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		//act
+		hd.Create()(res, req)
+
+		//assert
+		mockProductService.AssertNotCalled(t, "Create")
+		require.Equal(t, http.StatusInternalServerError, res.Code)
+	})
+
+	t.Run("create_internal_server_error", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		// Return a generic error that isn't a ServiceError
+		mockProductService.On("Create", productMock).Return(&models.Product{}, errors.New("database connection error"))
+
+		body, errParsing := json.Marshal(productMock)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		//act
+		hd.Create()(res, req)
+
+		//assert
+		assert.NoError(t, errParsing)
+		mockProductService.AssertCalled(t, "Create", productMock)
+		require.Equal(t, http.StatusInternalServerError, res.Code)
+	})
+
 	t.Run("create_conflict", func(t *testing.T) {
 		//arranges
 		mockProductService := new(product.MockProductService)
@@ -117,47 +162,128 @@ func TestHandler_Create(t *testing.T) {
 	})
 }
 
-func TestHandler_Find(t *testing.T) {
-	// helpers for pointers
-	str := func(s string) *string { return &s }
-	f64 := func(f float64) *float64 { return &f }
-	i := func(x int) *int { return &x }
+func TestHandler_GetAll(t *testing.T) {
 
 	testProducts := map[int]models.Product{
 		1: {
 			ID: 1,
 			ProductAttributes: models.ProductAttributes{
-				ProductCode:                    str("P001"),
-				Description:                    str("Product test 1"),
-				NetWeight:                      f64(10.5),
-				ExpirationRate:                 i(30),
-				RecommendedFreezingTemperature: f64(-18.0),
-				FreezingRate:                   i(5),
-				ProductTypeId:                  i(1),
-				SellerId:                       i(1),
+				ProductCode:                    models.StringPtr("P001"),
+				Description:                    models.StringPtr("Product test 1"),
+				NetWeight:                      float64Ptr(10.5),
+				ExpirationRate:                 models.IntPtr(30),
+				RecommendedFreezingTemperature: float64Ptr(-18.0),
+				FreezingRate:                   models.IntPtr(5),
+				ProductTypeId:                  models.IntPtr(1),
+				SellerId:                       models.IntPtr(1),
 			},
 			Dimensions: models.Dimensions{
-				Width:  f64(2.0),
-				Height: f64(3.0),
-				Length: f64(4.0),
+				Width:  float64Ptr(2.0),
+				Height: float64Ptr(3.0),
+				Length: float64Ptr(4.0),
 			},
 		},
 		2: {
 			ID: 2,
 			ProductAttributes: models.ProductAttributes{
-				ProductCode:                    str("P002"),
-				Description:                    str("Product test 2"),
-				NetWeight:                      f64(20.0),
-				ExpirationRate:                 i(60),
-				RecommendedFreezingTemperature: f64(-20.0),
-				FreezingRate:                   i(10),
-				ProductTypeId:                  i(2),
-				SellerId:                       i(2),
+				ProductCode:                    models.StringPtr("P002"),
+				Description:                    models.StringPtr("Product test 2"),
+				NetWeight:                      float64Ptr(15.5),
+				ExpirationRate:                 models.IntPtr(45),
+				RecommendedFreezingTemperature: float64Ptr(-20.0),
+				FreezingRate:                   models.IntPtr(8),
+				ProductTypeId:                  models.IntPtr(2),
+				SellerId:                       models.IntPtr(2),
 			},
 			Dimensions: models.Dimensions{
-				Width:  f64(2.5),
-				Height: f64(3.5),
-				Length: f64(4.5),
+				Width:  float64Ptr(5.0),
+				Height: float64Ptr(6.0),
+				Length: float64Ptr(7.0),
+			},
+		},
+	}
+
+	t.Run("get_all_ok", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		mockProductService.On("GetAll").Return(testProducts, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
+		res := httptest.NewRecorder()
+
+		//act
+		hd.GetAll()(res, req)
+
+		//assert
+		mockProductService.AssertExpectations(t)
+		require.Equal(t, http.StatusOK, res.Code)
+
+		// Verify response body
+		var response map[string]interface{}
+		err := json.Unmarshal(res.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Contains(t, response, "data")
+	})
+
+	t.Run("get_all_internal_error", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		mockProductService.On("GetAll").Return(map[int]models.Product{}, errors.New("database connection error"))
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
+		res := httptest.NewRecorder()
+
+		//act
+		hd.GetAll()(res, req)
+
+		//assert
+		mockProductService.AssertExpectations(t)
+		require.Equal(t, http.StatusInternalServerError, res.Code)
+	})
+}
+
+func TestHandler_Find(t *testing.T) {
+	// Using models package helper functions for pointers
+
+	testProducts := map[int]models.Product{
+		1: {
+			ID: 1,
+			ProductAttributes: models.ProductAttributes{
+				ProductCode:                    models.StringPtr("P001"),
+				Description:                    models.StringPtr("Product test 1"),
+				NetWeight:                      float64Ptr(10.5),
+				ExpirationRate:                 models.IntPtr(30),
+				RecommendedFreezingTemperature: float64Ptr(-18.0),
+				FreezingRate:                   models.IntPtr(5),
+				ProductTypeId:                  models.IntPtr(1),
+				SellerId:                       models.IntPtr(1),
+			},
+			Dimensions: models.Dimensions{
+				Width:  float64Ptr(2.0),
+				Height: float64Ptr(3.0),
+				Length: float64Ptr(4.0),
+			},
+		},
+		2: {
+			ID: 2,
+			ProductAttributes: models.ProductAttributes{
+				ProductCode:                    models.StringPtr("P002"),
+				Description:                    models.StringPtr("Product test 2"),
+				NetWeight:                      float64Ptr(20.0),
+				ExpirationRate:                 models.IntPtr(60),
+				RecommendedFreezingTemperature: float64Ptr(-20.0),
+				FreezingRate:                   models.IntPtr(10),
+				ProductTypeId:                  models.IntPtr(2),
+				SellerId:                       models.IntPtr(2),
+			},
+			Dimensions: models.Dimensions{
+				Width:  float64Ptr(2.5),
+				Height: float64Ptr(3.5),
+				Length: float64Ptr(4.5),
 			},
 		},
 	}
@@ -239,28 +365,24 @@ func TestHandler_Find(t *testing.T) {
 }
 
 func TestHandler_Update(t *testing.T) {
-	// helpers for pointers
-	str := func(s string) *string { return &s }
-	f64 := func(f float64) *float64 { return &f }
-	i := func(x int) *int { return &x }
 
 	testProducts := map[int]models.Product{
 		1: {
 			ID: 1,
 			ProductAttributes: models.ProductAttributes{
-				ProductCode:                    str("P001"),
-				Description:                    str("Product test 1"),
-				NetWeight:                      f64(10.5),
-				ExpirationRate:                 i(30),
-				RecommendedFreezingTemperature: f64(-18.0),
-				FreezingRate:                   i(5),
-				ProductTypeId:                  i(1),
-				SellerId:                       i(1),
+				ProductCode:                    models.StringPtr("P001"),
+				Description:                    models.StringPtr("Product test 1"),
+				NetWeight:                      float64Ptr(10.5),
+				ExpirationRate:                 models.IntPtr(30),
+				RecommendedFreezingTemperature: float64Ptr(-18.0),
+				FreezingRate:                   models.IntPtr(5),
+				ProductTypeId:                  models.IntPtr(1),
+				SellerId:                       models.IntPtr(1),
 			},
 			Dimensions: models.Dimensions{
-				Width:  f64(2.0),
-				Height: f64(3.0),
-				Length: f64(4.0),
+				Width:  float64Ptr(2.0),
+				Height: float64Ptr(3.0),
+				Length: float64Ptr(4.0),
 			},
 		},
 	}
@@ -292,6 +414,55 @@ func TestHandler_Update(t *testing.T) {
 		require.NotEmpty(t, res.Body)
 	})
 
+	t.Run("update_json_parse_error", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		// Invalid JSON to trigger parse error
+		invalidJSON := []byte(`{"invalid":json}`)
+
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/products/", bytes.NewReader(invalidJSON))
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		//act
+		hd.Patch()(res, req)
+
+		//assert
+		mockProductService.AssertNotCalled(t, "Update")
+		require.Equal(t, http.StatusInternalServerError, res.Code)
+	})
+
+	t.Run("update_internal_server_error", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		testProduct := testProducts[1]
+		productJson, errParsing := json.Marshal(testProduct)
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/products/", bytes.NewReader(productJson))
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		// Return a generic error that isn't a ServiceError
+		mockProductService.On("Update", 1, testProduct).Return(&models.Product{}, errors.New("database connection error"))
+
+		//act
+		hd.Patch()(res, req)
+
+		//assert
+		assert.NoError(t, errParsing)
+		mockProductService.AssertCalled(t, "Update", 1, testProduct)
+		require.Equal(t, http.StatusInternalServerError, res.Code)
+	})
+
 	t.Run("update_non_existent", func(t *testing.T) {
 		//arrange
 
@@ -321,6 +492,129 @@ func TestHandler_Update(t *testing.T) {
 
 }
 
+func TestHandler_ReportRecords(t *testing.T) {
+	// Create test product records
+	productRecords := []models.ProductRecordResponse{
+		{
+			ProductId:    1,
+			Description:  "Test Product 1",
+			RecordsCount: 5,
+		},
+		{
+			ProductId:    2,
+			Description:  "Test Product 2",
+			RecordsCount: 3,
+		},
+	}
+
+	t.Run("get_all_product_records_ok", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		// Return all product records when id is nil
+		mockProductService.On("GetProductRecords", (*int)(nil)).Return(productRecords, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/products/reportRecords", nil)
+		res := httptest.NewRecorder()
+
+		//act
+		hd.ReportRecords()(res, req)
+
+		//assert
+		mockProductService.AssertExpectations(t)
+		require.Equal(t, http.StatusOK, res.Code)
+
+		// Verify response body
+		var response map[string]interface{}
+		err := json.Unmarshal(res.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Contains(t, response, "data")
+	})
+
+	t.Run("get_product_records_by_id_ok", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		// Filter by product ID
+		productId := 1
+		filtered := []models.ProductRecordResponse{productRecords[0]}
+		mockProductService.On("GetProductRecords", &productId).Return(filtered, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/products/reportRecords?id=1", nil)
+		res := httptest.NewRecorder()
+
+		//act
+		hd.ReportRecords()(res, req)
+
+		//assert
+		mockProductService.AssertExpectations(t)
+		require.Equal(t, http.StatusOK, res.Code)
+
+		// Verify response body
+		var response map[string]interface{}
+		err := json.Unmarshal(res.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Contains(t, response, "data")
+	})
+
+	t.Run("get_product_records_invalid_id", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		// Invalid ID format
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/products/reportRecords?id=invalid", nil)
+		res := httptest.NewRecorder()
+
+		//act
+		hd.ReportRecords()(res, req)
+
+		//assert
+		mockProductService.AssertNotCalled(t, "GetProductRecords")
+		require.Equal(t, http.StatusInternalServerError, res.Code)
+	})
+
+	t.Run("get_product_records_not_found", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		productId := 999 // Non-existent ID
+		mockProductService.On("GetProductRecords", &productId).Return([]models.ProductRecordResponse(nil), nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/products/reportRecords?id=999", nil)
+		res := httptest.NewRecorder()
+
+		//act
+		hd.ReportRecords()(res, req)
+
+		//assert
+		mockProductService.AssertExpectations(t)
+		require.Equal(t, http.StatusNotFound, res.Code)
+	})
+
+	t.Run("get_product_records_internal_error", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		productId := 1
+		mockProductService.On("GetProductRecords", &productId).Return([]models.ProductRecordResponse{}, errors.New("database error"))
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/products/reportRecords?id=1", nil)
+		res := httptest.NewRecorder()
+
+		//act
+		hd.ReportRecords()(res, req)
+
+		//assert
+		mockProductService.AssertExpectations(t)
+		require.Equal(t, http.StatusInternalServerError, res.Code)
+	})
+}
+
 func TestHandler_Delete(t *testing.T) {
 	t.Run("delete_ok", func(t *testing.T) {
 		//arrange
@@ -342,6 +636,29 @@ func TestHandler_Delete(t *testing.T) {
 		mockProductService.AssertCalled(t, "Delete", 1)
 		require.Equal(t, http.StatusNoContent, res.Code)
 		require.Empty(t, res.Body)
+	})
+
+	t.Run("delete_internal_server_error", func(t *testing.T) {
+		//arrange
+		mockProductService := new(product.MockProductService)
+		hd := NewProductDefault(mockProductService)
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		// Return a generic error that isn't a ServiceError
+		mockProductService.On("Delete", 1).Return(errors.New("database connection error"))
+
+		//act
+		hd.Delete()(res, req)
+
+		//assert
+		mockProductService.AssertCalled(t, "Delete", 1)
+		require.Equal(t, http.StatusInternalServerError, res.Code)
+		require.NotEmpty(t, res.Body)
 	})
 
 	t.Run("delete_non_existent", func(t *testing.T) {
