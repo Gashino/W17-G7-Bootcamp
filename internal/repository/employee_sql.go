@@ -19,8 +19,13 @@ const (
 		FROM employees
 		WHERE id = ?
 	`
-	insertEmployee                     = "INSERT INTO employees (card_number_id, first_name, last_name, warehouse_id) VALUES (?, ?, ?, ?)"
-	updateEmployee                     = "UPDATE employees SET card_number_id = ?, first_name = ?, last_name = ?, warehouse_id = ? WHERE id = ?"
+	insertEmployee = "INSERT INTO employees (card_number_id, first_name, last_name, warehouse_id) VALUES (?, ?, ?, ?)"
+	updateEmployee = `UPDATE employees SET 
+		card_number_id = COALESCE(?, card_number_id),
+		first_name = COALESCE(?, first_name),
+		last_name = COALESCE(?, last_name),
+		warehouse_id = COALESCE(?, warehouse_id)
+		WHERE id = ?`
 	deleteEmployee                     = "DELETE FROM employees WHERE id = ?"
 	reportInboundOrdersCountByEmployee = `
 		SELECT e.id, e.card_number_id, e.first_name, e.last_name, COUNT(io.id) AS inbound_orders_count
@@ -57,12 +62,23 @@ func (r *EmployeeRepositoryMap) FindAll() (map[int]models.Employee, error) {
 
 	result := map[int]models.Employee{}
 	for rows.Next() {
-		var employee models.Employee
-		err := rows.Scan(&employee.ID, &employee.CardNumberID, &employee.FirstName, &employee.LastName, &employee.WarehouseID)
+		var id int
+		var cardNumberID, firstName, lastName string
+		var warehouseID int
+
+		err := rows.Scan(&id, &cardNumberID, &firstName, &lastName, &warehouseID)
 		if err != nil {
 			return nil, err
 		}
-		result[employee.ID] = employee
+
+		employee := models.Employee{
+			ID:           &id,
+			CardNumberID: &cardNumberID,
+			FirstName:    &firstName,
+			LastName:     &lastName,
+			WarehouseID:  &warehouseID,
+		}
+		result[id] = employee
 	}
 
 	return result, nil
@@ -79,10 +95,21 @@ func (r *EmployeeRepositoryMap) FindById(id int) (models.Employee, error) {
 		return models.Employee{}, pkg.ServiceErrors[pkg.ErrNotFound]
 	}
 
-	var employee models.Employee
-	err = rows.Scan(&employee.ID, &employee.CardNumberID, &employee.FirstName, &employee.LastName, &employee.WarehouseID)
+	var employeeID int
+	var cardNumberID, firstName, lastName string
+	var warehouseID int
+
+	err = rows.Scan(&employeeID, &cardNumberID, &firstName, &lastName, &warehouseID)
 	if err != nil {
 		return models.Employee{}, err
+	}
+
+	employee := models.Employee{
+		ID:           &employeeID,
+		CardNumberID: &cardNumberID,
+		FirstName:    &firstName,
+		LastName:     &lastName,
+		WarehouseID:  &warehouseID,
 	}
 
 	return employee, nil
@@ -117,13 +144,26 @@ func (r *EmployeeRepositoryMap) Save(employee models.Employee) (models.Employee,
 	if err != nil {
 		return models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
-	employee.ID = int(lastInsertId)
+	id := int(lastInsertId)
+	employee.ID = &id
 
 	return employee, nil
 }
 
 func (r *EmployeeRepositoryMap) Update(employee models.Employee, id int) (models.Employee, error) {
-	_, err := r.db.Exec(updateEmployee, employee.CardNumberID, employee.FirstName, employee.LastName, employee.WarehouseID, id)
+	// Start transaction for atomic update
+	tx, err := r.db.Begin()
+	if err != nil {
+		return models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(updateEmployee,
+		employee.CardNumberID,
+		employee.FirstName,
+		employee.LastName,
+		employee.WarehouseID,
+		id)
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 			switch mysqlErr.Number {
@@ -142,7 +182,41 @@ func (r *EmployeeRepositoryMap) Update(employee models.Employee, id int) (models
 		return models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer]
 	}
 
-	return employee, nil
+	// Get current values from database to verify record exists and return updated data
+	var updatedEmployeeID int
+	var updatedCardNumberID, updatedFirstName, updatedLastName string
+	var updatedWarehouseID int
+
+	err = tx.QueryRow(selectEmployeeById, id).Scan(
+		&updatedEmployeeID,
+		&updatedCardNumberID,
+		&updatedFirstName,
+		&updatedLastName,
+		&updatedWarehouseID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.Employee{}, pkg.ServiceErrors[pkg.ErrNotFound]
+		}
+		return models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+
+	// Note: RowsAffected might be 0 if values are identical (COALESCE doesn't change anything)
+	// This is normal behavior and not an error
+
+	updatedEmployee := models.Employee{
+		ID:           &updatedEmployeeID,
+		CardNumberID: &updatedCardNumberID,
+		FirstName:    &updatedFirstName,
+		LastName:     &updatedLastName,
+		WarehouseID:  &updatedWarehouseID,
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer]
+	}
+
+	return updatedEmployee, nil
 }
 
 func (r *EmployeeRepositoryMap) ReportInboundOrdersCountByEmployee(id *int) ([]models.EmployeeReport, error) {

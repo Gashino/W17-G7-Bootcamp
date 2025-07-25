@@ -2,6 +2,7 @@ package handler
 
 import (
 	"app/pkg/models"
+	"app/test/seller"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -11,278 +12,441 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-// MockSellerService es un mock del servicio de sellers
-type MockSellerService struct {
-	mock.Mock
+type responseSellerStruct struct {
+	Data    map[int]models.SellerDoc `json:"data"`
+	Message string                   `json:"message"`
 }
 
-func (m *MockSellerService) FindAll() (map[int]models.Seller, error) {
-	args := m.Called()
-	return args.Get(0).(map[int]models.Seller), args.Error(1)
+type singleResponseStruct struct {
+	Data models.SellerDoc `json:"data"`
 }
 
-func (m *MockSellerService) GetById(id int) (models.Seller, error) {
-	args := m.Called(id)
-	return args.Get(0).(models.Seller), args.Error(1)
+type errorResponseStruct struct {
+	Message string `json:"message"`
 }
 
-func (m *MockSellerService) Create(seller models.Seller) (models.Seller, error) {
-	args := m.Called(seller)
-	return args.Get(0).(models.Seller), args.Error(1)
+type deleteResponseStruct struct {
+	Data    interface{} `json:"data"`
+	Message string      `json:"message"`
 }
 
-func (m *MockSellerService) UpdateFields(id int, request models.SellerCreateRequest) (models.Seller, error) {
-	args := m.Called(id, request)
-	return args.Get(0).(models.Seller), args.Error(1)
+func TestSellerDefault_GetAll(t *testing.T) {
+	t.Run("Cuando la petición sea exitosa el backend devolverá un listado de todas los sections existentes", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+		expectedSeller := map[int]models.Seller{
+			1: {ID: 1, SellerAttributes: models.SellerAttributes{CId: "12345", CompanyName: "Test Company", Address: "Test Address", Telephone: "123456789", LocalityID: 1}},
+			2: {ID: 2, SellerAttributes: models.SellerAttributes{CId: "123456", CompanyName: "Test Company 2", Address: "Test Address 2", Telephone: "987654321", LocalityID: 2}},
+			3: {ID: 3, SellerAttributes: models.SellerAttributes{CId: "123457", CompanyName: "Test Company 3", Address: "Test Address 3", Telephone: "555666777", LocalityID: 3}},
+		}
+		mockService.On("FindAll").Return(expectedSeller, nil)
+
+		hd := NewSellerDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/sellers", nil)
+		res := httptest.NewRecorder()
+
+		// Act
+		hd.GetAll()(res, req)
+
+		// Assert
+		actualResp := responseSellerStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusOK
+		expectedResp := responseSellerStruct{
+			Data: map[int]models.SellerDoc{
+				1: {ID: 1, CId: "12345", CompanyName: "Test Company", Address: "Test Address", Telephone: "123456789", LocalityID: 1},
+				2: {ID: 2, CId: "123456", CompanyName: "Test Company 2", Address: "Test Address 2", Telephone: "987654321", LocalityID: 2},
+				3: {ID: 3, CId: "123457", CompanyName: "Test Company 3", Address: "Test Address 3", Telephone: "555666777", LocalityID: 3},
+			},
+			Message: "success",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "FindAll")
+		require.Equal(t, expectedResp, actualResp)
+	})
+
+	t.Run("error", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+		mockService.On("FindAll").Return(map[int]models.Seller{}, fmt.Errorf("database error"))
+
+		hd := NewSellerDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/sellers", nil)
+		res := httptest.NewRecorder()
+
+		// Act
+		hd.GetAll()(res, req)
+
+		// Assert
+		actualResp := errorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusInternalServerError
+		expectedResp := errorResponseStruct{
+			Message: "error: Internal server error",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "FindAll")
+		require.Equal(t, expectedResp, actualResp)
+	})
 }
 
-func (m *MockSellerService) DeleteSeller(id int) error {
-	args := m.Called(id)
-	return args.Error(0)
+func TestSellerDefault_GetByID(t *testing.T) {
+	t.Run("Cuando la section no exista se devolverá un código 404", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+		mockService.On("GetById", 999).Return(models.Seller{}, fmt.Errorf("seller not found"))
+
+		hd := NewSellerDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/sellers/999", nil)
+		res := httptest.NewRecorder()
+
+		// Simular parámetro de URL
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "999")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		// Act
+		hd.GetById()(res, req)
+
+		// Assert
+		actualResp := errorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusNotFound
+		expectedResp := errorResponseStruct{
+			Message: "error: Not found",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "GetById", 999)
+		require.Equal(t, expectedResp, actualResp)
+	})
+
+	t.Run("Cuando la petición sea exitosa el backend devolverá la información de la section solicitada", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+		expectedSeller := models.Seller{
+			ID: 1,
+			SellerAttributes: models.SellerAttributes{
+				CId:         "12345",
+				CompanyName: "Test Company",
+				Address:     "Test Address",
+				Telephone:   "123456789",
+				LocalityID:  1,
+			},
+		}
+		mockService.On("GetById", 1).Return(expectedSeller, nil)
+
+		hd := NewSellerDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/sellers/1", nil)
+		res := httptest.NewRecorder()
+
+		// Simular parámetro de URL
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		// Act
+		hd.GetById()(res, req)
+
+		// Assert
+		actualResp := singleResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusCreated
+		expectedResp := singleResponseStruct{
+			Data: models.SellerDoc{
+				ID:          1,
+				CId:         "12345",
+				CompanyName: "Test Company",
+				Address:     "Test Address",
+				Telephone:   "123456789",
+				LocalityID:  1,
+			},
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "GetById", 1)
+		require.Equal(t, expectedResp, actualResp)
+	})
 }
 
-// Test para GetById - Caso exitoso
-func TestSellerDefault_GetById_Success(t *testing.T) {
-	// Arrange
-	mockService := new(MockSellerService)
-	handler := NewSellerDefault(mockService)
+func TestSellerDefault_Post(t *testing.T) {
+	t.Run("Cuando el ingreso de datos sea exitoso se devolverá un código 201 junto con el objeto ingresado.", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+		expectedSeller := models.Seller{
+			ID: 1,
+			SellerAttributes: models.SellerAttributes{
+				CId:         "12345",
+				CompanyName: "New Company",
+				Address:     "New Address",
+				Telephone:   "987654321",
+				LocalityID:  1,
+			},
+		}
+		mockService.On("Create", mock.AnythingOfType("models.Seller")).Return(expectedSeller, nil)
 
-	// Seller de prueba
-	expectedSeller := models.Seller{
-		ID: 1,
-		SellerAttributes: models.SellerAttributes{
-			CId:         "12345",
-			CompanyName: "Test Company",
-			Address:     "Test Address",
-			Telephone:   "123456789",
-		},
-	}
+		createRequest := models.SellerCreateRequest{
+			CId:         models.StringPtr("12345"),
+			CompanyName: models.StringPtr("New Company"),
+			Address:     models.StringPtr("New Address"),
+			Telephone:   models.StringPtr("987654321"),
+			LocalityID:  models.IntPtr(1),
+		}
 
-	// Configurar mock para retornar el seller
-	mockService.On("GetById", 1).Return(expectedSeller, nil)
+		hd := NewSellerDefault(mockService)
+		reqBody, _ := json.Marshal(createRequest)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/sellers", bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
 
-	// Crear request y response recorder
-	req := httptest.NewRequest("GET", "/sellers/1", nil)
-	w := httptest.NewRecorder()
+		// Act
+		hd.Create()(res, req)
 
-	// Configurar chi router para simular parámetro de URL
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "1")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		// Assert
+		actualResp := singleResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusCreated
+		expectedResp := singleResponseStruct{
+			Data: models.SellerDoc{
+				ID:          1,
+				CId:         "12345",
+				CompanyName: "New Company",
+				Address:     "New Address",
+				Telephone:   "987654321",
+				LocalityID:  1,
+			},
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Create", mock.AnythingOfType("models.Seller"))
+		require.Equal(t, expectedResp, actualResp)
+	})
 
-	// Act
-	handlerFunc := handler.GetById()
-	handlerFunc(w, req)
+	t.Run("Si el objeto JSON no contiene los campos necesarios se devolverá un código 422", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
 
-	// Assert
-	assert.Equal(t, http.StatusCreated, w.Code)
+		// Datos incompletos - faltan campos requeridos
+		createRequest := models.SellerCreateRequest{
+			CId: models.StringPtr("12345"),
+			// Faltan: CompanyName, Address, Telephone, LocalityID
+		}
 
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
+		hd := NewSellerDefault(mockService)
+		reqBody, _ := json.Marshal(createRequest)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/sellers", bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
 
-	assert.NotNil(t, response["data"])
+		// Act
+		hd.Create()(res, req)
 
-	// Verify that the mock was called correctly
-	mockService.AssertExpectations(t)
+		// Assert
+		actualResp := errorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusUnprocessableEntity
+		expectedResp := errorResponseStruct{
+			Message: "error: Validation error",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertNotCalled(t, "Create")
+		require.Equal(t, expectedResp, actualResp)
+	})
+
+	t.Run("Si el section_number ya existe devuelve un error 409 Conflict", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+		mockService.On("Create", mock.AnythingOfType("models.Seller")).Return(models.Seller{}, fmt.Errorf("seller already exists"))
+
+		createRequest := models.SellerCreateRequest{
+			CId:         models.StringPtr("12345"),
+			CompanyName: models.StringPtr("Existing Company"),
+			Address:     models.StringPtr("Existing Address"),
+			Telephone:   models.StringPtr("987654321"),
+			LocalityID:  models.IntPtr(1),
+		}
+
+		hd := NewSellerDefault(mockService)
+		reqBody, _ := json.Marshal(createRequest)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/sellers", bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		// Act
+		hd.Create()(res, req)
+
+		// Assert
+		actualResp := errorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusConflict
+		expectedResp := errorResponseStruct{
+			Message: "error: Resource conflict",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "Create", mock.AnythingOfType("models.Seller"))
+		require.Equal(t, expectedResp, actualResp)
+	})
 }
 
-// Test para GetById - Caso de error (seller no encontrado)
-func TestSellerDefault_GetById_NotFound(t *testing.T) {
-	// Arrange
-	mockService := new(MockSellerService)
-	handler := NewSellerDefault(mockService)
+func TestSellerDefault_Update(t *testing.T) {
+	t.Run("Cuando la actualización de datos sea exitosa se devolverá la section con la información actualizada junto con un código 200", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+		expectedSeller := models.Seller{
+			ID: 1,
+			SellerAttributes: models.SellerAttributes{
+				CId:         "12345",
+				CompanyName: "Updated Company",
+				Address:     "Updated Address",
+				Telephone:   "987654321",
+				LocalityID:  1,
+			},
+		}
+		mockService.On("UpdateFields", 1, mock.AnythingOfType("models.SellerCreateRequest")).Return(expectedSeller, nil)
 
-	// Configurar mock para retornar error
-	mockService.On("GetById", 999).Return(models.Seller{}, fmt.Errorf("seller not found"))
+		updateRequest := models.SellerCreateRequest{
+			CompanyName: models.StringPtr("Updated Company"),
+			Address:     models.StringPtr("Updated Address"),
+		}
 
-	// Crear request y response recorder
-	req := httptest.NewRequest("GET", "/sellers/999", nil)
-	w := httptest.NewRecorder()
+		hd := NewSellerDefault(mockService)
+		reqBody, _ := json.Marshal(updateRequest)
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/sellers/1", bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
 
-	// Configurar chi router para simular parámetro de URL
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "999")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		// Simular parámetro de URL
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
-	// Act
-	handlerFunc := handler.GetById()
-	handlerFunc(w, req)
+		// Act
+		hd.Update()(res, req)
 
-	// Assert
-	assert.Equal(t, http.StatusNotFound, w.Code)
+		// Assert
+		actualResp := singleResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusCreated
+		expectedResp := singleResponseStruct{
+			Data: models.SellerDoc{
+				ID:          1,
+				CId:         "12345",
+				CompanyName: "Updated Company",
+				Address:     "Updated Address",
+				Telephone:   "987654321",
+				LocalityID:  1,
+			},
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "UpdateFields", 1, mock.AnythingOfType("models.SellerCreateRequest"))
+		require.Equal(t, expectedResp, actualResp)
+	})
 
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
+	t.Run("Si el section que se desea actualizar no existe se devolverá un código 404", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+		mockService.On("UpdateFields", 999, mock.AnythingOfType("models.SellerCreateRequest")).Return(models.Seller{}, fmt.Errorf("seller not found"))
 
-	assert.Equal(t, "error: Not found", response["message"])
+		updateRequest := models.SellerCreateRequest{
+			CompanyName: models.StringPtr("Updated Company"),
+		}
 
-	// Verify that the mock was called correctly
-	mockService.AssertExpectations(t)
+		hd := NewSellerDefault(mockService)
+		reqBody, _ := json.Marshal(updateRequest)
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/sellers/999", bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		// Simular parámetro de URL
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "999")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		// Act
+		hd.Update()(res, req)
+
+		// Assert
+		actualResp := errorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusNotFound
+		expectedResp := errorResponseStruct{
+			Message: "error: Not found",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "UpdateFields", 999, mock.AnythingOfType("models.SellerCreateRequest"))
+		require.Equal(t, expectedResp, actualResp)
+	})
 }
 
-// Test for GetById - Invalid ID case
-func TestSellerDefault_GetById_InvalidID(t *testing.T) {
-	// Arrange
-	mockService := new(MockSellerService)
-	handler := NewSellerDefault(mockService)
+func TestSellerDefault_Delete(t *testing.T) {
+	t.Run("Cuando el section no existe se devolverá un código 404", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+		mockService.On("DeleteSeller", 999).Return(fmt.Errorf("seller not found"))
 
-	// Create request and response recorder with invalid ID
-	req := httptest.NewRequest("GET", "/sellers/invalid", nil)
-	w := httptest.NewRecorder()
+		hd := NewSellerDefault(mockService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/sellers/999", nil)
+		res := httptest.NewRecorder()
 
-	// Configure chi router to simulate URL parameter
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "invalid")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		// Simular parámetro de URL
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "999")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
-	// Act
-	handlerFunc := handler.GetById()
-	handlerFunc(w, req)
+		// Act
+		hd.Delete()(res, req)
 
-	// Assert
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+		// Assert
+		actualResp := errorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusNotFound
+		expectedResp := errorResponseStruct{
+			Message: "error: Not found",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "DeleteSeller", 999)
+		require.Equal(t, expectedResp, actualResp)
+	})
 
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
+	t.Run("Cuando la eliminación sea exitosa se devolverá un código 204", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+		mockService.On("DeleteSeller", 1).Return(nil)
 
-	assert.Equal(t, "error: Bad request", response["message"])
+		hd := NewSellerDefault(mockService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/sellers/1", nil)
+		res := httptest.NewRecorder()
 
-	// No service should be called with invalid ID
-	mockService.AssertNotCalled(t, "GetById")
-}
+		// Simular parámetro de URL
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
-// Test para Create - Caso exitoso
-func TestSellerDefault_Create_Success(t *testing.T) {
-	// Arrange
-	mockService := new(MockSellerService)
-	handler := NewSellerDefault(mockService)
+		// Act
+		hd.Delete()(res, req)
 
-	// Valid creation request
-	createRequest := models.SellerCreateRequest{
-		CId:         stringPtr("12345"),
-		CompanyName: stringPtr("New Company"),
-		Address:     stringPtr("New Address"),
-		Telephone:   stringPtr("987654321"),
-		LocalityID:  intPtr(1),
-	}
-
-	// Expected seller returned by service
-	expectedSeller := models.Seller{
-		ID: 2,
-		SellerAttributes: models.SellerAttributes{
-			CId:         "12345",
-			CompanyName: "New Company",
-			Address:     "New Address",
-			Telephone:   "987654321",
-			LocalityID:  1,
-		},
-	}
-
-	// Configurar mock
-	mockService.On("Create", mock.AnythingOfType("models.Seller")).Return(expectedSeller, nil)
-
-	// Crear request HTTP
-	reqBody, _ := json.Marshal(createRequest)
-	req := httptest.NewRequest("POST", "/sellers", bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Act
-	handlerFunc := handler.Create()
-	handlerFunc(w, req)
-
-	// Assert
-	assert.Equal(t, http.StatusCreated, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-
-	assert.NotNil(t, response["data"])
-
-	// Verify that the mock was called correctly
-	mockService.AssertExpectations(t)
-}
-
-// Test para Create - Caso de error (datos inválidos)
-func TestSellerDefault_Create_InvalidData(t *testing.T) {
-	// Arrange
-	mockService := new(MockSellerService)
-	handler := NewSellerDefault(mockService)
-
-	// Invalid creation request (missing required fields)
-	createRequest := models.SellerCreateRequest{
-		CId: stringPtr("12345"),
-		// Missing CompanyName, Address, Telephone, and LocalityID
-	}
-
-	// Crear request HTTP
-	reqBody, _ := json.Marshal(createRequest)
-	req := httptest.NewRequest("POST", "/sellers", bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Act
-	handlerFunc := handler.Create()
-	handlerFunc(w, req)
-
-	// Assert
-	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-
-	assert.Equal(t, "error: Validation error", response["message"])
-
-	// Service should not be called with invalid data
-	mockService.AssertNotCalled(t, "Create")
-}
-
-// Test para Create - Caso de error (JSON malformado)
-func TestSellerDefault_Create_InvalidJSON(t *testing.T) {
-	// Arrange
-	mockService := new(MockSellerService)
-	handler := NewSellerDefault(mockService)
-
-	// JSON malformado
-	invalidJSON := `{"cid": "12345", "company_name": }`
-
-	// Crear request HTTP
-	req := httptest.NewRequest("POST", "/sellers", bytes.NewBuffer([]byte(invalidJSON)))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Act
-	handlerFunc := handler.Create()
-	handlerFunc(w, req)
-
-	// Assert
-	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-
-	assert.Equal(t, "error: Validation error", response["message"])
-
-	// Service should not be called with invalid JSON
-	mockService.AssertNotCalled(t, "Create")
-}
-
-// Helper function para crear punteros a string
-func stringPtr(s string) *string {
-	return &s
-}
-
-// Helper function para crear punteros a int
-func intPtr(i int) *int {
-	return &i
+		// Assert
+		actualResp := deleteResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusNoContent
+		expectedResp := deleteResponseStruct{
+			Message: "success",
+			Data:    nil,
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertCalled(t, "DeleteSeller", 1)
+		require.Equal(t, expectedResp, actualResp)
+	})
 }

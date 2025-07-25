@@ -97,7 +97,7 @@ func (r *WarehouseSql) FindWarehouseByCode(code string) (v models.Warehouse, err
 	if err != nil {
 		return models.Warehouse{}, err
 	}
-
+	v = warehouse
 	return
 }
 
