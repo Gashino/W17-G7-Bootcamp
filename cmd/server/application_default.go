@@ -2,10 +2,8 @@ package server
 
 import (
 	"app/internal/handler"
-	"app/internal/loader"
 	"app/internal/repository"
 	"app/internal/service"
-	"app/pkg/models"
 	"database/sql"
 	"fmt"
 	"log"
@@ -46,8 +44,6 @@ func NewServerChi(cfg *ConfigServerChi) *ServerChi {
 type ServerChi struct {
 	// serverAddress is the address where the server will be listening
 	serverAddress string
-	// buyerLoaderFilePath is the path to the file that contains the buyers
-	buyerLoaderFilePath string
 }
 
 // ConfigDB representa la estructura de la configuración de la base de datos
@@ -250,57 +246,6 @@ func (a *ServerChi) Run() (err error) {
 	// run server
 	err = http.ListenAndServe(a.serverAddress, rt)
 	return
-}
-
-func (a *ServerChi) createMaps() (map[int]models.Section, map[int]models.Product, map[int]models.Employee, map[int]models.ProductType, map[int]models.Warehouse, map[int]models.Seller, map[int]models.Buyer, error) {
-	sectionLd := loader.NewLoaderGeneric[models.Section]()
-	sectionDb, err := sectionLd.LoadFromJSON("docs/db/sections.json")
-	if err != nil {
-		fmt.Println("err1")
-		return nil, nil, nil, nil, nil, nil, nil, err
-	}
-	productLd := loader.NewLoaderGeneric[models.Product]()
-	productDb, err := productLd.LoadFromJSON("docs/db/products.json")
-	if err != nil {
-		fmt.Println("err2")
-		return nil, nil, nil, nil, nil, nil, nil, err
-	}
-	employeeLd := loader.NewLoaderGeneric[models.Employee]()
-	employeeDb, err := employeeLd.LoadFromJSON("docs/db/employees.json")
-	if err != nil {
-		fmt.Println("err3")
-		return nil, nil, nil, nil, nil, nil, nil, err
-	}
-
-	productTypeLd := loader.NewLoaderGeneric[models.ProductType]()
-	productTypeDb, err := productTypeLd.LoadFromJSON("docs/db/productTypes.json")
-	if err != nil {
-		fmt.Println("err4")
-		return nil, nil, nil, nil, nil, nil, nil, err
-	}
-
-	warehouseLd := loader.NewLoaderGeneric[models.Warehouse]()
-	warehouseDb, err := warehouseLd.LoadFromJSON("docs/db/warehouse_500.json")
-	if err != nil {
-		fmt.Println("err5")
-		return nil, nil, nil, nil, nil, nil, nil, err
-	}
-
-	sellerLd := loader.NewLoaderGeneric[models.Seller]()
-	sellerDb, err := sellerLd.LoadFromJSON("docs/db/sellers.json")
-	if err != nil {
-		fmt.Println("err6")
-		return nil, nil, nil, nil, nil, nil, nil, err
-	}
-
-	buyerLd := loader.NewLoaderGeneric[models.Buyer]()
-	buyerDb, err := buyerLd.LoadFromJSON("docs/db/buyers.json")
-	if err != nil {
-		fmt.Println("err7")
-		return nil, nil, nil, nil, nil, nil, nil, err
-	}
-
-	return sectionDb, productDb, employeeDb, productTypeDb, warehouseDb, sellerDb, buyerDb, nil
 }
 
 func (a *ServerChi) BuildSectionHandler(db *sql.DB) (*handler.SectionDefault, error) {
