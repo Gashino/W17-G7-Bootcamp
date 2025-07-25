@@ -1,4 +1,4 @@
-package warehouse
+package carry
 
 import (
 	"app/pkg/models"
