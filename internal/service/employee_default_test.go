@@ -211,6 +211,32 @@ func TestUpdateEmployee(t *testing.T) {
 		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
 		require.Equal(t, models.Employee{}, result)
 	})
+
+	t.Run("update_validation_error", func(t *testing.T) {
+		// arrange
+		mockRepo := new(employee.MockEmployeeRepository)
+
+		// Invalid warehouse ID (negative number)
+		warehouseID := -1
+
+		input := models.Employee{
+			WarehouseID: &warehouseID,
+		}
+
+		service := NewEmployeeServiceDefault(mockRepo)
+
+		// act
+		result, err := service.Update(input, 3)
+
+		// assert
+		require.Error(t, err)
+		srvError, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrUnprocessableEntity].Code, srvError.Code)
+		require.Equal(t, models.Employee{}, result)
+		// El mock no debería haber sido llamado porque la validación falló antes
+		mockRepo.AssertNotCalled(t, "Update")
+	})
 }
 
 func TestDeleteEmployee(t *testing.T) {

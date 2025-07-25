@@ -6,7 +6,9 @@ import (
 	"app/test/employee"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -213,6 +215,27 @@ func TestFindEmployee(t *testing.T) {
 		require.Equal(t, expectedCode, res.Code)
 		require.JSONEq(t, expected, res.Body.String())
 	})
+
+	t.Run("find_all_internal_server_error", func(t *testing.T) {
+		// Arrange
+		mockService := new(employee.MockEmployeeService)
+		mockService.On("FindAll").Return(map[int]models.Employee{}, pkg.ServiceErrors[pkg.ErrInternalServer])
+		hd := NewEmployeeHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees", nil)
+		res := httptest.NewRecorder()
+
+		// Act
+		hd.GetAllEmployees(res, req)
+
+		// Assert
+		expected := `{"message":"error: Internal server error", "status":"Internal Server Error"}`
+		expectedCode := 500
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+		mockService.AssertExpectations(t)
+	})
+
 	t.Run("find_by_id_non_existent 404", func(t *testing.T) {
 		mockService := new(employee.MockEmployeeService)
 		mockService.On("FindById", 3).Return(
@@ -451,95 +474,137 @@ func TestDeleteEmployee(t *testing.T) {
 }
 
 func TestGetEmployeeInboundOrdersReport(t *testing.T) {
-	t.Run("get_report_all_employees", func(t *testing.T) {
+	t.Run("success_get_all_employees_report", func(t *testing.T) {
+		// Arrange
 		mockService := new(employee.MockEmployeeService)
+		handler := NewEmployeeHandler(mockService)
 
 		reports := []models.EmployeeReport{
 			{
 				ID:                 1,
-				CardNumberID:       "11223342",
-				FirstName:          "Carlos",
-				LastName:           "López",
-				WarehouseID:        3,
+				CardNumberID:       "E001",
+				FirstName:          "John",
+				LastName:           "Doe",
 				InboundOrdersCount: 5,
+			},
+			{
+				ID:                 2,
+				CardNumberID:       "E002",
+				FirstName:          "Jane",
+				LastName:           "Smith",
+				InboundOrdersCount: 3,
 			},
 		}
 
 		mockService.On("ReportInboundOrdersCountByEmployee", (*int)(nil)).Return(reports, nil)
-		hd := NewEmployeeHandler(mockService)
 
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees/report/inbound-orders", nil)
-		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/employees/report/inbound-orders", nil)
+		w := httptest.NewRecorder()
 
-		hd.GetEmployeeInboundOrdersReport(res, req)
+		// Act
+		handler.GetEmployeeInboundOrdersReport(w, req)
 
-		expectedCode := 200
-		require.Equal(t, expectedCode, res.Code)
-		require.NotEmpty(t, res.Body.String())
+		// Assert
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+		var response models.EmployeeReportsResponse
+		json.Unmarshal(body, &response)
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, reports, response.Data)
+		mockService.AssertExpectations(t)
 	})
 
-	t.Run("get_report_specific_employee", func(t *testing.T) {
+	t.Run("success_get_specific_employee_report", func(t *testing.T) {
+		// Arrange
 		mockService := new(employee.MockEmployeeService)
+		handler := NewEmployeeHandler(mockService)
 
-		id := 1
+		employeeID := 1
 		reports := []models.EmployeeReport{
 			{
-				ID:                 1,
-				CardNumberID:       "11223342",
-				FirstName:          "Carlos",
-				LastName:           "López",
-				WarehouseID:        3,
+				ID:                 employeeID,
+				CardNumberID:       "E001",
+				FirstName:          "John",
+				LastName:           "Doe",
 				InboundOrdersCount: 5,
 			},
 		}
 
-		mockService.On("ReportInboundOrdersCountByEmployee", &id).Return(reports, nil)
-		hd := NewEmployeeHandler(mockService)
+		mockService.On("ReportInboundOrdersCountByEmployee", &employeeID).Return(reports, nil)
 
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees/report/inbound-orders?id=1", nil)
-		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", fmt.Sprintf("/employees/report/inbound-orders?id=%d", employeeID), nil)
+		w := httptest.NewRecorder()
 
-		hd.GetEmployeeInboundOrdersReport(res, req)
+		// Act
+		handler.GetEmployeeInboundOrdersReport(w, req)
 
-		expectedCode := 200
-		require.Equal(t, expectedCode, res.Code)
-		require.NotEmpty(t, res.Body.String())
+		// Assert
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+		var response models.EmployeeReportsResponse
+		json.Unmarshal(body, &response)
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, reports, response.Data)
+		mockService.AssertExpectations(t)
 	})
 
-	t.Run("get_report_invalid_id", func(t *testing.T) {
+	t.Run("error_invalid_id_format", func(t *testing.T) {
+		// Arrange
 		mockService := new(employee.MockEmployeeService)
-		hd := NewEmployeeHandler(mockService)
+		handler := NewEmployeeHandler(mockService)
 
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees/report/inbound-orders?id=abc", nil)
-		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/employees/report/inbound-orders?id=invalid", nil)
+		w := httptest.NewRecorder()
 
-		hd.GetEmployeeInboundOrdersReport(res, req)
+		// Act
+		handler.GetEmployeeInboundOrdersReport(w, req)
 
-		expected := `{"message":"error: Invalid ID format", "status":"Bad Request"}`
-		expectedCode := 400
-		require.Equal(t, expectedCode, res.Code)
-		require.JSONEq(t, expected, res.Body.String())
+		// Assert
+		resp := w.Result()
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 
-	t.Run("get_report_not_found", func(t *testing.T) {
+	t.Run("error_employee_not_found", func(t *testing.T) {
+		// Arrange
 		mockService := new(employee.MockEmployeeService)
+		handler := NewEmployeeHandler(mockService)
 
-		id := 999
-		mockService.On("ReportInboundOrdersCountByEmployee", &id).Return(
-			[]models.EmployeeReport{},
-			pkg.ServiceErrors[pkg.ErrNotFound],
-		)
-		hd := NewEmployeeHandler(mockService)
+		employeeID := 999
+		srvError := pkg.ServiceErrors[pkg.ErrNotFound]
+		mockService.On("ReportInboundOrdersCountByEmployee", &employeeID).Return([]models.EmployeeReport{}, srvError)
 
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees/report/inbound-orders?id=999", nil)
-		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", fmt.Sprintf("/employees/report/inbound-orders?id=%d", employeeID), nil)
+		w := httptest.NewRecorder()
 
-		hd.GetEmployeeInboundOrdersReport(res, req)
+		// Act
+		handler.GetEmployeeInboundOrdersReport(w, req)
 
-		expected := `{"message":"error: Not found", "status":"Not Found"}`
-		expectedCode := 404
-		require.Equal(t, expectedCode, res.Code)
-		require.JSONEq(t, expected, res.Body.String())
+		// Assert
+		resp := w.Result()
+		require.Equal(t, http.StatusNotFound, resp.StatusCode)
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("error_internal_server", func(t *testing.T) {
+		// Arrange
+		mockService := new(employee.MockEmployeeService)
+		handler := NewEmployeeHandler(mockService)
+
+		srvError := pkg.ServiceErrors[pkg.ErrInternalServer]
+		mockService.On("ReportInboundOrdersCountByEmployee", (*int)(nil)).Return([]models.EmployeeReport{}, srvError)
+
+		req := httptest.NewRequest("GET", "/employees/report/inbound-orders", nil)
+		w := httptest.NewRecorder()
+
+		// Act
+		handler.GetEmployeeInboundOrdersReport(w, req)
+
+		// Assert
+		resp := w.Result()
+		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+		mockService.AssertExpectations(t)
 	})
 }
 
