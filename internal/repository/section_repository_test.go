@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -101,6 +102,59 @@ func TestSectionRepository_GetAll(t *testing.T) {
 		svcErr.InternalError = fmt.Errorf("no se encontraron sections")
 		require.Equal(t, svcErr, err)
 		require.Empty(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Devuelve error si falla el scan de filas", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		rows := sqlmock.NewRows([]string{
+			"id", "section_number", "current_temperature", "current_capacity",
+			"minimum_temperature", "minimum_capacity", "product_type_id", "warehouse_id",
+		}).
+			AddRow("invalid", 10, 5.0, 50, 2.0, 10, 200, 1) // invalid ID will cause scan error
+
+		mock.ExpectQuery("SELECT id, section_number, current_temperature, current_capacity, minimum_temperature, minimum_capacity, product_type_id, warehouse_id FROM sections").
+			WillReturnRows(rows)
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.GetAll()
+
+		// Assert
+		require.Error(t, err)
+		require.Nil(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Devuelve error si rows.Err() falla", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		rows := sqlmock.NewRows([]string{
+			"id", "section_number", "current_temperature", "current_capacity",
+			"minimum_temperature", "minimum_capacity", "product_type_id", "warehouse_id",
+		}).
+			AddRow(1, 10, 5.0, 50, 2.0, 10, 200, 1).
+			RowError(0, assert.AnError)
+
+		mock.ExpectQuery("SELECT id, section_number, current_temperature, current_capacity, minimum_temperature, minimum_capacity, product_type_id, warehouse_id FROM sections").
+			WillReturnRows(rows)
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.GetAll()
+
+		// Assert
+		require.Error(t, err)
+		require.Nil(t, result)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }
@@ -240,6 +294,73 @@ func TestSectionRepository_Create(t *testing.T) {
 		require.Empty(t, result)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
+
+	t.Run("Devuelve error conflict si hay valor duplicado", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		// Simulate MySQL duplicate entry error
+		mock.ExpectExec("INSERT INTO sections.*VALUES.*").
+			WithArgs(10, 5.0, 50, 2.0, 10, 200, 1).
+			WillReturnError(&mysql.MySQLError{Number: 1062, Message: "Duplicate entry"})
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.Create(models.Section{
+			SectionAttributes: models.SectionAttributes{
+				SectionNumber:      10,
+				CurrentTemperature: 5.0,
+				CurrentCapacity:    50,
+				MinimumTemperature: 2.0,
+				MinimumCapacity:    10,
+				ProductTypeID:      200,
+				WarehouseID:        1,
+			},
+		})
+
+		// Assert
+		require.Error(t, err)
+		svcErr := pkg.ServiceErrors[pkg.ErrConflict]
+		svcErr.InternalError = fmt.Errorf("valor duplicado")
+		require.Equal(t, svcErr, err)
+		require.Empty(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Devuelve error interno si falla LastInsertId", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectExec("INSERT INTO sections.*VALUES.*").
+			WithArgs(10, 5.0, 50, 2.0, 10, 200, 1).
+			WillReturnResult(sqlmock.NewErrorResult(assert.AnError))
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.Create(models.Section{
+			SectionAttributes: models.SectionAttributes{
+				SectionNumber:      10,
+				CurrentTemperature: 5.0,
+				CurrentCapacity:    50,
+				MinimumTemperature: 2.0,
+				MinimumCapacity:    10,
+				ProductTypeID:      200,
+				WarehouseID:        1,
+			},
+		})
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
+		require.Empty(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestSectionRepository_Update(t *testing.T) {
@@ -338,6 +459,74 @@ func TestSectionRepository_Update(t *testing.T) {
 		require.Empty(t, result)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
+
+	t.Run("Devuelve error conflict si hay valor duplicado", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectExec("(?i)update sections").
+			WithArgs(10, 5.0, 50, 2.0, 10, 200, 1, 1).
+			WillReturnError(&mysql.MySQLError{Number: 1062, Message: "Duplicate entry"})
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.Update(1, models.Section{
+			ID: 1,
+			SectionAttributes: models.SectionAttributes{
+				SectionNumber:      10,
+				CurrentTemperature: 5.0,
+				CurrentCapacity:    50,
+				MinimumTemperature: 2.0,
+				MinimumCapacity:    10,
+				ProductTypeID:      200,
+				WarehouseID:        1,
+			},
+		})
+
+		// Assert
+		require.Error(t, err)
+		svcErr := pkg.ServiceErrors[pkg.ErrConflict]
+		svcErr.InternalError = fmt.Errorf("valor duplicado")
+		require.Equal(t, svcErr, err)
+		require.Empty(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Devuelve error interno si falla RowsAffected", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectExec("(?i)update sections").
+			WithArgs(10, 5.0, 50, 2.0, 10, 200, 1, 1).
+			WillReturnResult(sqlmock.NewErrorResult(assert.AnError))
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.Update(1, models.Section{
+			ID: 1,
+			SectionAttributes: models.SectionAttributes{
+				SectionNumber:      10,
+				CurrentTemperature: 5.0,
+				CurrentCapacity:    50,
+				MinimumTemperature: 2.0,
+				MinimumCapacity:    10,
+				ProductTypeID:      200,
+				WarehouseID:        1,
+			},
+		})
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
+		require.Empty(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestSectionRepository_Delete(t *testing.T) {
@@ -396,6 +585,225 @@ func TestSectionRepository_Delete(t *testing.T) {
 
 		// Assert
 		require.Error(t, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Devuelve error interno si falla RowsAffected", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectExec("DELETE FROM sections WHERE id = ?").
+			WithArgs(1).
+			WillReturnResult(sqlmock.NewErrorResult(assert.AnError))
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		err = repo.Delete(1)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Devuelve error not found si no se afectan filas", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectExec("DELETE FROM sections WHERE id = ?").
+			WithArgs(1).
+			WillReturnResult(sqlmock.NewResult(1, 0)) // 0 rows affected
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		err = repo.Delete(1)
+
+		// Assert
+		require.Error(t, err)
+		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
+		svcErr.InternalError = fmt.Errorf("section con id %d no encontrada", 1)
+		require.Equal(t, svcErr, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestSectionRepository_GetReportProductsBySection(t *testing.T) {
+	t.Run("Devuelve el reporte de productos por seccion correctamente", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery(`SELECT s.id, s.section_number, SUM\(pb.current_quantity\) as products_count FROM sections s JOIN product_batches pb ON s.id = pb.section_id WHERE s.id = \? GROUP BY s.id, s.section_number`).
+			WithArgs(1).
+			WillReturnRows(sqlmock.NewRows([]string{"section_id", "section_number", "products_count"}).
+				AddRow(1, 10, 100))
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.GetReportProductsBySection(1)
+
+		// Assert
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		require.Equal(t, 1, result[0].SectionId)
+		require.Equal(t, 10, result[0].SectionNumber)
+		require.Equal(t, 100, result[0].ProductsCount)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Devuelve error not found si no se encuentra la seccion", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery(`SELECT s.id, s.section_number, SUM\(pb.current_quantity\) as products_count FROM sections s JOIN product_batches pb ON s.id = pb.section_id WHERE s.id = \? GROUP BY s.id, s.section_number`).
+			WithArgs(1).
+			WillReturnError(sql.ErrNoRows)
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.GetReportProductsBySection(1)
+
+		// Assert
+		require.Error(t, err)
+		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
+		svcErr.InternalError = fmt.Errorf("section con id %d no encontrada", 1)
+		require.Equal(t, svcErr, err)
+		require.Empty(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Devuelve error interno si falla la query", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery(`SELECT s.id, s.section_number, SUM\(pb.current_quantity\) as products_count FROM sections s JOIN product_batches pb ON s.id = pb.section_id WHERE s.id = \? GROUP BY s.id, s.section_number`).
+			WithArgs(1).
+			WillReturnError(assert.AnError)
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.GetReportProductsBySection(1)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
+		require.Nil(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestSectionRepository_GetReportProductsAllSections(t *testing.T) {
+	t.Run("Devuelve el reporte de productos de todas las secciones correctamente", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		rows := sqlmock.NewRows([]string{"section_id", "section_number", "products_count"}).
+			AddRow(1, 10, 100).
+			AddRow(2, 20, 200)
+
+		mock.ExpectQuery(`SELECT s.id, s.section_number, SUM\(pb.current_quantity\) as products_count FROM sections s JOIN product_batches pb ON s.id = pb.section_id GROUP BY s.id`).
+			WillReturnRows(rows)
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.GetReportProductsAllSections()
+
+		// Assert
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+		require.Equal(t, 1, result[0].SectionId)
+		require.Equal(t, 10, result[0].SectionNumber)
+		require.Equal(t, 100, result[0].ProductsCount)
+		require.Equal(t, 2, result[1].SectionId)
+		require.Equal(t, 20, result[1].SectionNumber)
+		require.Equal(t, 200, result[1].ProductsCount)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Devuelve error interno si falla la query", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery(`SELECT s.id, s.section_number, SUM\(pb.current_quantity\) as products_count FROM sections s JOIN product_batches pb ON s.id = pb.section_id GROUP BY s.id`).
+			WillReturnError(assert.AnError)
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.GetReportProductsAllSections()
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
+		require.Nil(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Devuelve error si falla el scan de filas", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		rows := sqlmock.NewRows([]string{"section_id", "section_number", "products_count"}).
+			AddRow("invalid", 10, 100) // invalid section_id will cause scan error
+
+		mock.ExpectQuery(`SELECT s.id, s.section_number, SUM\(pb.current_quantity\) as products_count FROM sections s JOIN product_batches pb ON s.id = pb.section_id GROUP BY s.id`).
+			WillReturnRows(rows)
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.GetReportProductsAllSections()
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
+		require.Nil(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Devuelve error si rows.Err() falla", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		rows := sqlmock.NewRows([]string{"section_id", "section_number", "products_count"}).
+			AddRow(1, 10, 100).
+			RowError(0, assert.AnError)
+
+		mock.ExpectQuery(`SELECT s.id, s.section_number, SUM\(pb.current_quantity\) as products_count FROM sections s JOIN product_batches pb ON s.id = pb.section_id GROUP BY s.id`).
+			WillReturnRows(rows)
+
+		repo := NewSectionSqlRepository(db)
+
+		// Act
+		result, err := repo.GetReportProductsAllSections()
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
+		require.Nil(t, result)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }
