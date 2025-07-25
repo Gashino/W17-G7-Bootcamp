@@ -21,6 +21,6 @@ func (m *MockCarryService) Create(v models.Carry) (w models.Carry, err error) {
 }
 
 func (m *MockCarryService) SearchByLocality(locality_id int) (v map[string]models.CarryByLocality, err error) {
-	args := m.Called()
+	args := m.Called(locality_id)
 	return args.Get(0).(map[string]models.CarryByLocality), args.Error(1)
 }
