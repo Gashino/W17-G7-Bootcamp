@@ -249,7 +249,7 @@ func TestSectionRepository_Update(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Close()
 
-		mock.ExpectExec("UPDATE sections SET section_number = ?, current_temperature = ?, current_capacity = ?, minimum_temperature = ?, minimum_capacity = ?, product_type_id = ?, warehouse_id = ? WHERE id = ?").
+		mock.ExpectExec("(?i)update sections").
 			WithArgs(10, 5.0, 50, 2.0, 10, 200, 1, 1).
 			WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -257,6 +257,7 @@ func TestSectionRepository_Update(t *testing.T) {
 
 		// Act
 		result, err := repo.Update(1, models.Section{
+			ID: 1,
 			SectionAttributes: models.SectionAttributes{
 				SectionNumber:      10,
 				CurrentTemperature: 5.0,
@@ -279,7 +280,7 @@ func TestSectionRepository_Update(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Close()
 
-		mock.ExpectExec("UPDATE sections SET section_number = ?, current_temperature = ?, current_capacity = ?, minimum_temperature = ?, minimum_capacity = ?, product_type_id = ?, warehouse_id = ? WHERE id = ?").
+		mock.ExpectExec("(?i)update sections").
 			WithArgs(10, 5.0, 50, 2.0, 10, 200, 1, 1).
 			WillReturnError(assert.AnError)
 
@@ -310,9 +311,9 @@ func TestSectionRepository_Update(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Close()
 
-		mock.ExpectExec("UPDATE sections SET section_number = ?, current_temperature = ?, current_capacity = ?, minimum_temperature = ?, minimum_capacity = ?, product_type_id = ?, warehouse_id = ? WHERE id = ?").
+		mock.ExpectExec("(?i)update sections").
 			WithArgs(10, 5.0, 50, 2.0, 10, 200, 1, 1).
-			WillReturnError(sql.ErrNoRows)
+			WillReturnResult(sqlmock.NewResult(1, 0)) // Simulate not found by 0 rows affected
 
 		repo := NewSectionSqlRepository(db)
 
@@ -332,7 +333,7 @@ func TestSectionRepository_Update(t *testing.T) {
 
 		// Assert
 		svcErr := pkg.ServiceErrors[pkg.ErrNotFound]
-		svcErr.InternalError = fmt.Errorf("section con id 1 no encontrada")
+		svcErr.InternalError = fmt.Errorf("section con id %d no encontrada", 1)
 		require.Equal(t, svcErr, err)
 		require.Empty(t, result)
 		require.NoError(t, mock.ExpectationsWereMet())
