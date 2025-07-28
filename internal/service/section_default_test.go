@@ -2,95 +2,137 @@ package service
 
 import (
 	"testing"
+
+	"app/pkg/models"
+	sectionmock "app/test/section"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestSectionService_GetAll(t *testing.T) {
-	t.Run("Si la lista posee “n” elementos devolverá un cantidad de los elementos totales", func(t *testing.T) {
+func TestSectionDefault_GetAll(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+
 		// Arrange
+		repo := new(sectionmock.MockSectionRepository)
+		expected := map[int]models.Section{1: {ID: 1}}
+		repo.On("GetAll").Return(expected, nil)
+		service := NewSectionDefault(repo)
 
 		// Act
+		result, err := service.GetAll()
 
 		// Assert
-
-	})
-
-	t.Run("Error", func(t *testing.T) {
-		// Arrange
-
-		// Act
-
-		// Assert
-	})
-}
-
-func TestSectionService_GetByID(t *testing.T) {
-	t.Run("Si el elemento buscado por id no existe retorna nulo", func(t *testing.T) {
-		// Arrange
-
-		// Act
-
-		// Assert
-	})
-
-	t.Run("Si el elemento buscado por id existe devolverá la información del elemento solicitado", func(t *testing.T) {
-		// Arrange
-
-		// Act
-
-		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, expected, result)
+		repo.AssertExpectations(t)
 	})
 }
 
-func TestSectionService_Create(t *testing.T) {
-	t.Run("Si contiene los campos necesarios se creará", func(t *testing.T) {
+func TestSectionDefault_GetByID(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
 		// Arrange
+		repo := new(sectionmock.MockSectionRepository)
+		expected := models.Section{ID: 2}
+		repo.On("GetByID", 2).Return(expected, nil)
+		service := NewSectionDefault(repo)
 
 		// Act
+		result, err := service.GetByID(2)
 
 		// Assert
-	})
-
-	t.Run("Si el section_number ya existe no podrá ser creado", func(t *testing.T) {
-		// Arrange
-
-		// Act
-
-		// Assert
-	})
-}
-
-func TestSectionService_Update(t *testing.T) {
-	t.Run("Cuando la actualización de datos sea exitosa se devolverá la section con la información actualizada", func(t *testing.T) {
-		// Arrange
-
-		// Act
-
-		// Assert
-	})
-
-	t.Run("Si la section que se desea actualizar no existe se retorna null.", func(t *testing.T) {
-		// Arrange
-
-		// Act
-
-		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, expected, result)
+		repo.AssertExpectations(t)
 	})
 }
 
-func TestSectionService_Delete(t *testing.T) {
-	t.Run("Cuando la section no existe se devolverá null.", func(t *testing.T) {
+func TestSectionDefault_Create(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
 		// Arrange
+		repo := new(sectionmock.MockSectionRepository)
+		input := models.Section{ID: 3}
+		repo.On("Create", input).Return(input, nil)
+		service := NewSectionDefault(repo)
 
 		// Act
+		result, err := service.Create(input)
 
 		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, input, result)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestSectionDefault_Update(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		// Arrange
+		repo := new(sectionmock.MockSectionRepository)
+		id := 4
+		old := models.Section{ID: id, SectionAttributes: models.SectionAttributes{SectionNumber: 1}}
+		upd := models.Section{SectionAttributes: models.SectionAttributes{SectionNumber: 2}}
+		updated := models.Section{ID: id, SectionAttributes: models.SectionAttributes{SectionNumber: 2}}
+		repo.On("GetByID", id).Return(old, nil)
+		repo.On("Update", id, updated).Return(updated, nil)
+		service := NewSectionDefault(repo)
+
+		// Act
+		result, err := service.Update(id, upd)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, updated, result)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestSectionDefault_Delete(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		// Arrange
+		repo := new(sectionmock.MockSectionRepository)
+		repo.On("Delete", 5).Return(nil)
+		service := NewSectionDefault(repo)
+
+		// Act
+		err := service.Delete(5)
+
+		// Assert
+		assert.NoError(t, err)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestSectionDefault_ReportProductsBySection(t *testing.T) {
+	t.Run("all sections", func(t *testing.T) {
+		// Arrange
+		repo := new(sectionmock.MockSectionRepository)
+		reports := []models.SectionReport{{SectionId: 1}}
+		repo.On("GetReportProductsAllSections").Return(reports, nil)
+		service := NewSectionDefault(repo)
+
+		// Act
+		result, err := service.ReportProductsBySection(nil)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, reports, result)
+		repo.AssertExpectations(t)
 	})
 
-	t.Run("Si la eliminación es exitosa el elemento no aparecerá en la lista.", func(t *testing.T) {
+	t.Run("specific section", func(t *testing.T) {
 		// Arrange
+		repo := new(sectionmock.MockSectionRepository)
+		reports := []models.SectionReport{{SectionId: 1}}
+		id := 1
+		repo.On("GetReportProductsBySection", id).Return(reports, nil)
+		service := NewSectionDefault(repo)
 
 		// Act
+		result, err := service.ReportProductsBySection(&id)
 
 		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, reports, result)
+		repo.AssertExpectations(t)
 	})
 }

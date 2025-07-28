@@ -2,6 +2,7 @@ package section
 
 import (
 	"app/pkg/models"
+
 	"github.com/stretchr/testify/mock"
 )
 
@@ -32,4 +33,13 @@ func (m *MockSectionRepository) Update(id int, section models.Section) (models.S
 func (m *MockSectionRepository) Delete(id int) error {
 	args := m.Called(id)
 	return args.Error(0)
+}
+
+func (m *MockSectionRepository) GetReportProductsBySection(id int) ([]models.SectionReport, error) {
+	args := m.Called(id)
+	return args.Get(0).([]models.SectionReport), args.Error(1)
+}
+func (m *MockSectionRepository) GetReportProductsAllSections() ([]models.SectionReport, error) {
+	args := m.Called()
+	return args.Get(0).([]models.SectionReport), args.Error(1)
 }

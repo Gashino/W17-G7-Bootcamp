@@ -36,5 +36,9 @@ func (m *MockEmployeeRepository) Delete(id int) error {
 }
 
 func (m *MockEmployeeRepository) ReportInboundOrdersCountByEmployee(id *int) ([]models.EmployeeReport, error) {
-	panic("unimplemented")
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.EmployeeReport), args.Error(1)
 }

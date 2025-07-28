@@ -122,6 +122,57 @@ func TestCreateBuyer(t *testing.T) {
 		require.JSONEq(t, expected, res.Body.String())
 	})
 
+	t.Run("create_fail invalid JSON", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		hd := NewBuyerHandler(mockService)
+
+		reqBody := bytes.NewReader([]byte("invalid json"))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/buyers", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
+
+		expected := `{
+			"message":"Invalid JSON format", "status":"Bad Request"
+		}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+
+	t.Run("create_fail empty request body", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		hd := NewBuyerHandler(mockService)
+
+		reqBody := bytes.NewReader([]byte(""))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/buyers", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
+
+		expected := `{
+			"message":"Invalid JSON format", "status":"Bad Request"
+		}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+
+	t.Run("create_fail malformed JSON", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		hd := NewBuyerHandler(mockService)
+
+		reqBody := bytes.NewReader([]byte(`{"card_number_id": "12345678", "first_name": "John"`))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/buyers", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
+
+		expected := `{
+			"message":"Invalid JSON format", "status":"Bad Request"
+		}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+
 	t.Run("create_conflict duplicate card_number_id", func(t *testing.T) {
 		mockService := new(buyer.MockBuyerService)
 		cardNumberID := "12345678"
@@ -150,6 +201,70 @@ func TestCreateBuyer(t *testing.T) {
 
 		expected := `{"message":"Resource conflict", "status":"Conflict"}`
 		expectedCode := 409
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+
+	t.Run("create_fail service internal error", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		cardNumberID := "12345678"
+		firstName := "John"
+		lastName := "Doe"
+
+		mockService.On("Create", models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: cardNumberID,
+				FirstName:    firstName,
+				LastName:     lastName,
+			},
+		}).Return(models.Buyer{}, pkg.ServiceErrors[pkg.ErrInternalServer])
+
+		hd := NewBuyerHandler(mockService)
+		body := `{
+			"card_number_id": "12345678",
+			"first_name": "John",
+			"last_name": "Doe"
+		}`
+
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/buyers", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
+
+		expected := `{"message":"Internal server error", "status":"Internal Server Error"}`
+		expectedCode := 500
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+
+	t.Run("create_fail service bad request error", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		cardNumberID := "12345678"
+		firstName := "John"
+		lastName := "Doe"
+
+		mockService.On("Create", models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: cardNumberID,
+				FirstName:    firstName,
+				LastName:     lastName,
+			},
+		}).Return(models.Buyer{}, pkg.ServiceErrors[pkg.ErrBadRequest])
+
+		hd := NewBuyerHandler(mockService)
+		body := `{
+			"card_number_id": "12345678",
+			"first_name": "John",
+			"last_name": "Doe"
+		}`
+
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/buyers", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
+
+		expected := `{"message":"Bad request", "status":"Bad Request"}`
+		expectedCode := 400
 		require.Equal(t, expectedCode, res.Code)
 		require.JSONEq(t, expected, res.Body.String())
 	})
@@ -194,6 +309,32 @@ func TestFindBuyer(t *testing.T) {
 		hd.GetAll()(res, req)
 		require.Equal(t, expectedCode, res.Code)
 		require.JSONEq(t, expected, res.Body.String())
+	})
+
+	t.Run("find_all_empty", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		mockService.On("GetAll").Return(map[int]models.Buyer{}, nil)
+		hd := NewBuyerHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers", nil)
+		res := httptest.NewRecorder()
+		expected := `{"data": null}`
+		expectedCode := 200
+		hd.GetAll()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
+
+	t.Run("find_all_service_error", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		mockService.On("GetAll").Return(map[int]models.Buyer{}, pkg.ServiceErrors[pkg.ErrInternalServer])
+		hd := NewBuyerHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers", nil)
+		res := httptest.NewRecorder()
+		expectedCode := 500
+		hd.GetAll()(res, req)
+		require.Equal(t, expectedCode, res.Code)
 	})
 
 	t.Run("find_by_id_non_existent", func(t *testing.T) {
@@ -265,6 +406,25 @@ func TestFindBuyer(t *testing.T) {
 		res := httptest.NewRecorder()
 
 		expectedCode := 400
+		hd.GetByID()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
+
+	t.Run("find_by_id_service_internal_error", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		mockService.On("GetByID", 1).Return(
+			models.Buyer{},
+			pkg.ServiceErrors[pkg.ErrInternalServer],
+		)
+		hd := NewBuyerHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers/1", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		expectedCode := 500
 		hd.GetByID()(res, req)
 		require.Equal(t, expectedCode, res.Code)
 	})
@@ -375,6 +535,92 @@ func TestUpdateBuyer(t *testing.T) {
 		hd.Update()(res, req)
 		require.Equal(t, expectedCode, res.Code)
 	})
+
+	t.Run("update_invalid_json", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		hd := NewBuyerHandler(mockService)
+
+		reqBody := bytes.NewReader([]byte("invalid json"))
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/buyers/1", reqBody)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		expectedCode := 400
+		hd.Update()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
+
+	t.Run("update_service_conflict_error", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		cardNumberID := "87654321"
+		firstName := "Jane"
+		lastName := "Smith"
+
+		mockService.On("Update", 1, models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: cardNumberID,
+				FirstName:    firstName,
+				LastName:     lastName,
+			},
+		}).Return(
+			models.Buyer{},
+			pkg.ServiceErrors[pkg.ErrConflict],
+		)
+		hd := NewBuyerHandler(mockService)
+
+		body := `{
+			"card_number_id": "87654321",
+			"first_name": "Jane",
+			"last_name": "Smith"
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/buyers/1", reqBody)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		expectedCode := 409
+		hd.Update()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
+
+	t.Run("update_service_internal_error", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		cardNumberID := "87654321"
+		firstName := "Jane"
+		lastName := "Smith"
+
+		mockService.On("Update", 1, models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: cardNumberID,
+				FirstName:    firstName,
+				LastName:     lastName,
+			},
+		}).Return(
+			models.Buyer{},
+			pkg.ServiceErrors[pkg.ErrInternalServer],
+		)
+		hd := NewBuyerHandler(mockService)
+
+		body := `{
+			"card_number_id": "87654321",
+			"first_name": "Jane",
+			"last_name": "Smith"
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/buyers/1", reqBody)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		expectedCode := 500
+		hd.Update()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
 }
 
 func TestDeleteBuyer(t *testing.T) {
@@ -420,6 +666,36 @@ func TestDeleteBuyer(t *testing.T) {
 		res := httptest.NewRecorder()
 
 		expectedCode := 400
+		hd.Delete()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
+
+	t.Run("delete_service_internal_error", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		mockService.On("Delete", 1).Return(pkg.ServiceErrors[pkg.ErrInternalServer])
+		hd := NewBuyerHandler(mockService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/buyers/1", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		expectedCode := 500
+		hd.Delete()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
+
+	t.Run("delete_service_conflict_error", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		mockService.On("Delete", 1).Return(pkg.ServiceErrors[pkg.ErrConflict])
+		hd := NewBuyerHandler(mockService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/buyers/1", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		expectedCode := 409
 		hd.Delete()(res, req)
 		require.Equal(t, expectedCode, res.Code)
 	})
@@ -533,5 +809,46 @@ func TestGetPurchaseOrdersReport(t *testing.T) {
 		expectedCode := 404
 		hd.GetPurchaseOrdersReport()(res, req)
 		require.Equal(t, expectedCode, res.Code)
+	})
+
+	t.Run("service_internal_error", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		mockService.On("GetPurchaseOrdersReport", (*int)(nil)).Return([]models.BuyerPurchaseOrderReport{}, pkg.ServiceErrors[pkg.ErrInternalServer])
+		hd := NewBuyerHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers/reportPurchaseOrders", nil)
+		res := httptest.NewRecorder()
+
+		expectedCode := 500
+		hd.GetPurchaseOrdersReport()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
+
+	t.Run("service_bad_request_error", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		buyerID := 1
+		mockService.On("GetPurchaseOrdersReport", &buyerID).Return([]models.BuyerPurchaseOrderReport{}, pkg.ServiceErrors[pkg.ErrBadRequest])
+		hd := NewBuyerHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers/reportPurchaseOrders?id=1", nil)
+		res := httptest.NewRecorder()
+
+		expectedCode := 400
+		hd.GetPurchaseOrdersReport()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+	})
+
+	t.Run("empty_report_result", func(t *testing.T) {
+		mockService := new(buyer.MockBuyerService)
+		mockService.On("GetPurchaseOrdersReport", (*int)(nil)).Return([]models.BuyerPurchaseOrderReport{}, nil)
+		hd := NewBuyerHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/buyers/reportPurchaseOrders", nil)
+		res := httptest.NewRecorder()
+		expected := `{"data": []}`
+		expectedCode := 200
+		hd.GetPurchaseOrdersReport()(res, req)
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
 	})
 }

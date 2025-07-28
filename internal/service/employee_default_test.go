@@ -211,6 +211,32 @@ func TestUpdateEmployee(t *testing.T) {
 		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
 		require.Equal(t, models.Employee{}, result)
 	})
+
+	t.Run("update_validation_error", func(t *testing.T) {
+		// arrange
+		mockRepo := new(employee.MockEmployeeRepository)
+
+		// Invalid warehouse ID (negative number)
+		warehouseID := -1
+
+		input := models.Employee{
+			WarehouseID: &warehouseID,
+		}
+
+		service := NewEmployeeServiceDefault(mockRepo)
+
+		// act
+		result, err := service.Update(input, 3)
+
+		// assert
+		require.Error(t, err)
+		srvError, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrUnprocessableEntity].Code, srvError.Code)
+		require.Equal(t, models.Employee{}, result)
+		// El mock no debería haber sido llamado porque la validación falló antes
+		mockRepo.AssertNotCalled(t, "Update")
+	})
 }
 
 func TestDeleteEmployee(t *testing.T) {
@@ -239,5 +265,100 @@ func TestDeleteEmployee(t *testing.T) {
 
 		// assert
 		require.NoError(t, err)
+	})
+}
+
+func TestReportInboundOrdersCountByEmployee(t *testing.T) {
+	t.Run("report_all_employees", func(t *testing.T) {
+		// arrange
+		mockRepo := new(employee.MockEmployeeRepository)
+		expected := []models.EmployeeReport{
+			{
+				ID:                 1,
+				CardNumberID:       "E001",
+				FirstName:          "John",
+				LastName:           "Doe",
+				InboundOrdersCount: 5,
+			},
+			{
+				ID:                 2,
+				CardNumberID:       "E002",
+				FirstName:          "Jane",
+				LastName:           "Smith",
+				InboundOrdersCount: 3,
+			},
+		}
+
+		mockRepo.On("ReportInboundOrdersCountByEmployee", (*int)(nil)).Return(expected, nil)
+		service := NewEmployeeServiceDefault(mockRepo)
+
+		// act
+		result, err := service.ReportInboundOrdersCountByEmployee(nil)
+
+		// assert
+		require.NoError(t, err)
+		require.Equal(t, expected, result)
+		require.Len(t, result, 2)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("report_specific_employee", func(t *testing.T) {
+		// arrange
+		mockRepo := new(employee.MockEmployeeRepository)
+		employeeID := 1
+		expected := []models.EmployeeReport{
+			{
+				ID:                 employeeID,
+				CardNumberID:       "E001",
+				FirstName:          "John",
+				LastName:           "Doe",
+				InboundOrdersCount: 5,
+			},
+		}
+
+		mockRepo.On("ReportInboundOrdersCountByEmployee", &employeeID).Return(expected, nil)
+		service := NewEmployeeServiceDefault(mockRepo)
+
+		// act
+		result, err := service.ReportInboundOrdersCountByEmployee(&employeeID)
+
+		// assert
+		require.NoError(t, err)
+		require.Equal(t, expected, result)
+		require.Len(t, result, 1)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("report_employee_not_found", func(t *testing.T) {
+		// arrange
+		mockRepo := new(employee.MockEmployeeRepository)
+		employeeID := 999
+		mockRepo.On("ReportInboundOrdersCountByEmployee", &employeeID).Return([]models.EmployeeReport{}, pkg.ServiceErrors[pkg.ErrNotFound])
+		service := NewEmployeeServiceDefault(mockRepo)
+
+		// act
+		result, err := service.ReportInboundOrdersCountByEmployee(&employeeID)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
+		require.Empty(t, result)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("report_internal_error", func(t *testing.T) {
+		// arrange
+		mockRepo := new(employee.MockEmployeeRepository)
+		mockRepo.On("ReportInboundOrdersCountByEmployee", (*int)(nil)).Return([]models.EmployeeReport{}, pkg.ServiceErrors[pkg.ErrInternalServer])
+		service := NewEmployeeServiceDefault(mockRepo)
+
+		// act
+		result, err := service.ReportInboundOrdersCountByEmployee(nil)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
+		require.Empty(t, result)
+		mockRepo.AssertExpectations(t)
 	})
 }
