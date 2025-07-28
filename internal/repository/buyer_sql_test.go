@@ -4,12 +4,26 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"database/sql"
+	"errors"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/require"
 )
+
+// errorResult implements sql.Result to simulate RowsAffected errors
+type errorResult struct {
+	rowsAffectedErr error
+}
+
+func (er *errorResult) LastInsertId() (int64, error) {
+	return 0, nil
+}
+
+func (er *errorResult) RowsAffected() (int64, error) {
+	return 0, er.rowsAffectedErr
+}
 
 func TestCreateBuyer(t *testing.T) {
 	t.Run("create_ok", func(t *testing.T) {
@@ -74,6 +88,126 @@ func TestCreateBuyer(t *testing.T) {
 		require.Equal(t, models.Buyer{}, result)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
+
+	t.Run("create_sql_execution_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		input := models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: "12345678",
+				FirstName:    "John",
+				LastName:     "Doe",
+			},
+		}
+
+		mock.ExpectExec("INSERT INTO buyers").
+			WithArgs("12345678", "John", "Doe").
+			WillReturnError(errors.New("database connection failed"))
+
+		// act
+		result, err := repo.Create(input)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, err.(pkg.ServiceError).ResponseCode)
+		require.Equal(t, models.Buyer{}, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("create_last_insert_id_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		input := models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: "12345678",
+				FirstName:    "John",
+				LastName:     "Doe",
+			},
+		}
+
+		mock.ExpectExec("INSERT INTO buyers").
+			WithArgs("12345678", "John", "Doe").
+			WillReturnResult(sqlmock.NewErrorResult(errors.New("LastInsertId error")))
+
+		// act
+		result, err := repo.Create(input)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, err.(pkg.ServiceError).ResponseCode)
+		require.Equal(t, models.Buyer{}, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("create_foreign_key_constraint_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		input := models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: "12345678",
+				FirstName:    "John",
+				LastName:     "Doe",
+			},
+		}
+
+		// Simulate MySQL foreign key constraint error
+		mysqlErr := &mysql.MySQLError{Number: 1452, Message: "Cannot add or update a child row: a foreign key constraint fails"}
+		mock.ExpectExec("INSERT INTO buyers").
+			WithArgs("12345678", "John", "Doe").
+			WillReturnError(mysqlErr)
+
+		// act
+		result, err := repo.Create(input)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, err.(pkg.ServiceError).ResponseCode)
+		require.Equal(t, models.Buyer{}, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("create_other_mysql_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		input := models.Buyer{
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: "12345678",
+				FirstName:    "John",
+				LastName:     "Doe",
+			},
+		}
+
+		// Simulate other MySQL error
+		mysqlErr := &mysql.MySQLError{Number: 1054, Message: "Unknown column 'unknown_col' in 'field list'"}
+		mock.ExpectExec("INSERT INTO buyers").
+			WithArgs("12345678", "John", "Doe").
+			WillReturnError(mysqlErr)
+
+		// act
+		result, err := repo.Create(input)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, err.(pkg.ServiceError).ResponseCode)
+		require.Equal(t, models.Buyer{}, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestGetAllBuyers(t *testing.T) {
@@ -99,6 +233,70 @@ func TestGetAllBuyers(t *testing.T) {
 		require.Len(t, result, 2)
 		require.Equal(t, "John", result[1].FirstName)
 		require.Equal(t, "Jane", result[2].FirstName)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("find_all_empty", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		rows := sqlmock.NewRows([]string{"id", "card_number_id", "first_name", "last_name"})
+
+		mock.ExpectQuery("SELECT id, card_number_id, first_name, last_name FROM buyers").
+			WillReturnRows(rows)
+
+		// act
+		result, err := repo.GetAll()
+
+		// assert
+		require.NoError(t, err)
+		require.Len(t, result, 0)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("find_all_query_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		mock.ExpectQuery("SELECT id, card_number_id, first_name, last_name FROM buyers").
+			WillReturnError(errors.New("database connection failed"))
+
+		// act
+		result, err := repo.GetAll()
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, "database connection failed", err.Error())
+		require.Nil(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("find_all_scan_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		rows := sqlmock.NewRows([]string{"id", "card_number_id", "first_name", "last_name"}).
+			AddRow("invalid_id", "12345678", "John", "Doe") // invalid id type
+
+		mock.ExpectQuery("SELECT id, card_number_id, first_name, last_name FROM buyers").
+			WillReturnRows(rows)
+
+		// act
+		result, err := repo.GetAll()
+
+		// assert
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "converting")
+		require.Nil(t, result)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }
@@ -150,6 +348,54 @@ func TestGetBuyerByID(t *testing.T) {
 		// assert
 		require.Error(t, err)
 		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, err.(pkg.ServiceError).ResponseCode)
+		require.Equal(t, models.Buyer{}, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("find_by_id_query_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		buyerID := 1
+
+		mock.ExpectQuery("SELECT id, card_number_id, first_name, last_name FROM buyers WHERE id = ?").
+			WithArgs(buyerID).
+			WillReturnError(errors.New("database connection failed"))
+
+		// act
+		result, err := repo.GetByID(buyerID)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, "database connection failed", err.Error())
+		require.Equal(t, models.Buyer{}, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("find_by_id_scan_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		buyerID := 1
+		rows := sqlmock.NewRows([]string{"id", "card_number_id", "first_name", "last_name"}).
+			AddRow("invalid_id", "12345678", "John", "Doe") // invalid id type
+
+		mock.ExpectQuery("SELECT id, card_number_id, first_name, last_name FROM buyers WHERE id = ?").
+			WithArgs(buyerID).
+			WillReturnRows(rows)
+
+		// act
+		result, err := repo.GetByID(buyerID)
+
+		// assert
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "converting")
 		require.Equal(t, models.Buyer{}, result)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
@@ -233,6 +479,157 @@ func TestUpdateBuyer(t *testing.T) {
 		require.Equal(t, models.Buyer{}, result)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
+
+	t.Run("update_get_by_id_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		input := models.Buyer{
+			ID: 1,
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: "87654321",
+				FirstName:    "Jane",
+				LastName:     "Smith",
+			},
+		}
+
+		// Mock GetByID call with database error
+		mock.ExpectQuery("SELECT id, card_number_id, first_name, last_name FROM buyers WHERE id = ?").
+			WithArgs(1).
+			WillReturnError(errors.New("database connection failed"))
+
+		// act
+		result, err := repo.Update(input)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, "database connection failed", err.Error())
+		require.Equal(t, models.Buyer{}, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("update_exec_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		input := models.Buyer{
+			ID: 1,
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: "87654321",
+				FirstName:    "Jane",
+				LastName:     "Smith",
+			},
+		}
+
+		// Mock GetByID call first (buyer exists)
+		existingRows := sqlmock.NewRows([]string{"id", "card_number_id", "first_name", "last_name"}).
+			AddRow(1, "12345678", "John", "Doe")
+		mock.ExpectQuery("SELECT id, card_number_id, first_name, last_name FROM buyers WHERE id = ?").
+			WithArgs(1).
+			WillReturnRows(existingRows)
+
+		// Mock the update operation with error
+		mock.ExpectExec("UPDATE buyers SET.*WHERE id = ?").
+			WithArgs("87654321", "Jane", "Smith", 1).
+			WillReturnError(errors.New("update failed"))
+
+		// act
+		result, err := repo.Update(input)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, err.(pkg.ServiceError).ResponseCode)
+		require.Equal(t, models.Buyer{}, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("update_conflict_duplicate_card_number", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		input := models.Buyer{
+			ID: 1,
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: "87654321",
+				FirstName:    "Jane",
+				LastName:     "Smith",
+			},
+		}
+
+		// Mock GetByID call first (buyer exists)
+		existingRows := sqlmock.NewRows([]string{"id", "card_number_id", "first_name", "last_name"}).
+			AddRow(1, "12345678", "John", "Doe")
+		mock.ExpectQuery("SELECT id, card_number_id, first_name, last_name FROM buyers WHERE id = ?").
+			WithArgs(1).
+			WillReturnRows(existingRows)
+
+		// Mock the update operation with duplicate key error
+		mysqlErr := &mysql.MySQLError{Number: 1062, Message: "Duplicate entry"}
+		mock.ExpectExec("UPDATE buyers SET.*WHERE id = ?").
+			WithArgs("87654321", "Jane", "Smith", 1).
+			WillReturnError(mysqlErr)
+
+		// act
+		result, err := repo.Update(input)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrConflict].ResponseCode, err.(pkg.ServiceError).ResponseCode)
+		require.Equal(t, models.Buyer{}, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("update_final_get_by_id_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		input := models.Buyer{
+			ID: 1,
+			BuyerAttributes: models.BuyerAttributes{
+				CardNumberID: "87654321",
+				FirstName:    "Jane",
+				LastName:     "Smith",
+			},
+		}
+
+		// Mock GetByID call first (buyer exists)
+		existingRows := sqlmock.NewRows([]string{"id", "card_number_id", "first_name", "last_name"}).
+			AddRow(1, "12345678", "John", "Doe")
+		mock.ExpectQuery("SELECT id, card_number_id, first_name, last_name FROM buyers WHERE id = ?").
+			WithArgs(1).
+			WillReturnRows(existingRows)
+
+		// Mock the update operation
+		mock.ExpectExec("UPDATE buyers SET.*WHERE id = ?").
+			WithArgs("87654321", "Jane", "Smith", 1).
+			WillReturnResult(sqlmock.NewResult(1, 1))
+
+		// Mock GetByID call after update with error
+		mock.ExpectQuery("SELECT id, card_number_id, first_name, last_name FROM buyers WHERE id = ?").
+			WithArgs(1).
+			WillReturnError(errors.New("database connection failed"))
+
+		// act
+		result, err := repo.Update(input)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, "database connection failed", err.Error())
+		require.Equal(t, models.Buyer{}, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestDeleteBuyer(t *testing.T) {
@@ -276,6 +673,52 @@ func TestDeleteBuyer(t *testing.T) {
 		// assert
 		require.Error(t, err)
 		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, err.(pkg.ServiceError).ResponseCode)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("delete_exec_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		buyerID := 1
+
+		mock.ExpectExec("DELETE FROM buyers WHERE id = ?").
+			WithArgs(buyerID).
+			WillReturnError(errors.New("delete failed"))
+
+		// act
+		err = repo.Delete(buyerID)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, "delete failed", err.Error())
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("delete_foreign_key_constraint_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		buyerID := 1
+
+		// Simulate foreign key constraint error
+		mysqlErr := &mysql.MySQLError{Number: 1451, Message: "Cannot delete or update a parent row: a foreign key constraint fails"}
+		mock.ExpectExec("DELETE FROM buyers WHERE id = ?").
+			WithArgs(buyerID).
+			WillReturnError(mysqlErr)
+
+		// act
+		err = repo.Delete(buyerID)
+
+		// assert
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Cannot delete or update a parent row: a foreign key constraint fails")
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }
@@ -356,5 +799,107 @@ func TestGetPurchaseOrdersReport(t *testing.T) {
 		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, err.(pkg.ServiceError).ResponseCode)
 		require.Empty(t, result)
 		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("get_report_query_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		mock.ExpectQuery("SELECT.*FROM buyers b.*LEFT JOIN purchase_orders po.*GROUP BY.*ORDER BY").
+			WillReturnError(errors.New("database connection failed"))
+
+		// act
+		result, err := repo.GetPurchaseOrdersReport(nil)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, "database connection failed", err.Error())
+		require.Empty(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("get_report_scan_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		rows := sqlmock.NewRows([]string{"id", "card_number_id", "first_name", "last_name", "purchase_orders_count"}).
+			AddRow("invalid_id", "12345678", "John", "Doe", 5) // invalid id type
+
+		mock.ExpectQuery("SELECT.*FROM buyers b.*LEFT JOIN purchase_orders po.*GROUP BY.*ORDER BY").
+			WillReturnRows(rows)
+
+		// act
+		result, err := repo.GetPurchaseOrdersReport(nil)
+
+		// assert
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "converting")
+		require.Empty(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("get_report_empty_result", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		rows := sqlmock.NewRows([]string{"id", "card_number_id", "first_name", "last_name", "purchase_orders_count"})
+
+		mock.ExpectQuery("SELECT.*FROM buyers b.*LEFT JOIN purchase_orders po.*GROUP BY.*ORDER BY").
+			WillReturnRows(rows)
+
+		// act
+		result, err := repo.GetPurchaseOrdersReport(nil)
+
+		// assert
+		require.NoError(t, err)
+		require.Empty(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("get_specific_buyer_report_query_error", func(t *testing.T) {
+		// arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo := NewBuyerSQL(db)
+		buyerID := 1
+		mock.ExpectQuery("SELECT.*FROM buyers b.*LEFT JOIN purchase_orders po.*WHERE b.id = ?.*GROUP BY").
+			WithArgs(buyerID).
+			WillReturnError(errors.New("database connection failed"))
+
+		// act
+		result, err := repo.GetPurchaseOrdersReport(&buyerID)
+
+		// assert
+		require.Error(t, err)
+		require.Equal(t, "database connection failed", err.Error())
+		require.Empty(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestNewBuyerSQL(t *testing.T) {
+	t.Run("new_buyer_sql_constructor", func(t *testing.T) {
+		// arrange
+		db, _, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		// act
+		repo := NewBuyerSQL(db)
+
+		// assert
+		require.NotNil(t, repo)
+		require.IsType(t, &BuyerSQL{}, repo)
 	})
 }
