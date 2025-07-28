@@ -256,3 +256,88 @@ func TestProductService_Update(t *testing.T) {
 		mockRepo.AssertCalled(t, "Update", 1, expectedProduct)
 	})
 }
+
+func TestProductService_GetProductRecords(t *testing.T) {
+	t.Run("get_product_records_with_id", func(t *testing.T) {
+		// Arrange
+		mockRepo := new(product.MockProductRepository)
+		productService := NewProductDefault(mockRepo)
+
+		productId := models.IntPtr(1)
+		expectedRecords := []models.ProductRecordResponse{
+			{
+				ProductId:    1,
+				Description:  "Test Product 1",
+				RecordsCount: 5,
+			},
+			{
+				ProductId:    2,
+				Description:  "Test Product 2",
+				RecordsCount: 3,
+			},
+		}
+
+		mockRepo.On("GetProductRecords", productId).Return(expectedRecords, nil)
+
+		// Act
+		records, err := productService.GetProductRecords(productId)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRecords, records)
+		mockRepo.AssertCalled(t, "GetProductRecords", productId)
+	})
+
+	t.Run("get_product_records_all", func(t *testing.T) {
+		// Arrange
+		mockRepo := new(product.MockProductRepository)
+		productService := NewProductDefault(mockRepo)
+
+		expectedRecords := []models.ProductRecordResponse{
+			{
+				ProductId:    1,
+				Description:  "Test Product 1",
+				RecordsCount: 5,
+			},
+			{
+				ProductId:    2,
+				Description:  "Test Product 2",
+				RecordsCount: 3,
+			},
+			{
+				ProductId:    3,
+				Description:  "Test Product 3",
+				RecordsCount: 1,
+			},
+		}
+
+		mockRepo.On("GetProductRecords", (*int)(nil)).Return(expectedRecords, nil)
+
+		// Act
+		records, err := productService.GetProductRecords(nil)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRecords, records)
+		mockRepo.AssertCalled(t, "GetProductRecords", (*int)(nil))
+	})
+
+	t.Run("get_product_records_error", func(t *testing.T) {
+		// Arrange
+		mockRepo := new(product.MockProductRepository)
+		productService := NewProductDefault(mockRepo)
+
+		productId := models.IntPtr(999)
+		mockRepo.On("GetProductRecords", productId).Return(nil, pkg.ServiceErrors[pkg.ErrNotFound])
+
+		// Act
+		records, err := productService.GetProductRecords(productId)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, records)
+		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
+		mockRepo.AssertCalled(t, "GetProductRecords", productId)
+	})
+
+}
