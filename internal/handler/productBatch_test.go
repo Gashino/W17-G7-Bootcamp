@@ -3,7 +3,7 @@ package handler
 import (
 	"app/pkg"
 	"app/pkg/models"
-	"app/test/productbatch"
+	productbatch "app/test/productBatch"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
