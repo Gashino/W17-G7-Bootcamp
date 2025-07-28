@@ -41,7 +41,7 @@ func (m *MockSectionService) ReportProductsAllSections() (s []models.SectionRepo
 }
 
 func (m *MockSectionService) ReportProductsBySection(ptr *int) (s []models.SectionReport, err error) {
-	args := m.Called()
+	args := m.Called(ptr)
 	return args.Get(0).([]models.SectionReport), args.Error(1)
 }
 
