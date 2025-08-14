@@ -4,6 +4,7 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -277,6 +278,102 @@ func TestEmployeeRepositoryMap_Save(t *testing.T) {
 		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, serviceErr.Code)
 
 		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("mysql_error_other", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		cardNumberID := "E001"
+		employee := models.Employee{
+			CardNumberID: &cardNumberID,
+		}
+
+		// MySQL error diferente a 1452 y 1062
+		mysqlErr := &mysql.MySQLError{
+			Number:  1146,
+			Message: "Table doesn't exist",
+		}
+
+		mock.ExpectExec("INSERT INTO employees").WithArgs(
+			employee.CardNumberID,
+			employee.FirstName,
+			employee.LastName,
+			employee.WarehouseID,
+		).WillReturnError(mysqlErr)
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		savedEmployee, err := repo.Save(employee)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Employee{}, savedEmployee)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("non_mysql_error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		cardNumberID := "E001"
+		employee := models.Employee{
+			CardNumberID: &cardNumberID,
+		}
+
+		mock.ExpectExec("INSERT INTO employees").WithArgs(
+			employee.CardNumberID,
+			employee.FirstName,
+			employee.LastName,
+			employee.WarehouseID,
+		).WillReturnError(fmt.Errorf("generic database error"))
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		savedEmployee, err := repo.Save(employee)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Employee{}, savedEmployee)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("last_insert_id_error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		cardNumberID := "E001"
+		employee := models.Employee{
+			CardNumberID: &cardNumberID,
+		}
+
+		mock.ExpectExec("INSERT INTO employees").WithArgs(
+			employee.CardNumberID,
+			employee.FirstName,
+			employee.LastName,
+			employee.WarehouseID,
+		).WillReturnResult(sqlmock.NewErrorResult(fmt.Errorf("last insert id error")))
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		savedEmployee, err := repo.Save(employee)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Employee{}, savedEmployee)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }

@@ -173,6 +173,35 @@ func TestSellerDefault_GetByID(t *testing.T) {
 		mockService.AssertCalled(t, "GetById", 1)
 		require.Equal(t, expectedResp, actualResp)
 	})
+
+	t.Run("Cuando el ID no es válido se devolverá un código 400", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+
+		hd := NewSellerDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/sellers/invalid", nil)
+		res := httptest.NewRecorder()
+
+		// Simular parámetro de URL con ID inválido
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "invalid")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		// Act
+		hd.GetById()(res, req)
+
+		// Assert
+		actualResp := errorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusBadRequest
+		expectedResp := errorResponseStruct{
+			Message: "error: Bad request",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertNotCalled(t, "GetById")
+		require.Equal(t, expectedResp, actualResp)
+	})
 }
 
 func TestSellerDefault_Post(t *testing.T) {
@@ -386,6 +415,71 @@ func TestSellerDefault_Update(t *testing.T) {
 		mockService.AssertCalled(t, "UpdateFields", 999, mock.AnythingOfType("models.SellerCreateRequest"))
 		require.Equal(t, expectedResp, actualResp)
 	})
+
+	t.Run("Cuando el ID no es válido se devolverá un código 422", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+
+		updateRequest := models.SellerCreateRequest{
+			CompanyName: models.StringPtr("Updated Company"),
+		}
+
+		hd := NewSellerDefault(mockService)
+		reqBody, _ := json.Marshal(updateRequest)
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/sellers/invalid", bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		// Simular parámetro de URL con ID inválido
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "invalid")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		// Act
+		hd.Update()(res, req)
+
+		// Assert
+		actualResp := errorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusUnprocessableEntity
+		expectedResp := errorResponseStruct{
+			Message: "error: Validation error",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertNotCalled(t, "UpdateFields")
+		require.Equal(t, expectedResp, actualResp)
+	})
+
+	t.Run("Cuando el JSON es inválido se devolverá un código 422", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+
+		hd := NewSellerDefault(mockService)
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/sellers/1", bytes.NewBuffer([]byte("invalid json")))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+
+		// Simular parámetro de URL
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		// Act
+		hd.Update()(res, req)
+
+		// Assert
+		actualResp := errorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusUnprocessableEntity
+		expectedResp := errorResponseStruct{
+			Message: "error: Validation error",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertNotCalled(t, "UpdateFields")
+		require.Equal(t, expectedResp, actualResp)
+	})
 }
 
 func TestSellerDefault_Delete(t *testing.T) {
@@ -447,6 +541,35 @@ func TestSellerDefault_Delete(t *testing.T) {
 		}
 		require.Equal(t, expectedCode, res.Code)
 		mockService.AssertCalled(t, "DeleteSeller", 1)
+		require.Equal(t, expectedResp, actualResp)
+	})
+
+	t.Run("Cuando el ID no es válido se devolverá un código 400", func(t *testing.T) {
+		// Arrange
+		mockService := new(seller.MockSellerService)
+
+		hd := NewSellerDefault(mockService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/sellers/invalid", nil)
+		res := httptest.NewRecorder()
+
+		// Simular parámetro de URL con ID inválido
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "invalid")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		// Act
+		hd.Delete()(res, req)
+
+		// Assert
+		actualResp := errorResponseStruct{}
+		err := json.Unmarshal([]byte(res.Body.Bytes()), &actualResp)
+		require.NoError(t, err)
+		expectedCode := http.StatusBadRequest
+		expectedResp := errorResponseStruct{
+			Message: "error: Bad request",
+		}
+		require.Equal(t, expectedCode, res.Code)
+		mockService.AssertNotCalled(t, "DeleteSeller")
 		require.Equal(t, expectedResp, actualResp)
 	})
 }

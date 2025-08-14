@@ -75,6 +75,22 @@ func TestWarehouse_GetAll(t *testing.T) {
 
 		require.JSONEq(t, expectedBody, actualBody)
 	})
+
+	t.Run("Cuando hay error del servicio devuelve error interno", func(t *testing.T) {
+		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+		mockService.On("FindAll").Return(map[int]models.Warehouse{}, pkg.ServiceErrors[pkg.ErrInternalServer])
+
+		// Act
+		hd := NewWarehouseDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/warehouse", nil)
+		res := httptest.NewRecorder()
+		hd.GetAll()(res, req)
+
+		// Assert
+		require.Equal(t, http.StatusInternalServerError, res.Code)
+		mockService.AssertCalled(t, "FindAll")
+	})
 }
 
 func TestWarehouse_GetOne(t *testing.T) {
@@ -144,6 +160,25 @@ func TestWarehouse_GetOne(t *testing.T) {
 		require.Equal(t, expectedCode, res.Code)
 		mockService.AssertCalled(t, "FindByID", 1)
 		require.JSONEq(t, expectedBody, actualBody)
+	})
+
+	t.Run("Cuando el ID no es válido devuelve error 404", func(t *testing.T) {
+		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+
+		hd := NewWarehouseDefault(mockService)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/warehouse/invalid", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "invalid")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		// Act
+		hd.GetOne()(res, req)
+
+		// Assert
+		require.Equal(t, http.StatusNotFound, res.Code)
+		mockService.AssertNotCalled(t, "FindByID")
 	})
 }
 
@@ -427,5 +462,24 @@ func TestWarehouse_Delete(t *testing.T) {
 		require.Equal(t, expectedCode, res.Code)
 		mockService.AssertCalled(t, "Delete", 1)
 		require.JSONEq(t, expectedBody, res.Body.String())
+	})
+
+	t.Run("Cuando el ID no es válido devuelve error 404", func(t *testing.T) {
+		// Arrange
+		mockService := new(warehouse.MockWarehouseService)
+
+		hd := NewWarehouseDefault(mockService)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/warehouse/invalid", nil)
+		routeCtx := chi.NewRouteContext()
+		routeCtx.URLParams.Add("id", "invalid")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+		res := httptest.NewRecorder()
+
+		// Act
+		hd.Delete()(res, req)
+
+		// Assert
+		require.Equal(t, http.StatusNotFound, res.Code)
+		mockService.AssertNotCalled(t, "Delete")
 	})
 }
