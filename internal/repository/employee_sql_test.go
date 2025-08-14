@@ -4,438 +4,709 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"database/sql"
-	"fmt"
-	"os"
-	"sync"
 	"testing"
-	"time"
 
-	"github.com/DATA-DOG/go-txdb"
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/go-sql-driver/mysql"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
 
-// Helper functions for creating pointers
-func StringPtr(s string) *string {
-	return &s
-}
-
-func IntPtr(i int) *int {
-	return &i
-}
-
-// Variables para controlar el registro del driver txdb para employee tests
-var (
-	employeeTxdbRegistered bool = false
-	employeeTxdbMutex      sync.Mutex
-)
-
-// Estructura para leer la configuración de la base de datos desde config.yml
-type EmployeeConfig struct {
-	Database struct {
-		User     string `yaml:"user"`
-		Password string `yaml:"password"`
-		Host     string `yaml:"host"`
-		Port     string `yaml:"port"`
-		Name     string `yaml:"name"`
-	} `yaml:"database"`
-}
-
-// Configurar la base de datos para pruebas de employee
-func setupEmployeeTxDB() string {
-	// Usar un mutex para evitar condiciones de carrera al registrar el driver
-	employeeTxdbMutex.Lock()
-	defer employeeTxdbMutex.Unlock()
-
-	// Evitar registrar el driver más de una vez
-	if !employeeTxdbRegistered {
-		// Leer la configuración desde config.yml
-		config := loadEmployeeConfig()
-
-		// Configurar la conexión MySQL usando los valores del config.yml
-		cfg := mysql.Config{
-			User:                 config.Database.User,
-			Passwd:               config.Database.Password,
-			Net:                  "tcp",
-			Addr:                 fmt.Sprintf("%s:%s", config.Database.Host, config.Database.Port),
-			DBName:               config.Database.Name,
-			ParseTime:            true,
-			AllowNativePasswords: true,
-		}
-
-		// Verificar si el driver ya está registrado
-		for _, driver := range sql.Drivers() {
-			if driver == "employee_txdb" {
-				// El driver ya está registrado, no necesitamos registrarlo de nuevo
-				employeeTxdbRegistered = true
-				return "employee_txdb"
-			}
-		}
-
-		// Registrar el driver si no está registrado
-		txdb.Register("employee_txdb", "mysql", cfg.FormatDSN())
-		employeeTxdbRegistered = true
-	}
-
-	return "employee_txdb"
-}
-
-// Cargar la configuración desde config.yml para employee tests
-func loadEmployeeConfig() EmployeeConfig {
-	var config EmployeeConfig
-
-	// Intentar leer el archivo de configuración
-	data, err := os.ReadFile("../../config.yml")
-	if err != nil {
-		// Si hay un error, mostrar un mensaje y terminar el test
-		panic(fmt.Sprintf("Error al leer el archivo config.yml: %v\nAsegúrate de que el archivo config.yml existe en la raíz del proyecto", err))
-	}
-
-	// Parsear el archivo YAML
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		// Si hay un error al parsear el YAML, mostrar un mensaje y terminar el test
-		panic(fmt.Sprintf("Error al parsear el archivo config.yml: %v\nVerifica que el formato del archivo sea correcto", err))
-	}
-
-	// Verificar que la configuración de la base de datos esté completa
-	if config.Database.User == "" || config.Database.Host == "" || config.Database.Port == "" || config.Database.Name == "" {
-		panic("La configuración de la base de datos en config.yml está incompleta")
-	}
-
-	return config
-}
-
-// Configurar la base de datos de prueba para cada test de employee
-func setupEmployeeTestDB(t *testing.T) (*EmployeeRepositoryMap, *sql.DB) {
-	// Usar un nombre único para cada conexión de test
-	driver := setupEmployeeTxDB()
-	db, err := sql.Open(driver, fmt.Sprintf("employee_test_%s", t.Name()))
-	require.NoError(t, err)
-
-	// Verificar que la conexión funciona
-	err = db.Ping()
-	if err != nil {
-		t.Fatalf("Error al conectar con la base de datos: %v", err)
-	}
-
-	return &EmployeeRepositoryMap{db: db}, db
-}
-
-// Crear un empleado completo para pruebas
-func createTestEmployee() models.Employee {
-	// Usar timestamp para generar un card number único
-	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
-	cardNumber := timestamp[len(timestamp)-8:] // Tomar los últimos 8 dígitos
-
-	return models.Employee{
-		CardNumberID: StringPtr(cardNumber),
-		FirstName:    StringPtr("John"),
-		LastName:     StringPtr("Doe"),
-		WarehouseID:  IntPtr(1), // Usar un warehouse_id válido según el script de base de datos
-	}
-}
-
-func TestEmployeeSQL_FindAll(t *testing.T) {
-	repo, db := setupEmployeeTestDB(t)
-	defer db.Close()
-
-	// Act
-	employees, err := repo.FindAll()
-
-	// Assert
-	assert.NoError(t, err)
-	assert.NotNil(t, employees)
-	// Verificamos que se devuelvan los empleados de seed
-	assert.GreaterOrEqual(t, len(employees), 1, "Deberían existir al menos algunos empleados en la base de datos de prueba")
-}
-
-func TestEmployeeSQL_FindById(t *testing.T) {
-	repo, db := setupEmployeeTestDB(t)
-	defer db.Close()
-
-	t.Run("existing employee", func(t *testing.T) {
-		// Act
-		employee, err := repo.FindById(1)
-
-		// Assert
-		assert.NoError(t, err)
-		assert.NotEmpty(t, employee)
-		assert.Equal(t, 1, employee.ID)
-	})
-
-	t.Run("non-existing employee", func(t *testing.T) {
-		// Act
-		employee, err := repo.FindById(999)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Equal(t, models.Employee{}, employee)
-		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
-	})
-}
-
-func TestEmployeeSQL_Save(t *testing.T) {
-	t.Run("create new employee successfully", func(t *testing.T) {
-		repo, db := setupEmployeeTestDB(t)
-		defer db.Close()
-
+func TestEmployeeRepositoryMap_FindAll(t *testing.T) {
+	t.Run("success_with_multiple_employees", func(t *testing.T) {
 		// Arrange
-		newEmployee := createTestEmployee()
-
-		// Act
-		createdEmployee, err := repo.Save(newEmployee)
-
-		// Assert
-		assert.NoError(t, err)
-		assert.NotEmpty(t, createdEmployee)
-		assert.NotZero(t, createdEmployee.ID)
-		assert.Equal(t, *newEmployee.CardNumberID, *createdEmployee.CardNumberID)
-		assert.Equal(t, *newEmployee.FirstName, *createdEmployee.FirstName)
-		assert.Equal(t, *newEmployee.LastName, *createdEmployee.LastName)
-		assert.Equal(t, *newEmployee.WarehouseID, *createdEmployee.WarehouseID)
-
-		// Verificar que el empleado fue creado en la base de datos
-		savedEmployee, err := repo.FindById(*createdEmployee.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, *newEmployee.CardNumberID, *savedEmployee.CardNumberID)
-	})
-
-	t.Run("create employee with duplicate card number", func(t *testing.T) {
-		repo, db := setupEmployeeTestDB(t)
-		defer db.Close()
-
-		// Arrange - Crear un primer empleado
-		employee1 := createTestEmployee()
-		createdEmployee, err := repo.Save(employee1)
+		db, mock, err := sqlmock.New()
 		require.NoError(t, err)
-		require.NotEmpty(t, createdEmployee)
-
-		// Intentar crear un segundo empleado con el mismo card number
-		employee2 := createTestEmployee()
-		*employee2.CardNumberID = *createdEmployee.CardNumberID // Usar el mismo card number
-
-		// Act
-		duplicateEmployee, err := repo.Save(employee2)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Equal(t, models.Employee{}, duplicateEmployee)
-		assert.Equal(t, pkg.ServiceErrors[pkg.ErrConflict].Code, err.(pkg.ServiceError).Code)
-	})
-
-	t.Run("create employee with invalid warehouse id", func(t *testing.T) {
-		repo, db := setupEmployeeTestDB(t)
 		defer db.Close()
 
-		// Arrange - Crear un empleado con un warehouse_id inválido
-		invalidEmployee := createTestEmployee()
+		rows := sqlmock.NewRows([]string{
+			"id", "card_number_id", "first_name", "last_name", "warehouse_id",
+		}).
+			AddRow(1, "E001", "John", "Doe", 1).
+			AddRow(2, "E002", "Jane", "Smith", 2)
+
+		mock.ExpectQuery("SELECT (.+) FROM employees").WillReturnRows(rows)
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		employees, err := repo.FindAll()
+
+		// Assert
+		require.NoError(t, err)
+		require.NotNil(t, employees)
+		require.Equal(t, 2, len(employees))
+
+		// Check first employee
+		employee1, exists := employees[1]
+		require.True(t, exists)
+		require.Equal(t, 1, *employee1.ID)
+		require.Equal(t, "E001", *employee1.CardNumberID)
+		require.Equal(t, "John", *employee1.FirstName)
+		require.Equal(t, "Doe", *employee1.LastName)
+		require.Equal(t, 1, *employee1.WarehouseID)
+
+		// Check second employee
+		employee2, exists := employees[2]
+		require.True(t, exists)
+		require.Equal(t, 2, *employee2.ID)
+		require.Equal(t, "E002", *employee2.CardNumberID)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("database_error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery("SELECT (.+) FROM employees").WillReturnError(sql.ErrConnDone)
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		employees, err := repo.FindAll()
+
+		// Assert
+		require.Error(t, err)
+		require.Nil(t, employees)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestEmployeeRepositoryMap_FindById(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		employeeId := 1
+		rows := sqlmock.NewRows([]string{
+			"id", "card_number_id", "first_name", "last_name", "warehouse_id",
+		}).AddRow(employeeId, "E001", "John", "Doe", 1)
+
+		mock.ExpectQuery("SELECT (.+) FROM employees WHERE id = \\?").WithArgs(employeeId).WillReturnRows(rows)
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		employee, err := repo.FindById(employeeId)
+
+		// Assert
+		require.NoError(t, err)
+		require.NotNil(t, employee)
+		require.Equal(t, employeeId, *employee.ID)
+		require.Equal(t, "E001", *employee.CardNumberID)
+		require.Equal(t, "John", *employee.FirstName)
+		require.Equal(t, "Doe", *employee.LastName)
+		require.Equal(t, 1, *employee.WarehouseID)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("not_found", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		employeeId := 999
+		rows := sqlmock.NewRows([]string{
+			"id", "card_number_id", "first_name", "last_name", "warehouse_id",
+		})
+
+		mock.ExpectQuery("SELECT (.+) FROM employees WHERE id = \\?").WithArgs(employeeId).WillReturnRows(rows)
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		employee, err := repo.FindById(employeeId)
+
+		// Assert
+		require.Error(t, err)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, serviceErr.Code)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, serviceErr.ResponseCode)
+		require.Equal(t, models.Employee{}, employee)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("database_error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		employeeId := 1
+		mock.ExpectQuery("SELECT (.+) FROM employees WHERE id = \\?").WithArgs(employeeId).WillReturnError(sql.ErrConnDone)
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		employee, err := repo.FindById(employeeId)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Employee{}, employee)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestEmployeeRepositoryMap_Save(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		cardNumberID := "E001"
+		firstName := "John"
+		lastName := "Doe"
+		warehouseID := 1
+
+		employee := models.Employee{
+			CardNumberID: &cardNumberID,
+			FirstName:    &firstName,
+			LastName:     &lastName,
+			WarehouseID:  &warehouseID,
+		}
+
+		mock.ExpectExec("INSERT INTO employees").WithArgs(
+			employee.CardNumberID,
+			employee.FirstName,
+			employee.LastName,
+			employee.WarehouseID,
+		).WillReturnResult(sqlmock.NewResult(1, 1))
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		savedEmployee, err := repo.Save(employee)
+
+		// Assert
+		require.NoError(t, err)
+		require.NotNil(t, savedEmployee)
+		require.Equal(t, *employee.CardNumberID, *savedEmployee.CardNumberID)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("duplicate_card_number_id", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		cardNumberID := "E001"
+		employee := models.Employee{
+			CardNumberID: &cardNumberID,
+		}
+
+		mysqlErr := &mysql.MySQLError{
+			Number:  1062,
+			Message: "Duplicate entry 'E001' for key 'card_number_id'",
+		}
+
+		mock.ExpectExec("INSERT INTO employees").WithArgs(
+			employee.CardNumberID,
+			employee.FirstName,
+			employee.LastName,
+			employee.WarehouseID,
+		).WillReturnError(mysqlErr)
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		savedEmployee, err := repo.Save(employee)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Employee{}, savedEmployee)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrConflict].Code, serviceErr.Code)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("invalid_warehouse_id", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
 		warehouseID := 999
-		*invalidEmployee.WarehouseID = warehouseID // ID que no existe
+		employee := models.Employee{
+			WarehouseID: &warehouseID,
+		}
+
+		mysqlErr := &mysql.MySQLError{
+			Number:  1452,
+			Message: "Cannot add or update a child row: a foreign key constraint fails",
+		}
+
+		mock.ExpectExec("INSERT INTO employees").WithArgs(
+			employee.CardNumberID,
+			employee.FirstName,
+			employee.LastName,
+			employee.WarehouseID,
+		).WillReturnError(mysqlErr)
+
+		repo := NewEmployeeRepository(db)
 
 		// Act
-		createdEmployee, err := repo.Save(invalidEmployee)
+		savedEmployee, err := repo.Save(employee)
 
 		// Assert
-		assert.Error(t, err)
-		assert.Equal(t, models.Employee{}, createdEmployee)
-		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, err.(pkg.ServiceError).Code)
+		require.Error(t, err)
+		require.Equal(t, models.Employee{}, savedEmployee)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, serviceErr.Code)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }
 
-func TestEmployeeSQL_Update(t *testing.T) {
-	t.Run("update existing employee", func(t *testing.T) {
-		repo, db := setupEmployeeTestDB(t)
+func TestEmployeeRepositoryMap_Delete(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
 		defer db.Close()
 
-		// Arrange - Crear un empleado primero
-		newEmployee := createTestEmployee()
-		createdEmployee, err := repo.Save(newEmployee)
-		require.NoError(t, err)
-		require.NotEmpty(t, createdEmployee)
+		employeeId := 1
+		mock.ExpectExec("DELETE FROM employees WHERE id = \\?").WithArgs(employeeId).WillReturnResult(sqlmock.NewResult(0, 1))
 
-		// Actualizar el empleado
-		updatedEmployee := models.Employee{
-			CardNumberID: StringPtr("87654321"),
-			FirstName:    StringPtr("Jane"),
-			LastName:     StringPtr("Smith"),
-			WarehouseID:  IntPtr(1),
-		}
+		repo := NewEmployeeRepository(db)
 
 		// Act
-		resultEmployee, err := repo.Update(updatedEmployee, *createdEmployee.ID)
+		err = repo.Delete(employeeId)
 
 		// Assert
-		assert.NoError(t, err)
-		assert.Equal(t, *updatedEmployee.CardNumberID, *resultEmployee.CardNumberID)
-		assert.Equal(t, *updatedEmployee.FirstName, *resultEmployee.FirstName)
-		assert.Equal(t, *updatedEmployee.LastName, *resultEmployee.LastName)
+		require.NoError(t, err)
 
-		// Verificar que el empleado fue actualizado
-		savedEmployee, err := repo.FindById(*createdEmployee.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, *updatedEmployee.CardNumberID, *savedEmployee.CardNumberID)
-		assert.Equal(t, *updatedEmployee.FirstName, *savedEmployee.FirstName)
-		assert.Equal(t, *updatedEmployee.LastName, *savedEmployee.LastName)
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
-	t.Run("update with duplicate card number", func(t *testing.T) {
-		repo, db := setupEmployeeTestDB(t)
+	t.Run("database_error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
 		defer db.Close()
 
-		// Arrange - Crear dos empleados
-		employee1 := createTestEmployee()
-		employee2 := createTestEmployee()
+		employeeId := 1
+		mock.ExpectExec("DELETE FROM employees WHERE id = \\?").WithArgs(employeeId).WillReturnError(sql.ErrConnDone)
 
-		createdEmployee1, err := repo.Save(employee1)
-		require.NoError(t, err)
-		createdEmployee2, err := repo.Save(employee2)
-		require.NoError(t, err)
-
-		// Intentar actualizar el empleado 2 con el card number del empleado 1
-		updatedEmployee := models.Employee{
-			CardNumberID: createdEmployee1.CardNumberID, // Card number duplicado (mismo que createdEmployee1)
-			FirstName:    StringPtr("Updated"),
-			LastName:     StringPtr("Name"),
-			WarehouseID:  IntPtr(1),
-		}
+		repo := NewEmployeeRepository(db)
 
 		// Act
-		_, err = repo.Update(updatedEmployee, *createdEmployee2.ID)
+		err = repo.Delete(employeeId)
 
 		// Assert
-		assert.Error(t, err)
-		assert.Equal(t, pkg.ServiceErrors[pkg.ErrConflict].Code, err.(pkg.ServiceError).Code)
+		require.Error(t, err)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer].Code, serviceErr.Code)
 
-		// Verificar que el empleado no fue actualizado
-		savedEmployee, err := repo.FindById(*createdEmployee2.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, *createdEmployee2.CardNumberID, *savedEmployee.CardNumberID)
-
-		// Verificar que el empleado 1 sigue existiendo
-		_, err = repo.FindById(*createdEmployee1.ID)
-		assert.NoError(t, err)
-	})
-
-	t.Run("update with invalid warehouse id", func(t *testing.T) {
-		repo, db := setupEmployeeTestDB(t)
-		defer db.Close()
-
-		// Arrange - Crear un empleado primero
-		newEmployee := createTestEmployee()
-		createdEmployee, err := repo.Save(newEmployee)
-		require.NoError(t, err)
-
-		// Intentar actualizar con warehouse_id inválido
-		updatedEmployee := models.Employee{
-			CardNumberID: StringPtr("87654321"),
-			FirstName:    StringPtr("Jane"),
-			LastName:     StringPtr("Smith"),
-			WarehouseID:  IntPtr(999), // ID que no existe
-		}
-
-		// Act
-		_, err = repo.Update(updatedEmployee, *createdEmployee.ID)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, err.(pkg.ServiceError).Code)
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }
 
-func TestEmployeeSQL_Delete(t *testing.T) {
-	t.Run("delete existing employee", func(t *testing.T) {
-		repo, db := setupEmployeeTestDB(t)
-		defer db.Close()
-
-		// Arrange - Crear un empleado primero
-		newEmployee := createTestEmployee()
-		createdEmployee, err := repo.Save(newEmployee)
+func TestEmployeeRepositoryMap_ReportInboundOrdersCountByEmployee(t *testing.T) {
+	t.Run("success_with_specific_employee", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
 		require.NoError(t, err)
-		require.NotEmpty(t, createdEmployee)
-
-		// Act
-		err = repo.Delete(*createdEmployee.ID)
-
-		// Assert
-		assert.NoError(t, err)
-
-		// Verificar que el empleado fue eliminado
-		_, err = repo.FindById(*createdEmployee.ID)
-		assert.Error(t, err)
-		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
-	})
-
-	t.Run("delete non-existing employee", func(t *testing.T) {
-		repo, db := setupEmployeeTestDB(t)
 		defer db.Close()
 
+		employeeId := 1
+		rows := sqlmock.NewRows([]string{
+			"id", "card_number_id", "first_name", "last_name", "inbound_orders_count",
+		}).AddRow(employeeId, "E001", "John", "Doe", 5)
+
+		mock.ExpectQuery("SELECT (.+) FROM employees e LEFT JOIN inbound_orders").WithArgs(employeeId).WillReturnRows(rows)
+
+		repo := NewEmployeeRepository(db)
+
 		// Act
-		err := repo.Delete(9999) // ID que no existe
+		reports, err := repo.ReportInboundOrdersCountByEmployee(&employeeId)
 
 		// Assert
-		// Note: La implementación actual no verifica si el empleado existe antes de eliminar
-		// por lo que no devuelve error incluso si el ID no existe
-		assert.NoError(t, err)
-	})
-}
+		require.NoError(t, err)
+		require.NotNil(t, reports)
+		require.Equal(t, 1, len(reports))
+		require.Equal(t, employeeId, reports[0].ID)
+		require.Equal(t, 5, reports[0].InboundOrdersCount)
 
-func TestEmployeeSQL_ReportInboundOrdersCountByEmployee(t *testing.T) {
-	t.Run("get all employees report", func(t *testing.T) {
-		repo, db := setupEmployeeTestDB(t)
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("success_with_all_employees", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
 		defer db.Close()
+
+		rows := sqlmock.NewRows([]string{
+			"id", "card_number_id", "first_name", "last_name", "inbound_orders_count",
+		}).
+			AddRow(1, "E001", "John", "Doe", 5).
+			AddRow(2, "E002", "Jane", "Smith", 3)
+
+		mock.ExpectQuery("SELECT (.+) FROM employees e LEFT JOIN inbound_orders").WillReturnRows(rows)
+
+		repo := NewEmployeeRepository(db)
 
 		// Act
 		reports, err := repo.ReportInboundOrdersCountByEmployee(nil)
 
 		// Assert
-		assert.NoError(t, err)
-		assert.NotNil(t, reports)
-		// Los empleados de seed deberían estar en el reporte
-		assert.GreaterOrEqual(t, len(reports), 1, "Deberían existir al menos algunos empleados en el reporte")
-	})
-
-	t.Run("get report for specific employee", func(t *testing.T) {
-		repo, db := setupEmployeeTestDB(t)
-		defer db.Close()
-
-		// Arrange - Crear un empleado primero
-		newEmployee := createTestEmployee()
-		createdEmployee, err := repo.Save(newEmployee)
 		require.NoError(t, err)
-		require.NotEmpty(t, createdEmployee)
+		require.NotNil(t, reports)
+		require.Equal(t, 2, len(reports))
 
-		// Act
-		employeeID := createdEmployee.ID
-		reports, err := repo.ReportInboundOrdersCountByEmployee(employeeID)
-
-		// Assert
-		assert.NoError(t, err)
-		assert.NotNil(t, reports)
-		assert.Len(t, reports, 1)
-		assert.Equal(t, createdEmployee.ID, reports[0].ID)
-		assert.Equal(t, *createdEmployee.CardNumberID, reports[0].CardNumberID)
-		assert.Equal(t, *createdEmployee.FirstName, reports[0].FirstName)
-		assert.Equal(t, *createdEmployee.LastName, reports[0].LastName)
-		// El empleado recién creado no tiene inbound orders asociadas
-		assert.Equal(t, 0, reports[0].InboundOrdersCount)
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
-	t.Run("get report for non-existing employee", func(t *testing.T) {
-		repo, db := setupEmployeeTestDB(t)
+	t.Run("employee_not_found", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
 		defer db.Close()
 
-		// Arrange
-		nonExistingID := 9999
+		employeeId := 999
+		rows := sqlmock.NewRows([]string{
+			"id", "card_number_id", "first_name", "last_name", "inbound_orders_count",
+		})
+
+		mock.ExpectQuery("SELECT (.+) FROM employees e LEFT JOIN inbound_orders").WithArgs(employeeId).WillReturnRows(rows)
+
+		repo := NewEmployeeRepository(db)
 
 		// Act
-		reports, err := repo.ReportInboundOrdersCountByEmployee(&nonExistingID)
+		reports, err := repo.ReportInboundOrdersCountByEmployee(&employeeId)
 
 		// Assert
-		assert.Error(t, err)
-		assert.Nil(t, reports)
-		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, err.(pkg.ServiceError).Code)
+		require.Error(t, err)
+		require.Nil(t, reports)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, serviceErr.Code)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].ResponseCode, serviceErr.ResponseCode)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("database_error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		employeeId := 1
+		mock.ExpectQuery("SELECT (.+) FROM employees e LEFT JOIN inbound_orders").WithArgs(employeeId).WillReturnError(sql.ErrConnDone)
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		reports, err := repo.ReportInboundOrdersCountByEmployee(&employeeId)
+
+		// Assert
+		require.Error(t, err)
+		require.Nil(t, reports)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer].Code, serviceErr.Code)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer].ResponseCode, serviceErr.ResponseCode)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestEmployeeRepositoryMap_Update(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		employeeId := 1
+		cardNumberID := "E001"
+		firstName := "John"
+		lastName := "Doe"
+		warehouseID := 2
+
+		employee := models.Employee{
+			CardNumberID: &cardNumberID,
+			FirstName:    &firstName,
+			LastName:     &lastName,
+			WarehouseID:  &warehouseID,
+		}
+
+		// Expect the update query
+		mock.ExpectBegin()
+		mock.ExpectExec("UPDATE employees SET").WithArgs(
+			employee.CardNumberID,
+			employee.FirstName,
+			employee.LastName,
+			employee.WarehouseID,
+			employeeId,
+		).WillReturnResult(sqlmock.NewResult(0, 1))
+
+		// Expect the select query to get updated values
+		rows := sqlmock.NewRows([]string{
+			"id", "card_number_id", "first_name", "last_name", "warehouse_id",
+		}).AddRow(employeeId, cardNumberID, firstName, lastName, warehouseID)
+
+		mock.ExpectQuery("SELECT (.+) FROM employees WHERE id = \\?").WithArgs(employeeId).WillReturnRows(rows)
+		mock.ExpectCommit()
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		updatedEmployee, err := repo.Update(employee, employeeId)
+
+		// Assert
+		require.NoError(t, err)
+		require.NotNil(t, updatedEmployee)
+		require.Equal(t, employeeId, *updatedEmployee.ID)
+		require.Equal(t, cardNumberID, *updatedEmployee.CardNumberID)
+		require.Equal(t, firstName, *updatedEmployee.FirstName)
+		require.Equal(t, lastName, *updatedEmployee.LastName)
+		require.Equal(t, warehouseID, *updatedEmployee.WarehouseID)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("invalid_warehouse_id", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		employeeId := 1
+		warehouseID := 999 // Invalid warehouse ID
+		employee := models.Employee{
+			WarehouseID: &warehouseID,
+		}
+
+		mysqlErr := &mysql.MySQLError{
+			Number:  1452,
+			Message: "Cannot add or update a child row: a foreign key constraint fails",
+		}
+
+		mock.ExpectBegin()
+		mock.ExpectExec("UPDATE employees SET").WithArgs(
+			employee.CardNumberID,
+			employee.FirstName,
+			employee.LastName,
+			employee.WarehouseID,
+			employeeId,
+		).WillReturnError(mysqlErr)
+		mock.ExpectRollback()
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		updatedEmployee, err := repo.Update(employee, employeeId)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Employee{}, updatedEmployee)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, serviceErr.Code)
+		require.Equal(t, "Warehouse ID does not exist", serviceErr.InternalError.Error())
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("duplicate_card_number_id", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		employeeId := 1
+		cardNumberID := "E002" // Already exists for another employee
+		employee := models.Employee{
+			CardNumberID: &cardNumberID,
+		}
+
+		mysqlErr := &mysql.MySQLError{
+			Number:  1062,
+			Message: "Duplicate entry 'E002' for key 'card_number_id'",
+		}
+
+		mock.ExpectBegin()
+		mock.ExpectExec("UPDATE employees SET").WithArgs(
+			employee.CardNumberID,
+			employee.FirstName,
+			employee.LastName,
+			employee.WarehouseID,
+			employeeId,
+		).WillReturnError(mysqlErr)
+		mock.ExpectRollback()
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		updatedEmployee, err := repo.Update(employee, employeeId)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Employee{}, updatedEmployee)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrConflict].Code, serviceErr.Code)
+		require.Equal(t, "Card number ID already exists", serviceErr.InternalError.Error())
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("employee_not_found", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		employeeId := 999
+		cardNumberID := "E001"
+		employee := models.Employee{
+			CardNumberID: &cardNumberID,
+		}
+
+		mock.ExpectBegin()
+		mock.ExpectExec("UPDATE employees SET").WithArgs(
+			employee.CardNumberID,
+			employee.FirstName,
+			employee.LastName,
+			employee.WarehouseID,
+			employeeId,
+		).WillReturnResult(sqlmock.NewResult(0, 0))
+
+		// Expect the select query to return no rows
+		mock.ExpectQuery("SELECT (.+) FROM employees WHERE id = \\?").WithArgs(employeeId).WillReturnError(sql.ErrNoRows)
+		mock.ExpectRollback()
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		updatedEmployee, err := repo.Update(employee, employeeId)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Employee{}, updatedEmployee)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, serviceErr.Code)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("transaction_begin_error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		employeeId := 1
+		cardNumberID := "E001"
+		employee := models.Employee{
+			CardNumberID: &cardNumberID,
+		}
+
+		mock.ExpectBegin().WillReturnError(sql.ErrConnDone)
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		updatedEmployee, err := repo.Update(employee, employeeId)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Employee{}, updatedEmployee)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer].Code, serviceErr.Code)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("transaction_commit_error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		employeeId := 1
+		cardNumberID := "E001"
+		firstName := "John"
+		lastName := "Doe"
+		warehouseID := 2
+
+		employee := models.Employee{
+			CardNumberID: &cardNumberID,
+			FirstName:    &firstName,
+			LastName:     &lastName,
+			WarehouseID:  &warehouseID,
+		}
+
+		mock.ExpectBegin()
+		mock.ExpectExec("UPDATE employees SET").WithArgs(
+			employee.CardNumberID,
+			employee.FirstName,
+			employee.LastName,
+			employee.WarehouseID,
+			employeeId,
+		).WillReturnResult(sqlmock.NewResult(0, 1))
+
+		rows := sqlmock.NewRows([]string{
+			"id", "card_number_id", "first_name", "last_name", "warehouse_id",
+		}).AddRow(employeeId, cardNumberID, firstName, lastName, warehouseID)
+
+		mock.ExpectQuery("SELECT (.+) FROM employees WHERE id = \\?").WithArgs(employeeId).WillReturnRows(rows)
+		mock.ExpectCommit().WillReturnError(sql.ErrTxDone)
+		// Eliminamos la expectativa de rollback ya que el código no lo llama después de un error de commit
+
+		repo := NewEmployeeRepository(db)
+
+		// Act
+		updatedEmployee, err := repo.Update(employee, employeeId)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Employee{}, updatedEmployee)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer].Code, serviceErr.Code)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }

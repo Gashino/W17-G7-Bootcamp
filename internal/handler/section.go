@@ -7,10 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/bootcamp-go/web/response"
-	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
+
+	"github.com/bootcamp-go/web/response"
+	"github.com/go-chi/chi/v5"
 )
 
 // NewSectionDefault is a function that returns a new instance of SectionDefault
@@ -103,7 +104,7 @@ func (h *SectionDefault) GetByID() http.HandlerFunc {
 			ProductTypeID:      value.ProductTypeID,
 		}
 
-		writeResponse(w, http.StatusCreated, map[string]any{
+		writeResponse(w, http.StatusOK, map[string]any{
 			"data": data,
 		}, nil)
 	}

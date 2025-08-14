@@ -3,264 +3,274 @@ package handler
 import (
 	"app/pkg"
 	"app/pkg/models"
+	"app/test/purchase_order"
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-// MockPurchaseOrderService is a mock implementation of ServicePurchaseOrder for testing
-type MockPurchaseOrderService struct {
-	mock.Mock
-}
+func TestCreatePurchaseOrder(t *testing.T) {
+	t.Run("create_ok", func(t *testing.T) {
+		mockService := new(purchase_order.MockPurchaseOrderService)
+		orderNumber := "order#2"
+		orderDate := "2021-04-05"
+		trackingCode := "xyz789"
+		buyerID := 1
+		productRecordID := 2
+		id := 2
 
-func (m *MockPurchaseOrderService) Create(purchaseOrder models.PurchaseOrder) (po models.PurchaseOrder, err error) {
-	args := m.Called(purchaseOrder)
-	return args.Get(0).(models.PurchaseOrder), args.Error(1)
-}
+		mockService.On("Create", models.PurchaseOrder{
+			PurchaseOrderAttributes: models.PurchaseOrderAttributes{
+				OrderNumber:     orderNumber,
+				OrderDate:       orderDate,
+				TrackingCode:    trackingCode,
+				BuyerID:         buyerID,
+				ProductRecordID: productRecordID,
+			},
+		}).Return(models.PurchaseOrder{
+			ID: id,
+			PurchaseOrderAttributes: models.PurchaseOrderAttributes{
+				OrderNumber:     orderNumber,
+				OrderDate:       orderDate,
+				TrackingCode:    trackingCode,
+				BuyerID:         buyerID,
+				ProductRecordID: productRecordID,
+			},
+		}, nil)
 
-// setupPurchaseOrderTestHandler creates a handler with mock service
-func setupPurchaseOrderTestHandler() (*PurchaseOrderHandler, *MockPurchaseOrderService) {
-	mockService := &MockPurchaseOrderService{}
-	handler := NewPurchaseOrderHandler(mockService)
-	return handler, mockService
-}
+		hd := NewPurchaseOrderHandler(mockService)
+		body := `{
+			"order_number": "order#2",
+			"order_date": "2021-04-05",
+			"tracking_code": "xyz789",
+			"buyer_id": 1,
+			"product_record_id": 2
+		}`
 
-func TestPurchaseOrderCreate(t *testing.T) {
-	handler, mockService := setupPurchaseOrderTestHandler()
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/purchaseOrders", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-	inputPurchaseOrder := models.PurchaseOrder{
-		PurchaseOrderAttributes: models.PurchaseOrderAttributes{
-			OrderNumber:     "order#2",
-			OrderDate:       "2021-04-05",
-			TrackingCode:    "xyz789",
-			BuyerID:         1,
-			ProductRecordID: 2,
-		},
-	}
+		expected := `{
+			"data": {
+				"id": 2,
+				"order_number": "order#2",
+				"order_date": "2021-04-05",
+				"tracking_code": "xyz789",
+				"buyer_id": 1,
+				"product_record_id": 2
+			}
+		}`
+		expectedCode := 201
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+		mockService.AssertExpectations(t)
+	})
 
-	expectedPurchaseOrder := models.PurchaseOrder{
-		ID: 2,
-		PurchaseOrderAttributes: models.PurchaseOrderAttributes{
-			OrderNumber:     "order#2",
-			OrderDate:       "2021-04-05",
-			TrackingCode:    "xyz789",
-			BuyerID:         1,
-			ProductRecordID: 2,
-		},
-	}
+	t.Run("create_fail missing order_number", func(t *testing.T) {
+		mockService := new(purchase_order.MockPurchaseOrderService)
+		hd := NewPurchaseOrderHandler(mockService)
+		body := `{
+			"order_date": "2021-04-05",
+			"tracking_code": "xyz789",
+			"buyer_id": 1,
+			"product_record_id": 2
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/purchaseOrders", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-	mockService.On("Create", inputPurchaseOrder).Return(expectedPurchaseOrder, nil)
+		expected := `{
+			"message":"order_number is required", "status":"Bad Request"
+		}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 
-	// Create request body
-	purchaseOrderData := map[string]interface{}{
-		"order_number":      "order#2",
-		"order_date":        "2021-04-05",
-		"tracking_code":     "xyz789",
-		"buyer_id":          1,
-		"product_record_id": 2,
-	}
-	body, _ := json.Marshal(purchaseOrderData)
+	t.Run("create_fail missing order_date", func(t *testing.T) {
+		mockService := new(purchase_order.MockPurchaseOrderService)
+		hd := NewPurchaseOrderHandler(mockService)
+		body := `{
+			"order_number": "order#2",
+			"tracking_code": "xyz789",
+			"buyer_id": 1,
+			"product_record_id": 2
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/purchaseOrders", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-	// Create request
-	req := httptest.NewRequest("POST", "/purchaseOrders", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+		expected := `{
+			"message":"order_date is required", "status":"Bad Request"
+		}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 
-	// Call handler
-	handler.Create()(w, req)
+	t.Run("create_fail missing tracking_code", func(t *testing.T) {
+		mockService := new(purchase_order.MockPurchaseOrderService)
+		hd := NewPurchaseOrderHandler(mockService)
+		body := `{
+			"order_number": "order#2",
+			"order_date": "2021-04-05",
+			"buyer_id": 1,
+			"product_record_id": 2
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/purchaseOrders", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-	// Assertions
-	assert.Equal(t, http.StatusCreated, w.Code)
+		expected := `{
+			"message":"tracking_code is required", "status":"Bad Request"
+		}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Contains(t, response, "data")
+	t.Run("create_fail missing buyer_id", func(t *testing.T) {
+		mockService := new(purchase_order.MockPurchaseOrderService)
+		hd := NewPurchaseOrderHandler(mockService)
+		body := `{
+			"order_number": "order#2",
+			"order_date": "2021-04-05",
+			"tracking_code": "xyz789",
+			"product_record_id": 2
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/purchaseOrders", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-	purchaseOrderResponse := response["data"].(map[string]interface{})
-	assert.Equal(t, "order#2", purchaseOrderResponse["order_number"])
-	assert.Equal(t, "xyz789", purchaseOrderResponse["tracking_code"])
+		expected := `{
+			"message":"buyer_id is required", "status":"Bad Request"
+		}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 
-	mockService.AssertExpectations(t)
-}
+	t.Run("create_fail missing product_record_id", func(t *testing.T) {
+		mockService := new(purchase_order.MockPurchaseOrderService)
+		hd := NewPurchaseOrderHandler(mockService)
+		body := `{
+			"order_number": "order#2",
+			"order_date": "2021-04-05",
+			"tracking_code": "xyz789",
+			"buyer_id": 1
+		}`
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/purchaseOrders", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-func TestPurchaseOrderCreateMissingOrderNumber(t *testing.T) {
-	handler, _ := setupPurchaseOrderTestHandler()
+		expected := `{
+			"message":"product_record_id is required", "status":"Bad Request"
+		}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 
-	// Create request body with missing order_number
-	purchaseOrderData := map[string]interface{}{
-		"order_date":        "2021-04-05",
-		"tracking_code":     "xyz789",
-		"buyer_id":          1,
-		"product_record_id": 2,
-	}
-	body, _ := json.Marshal(purchaseOrderData)
+	t.Run("create_fail invalid JSON", func(t *testing.T) {
+		mockService := new(purchase_order.MockPurchaseOrderService)
+		hd := NewPurchaseOrderHandler(mockService)
 
-	// Create request
-	req := httptest.NewRequest("POST", "/purchaseOrders", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+		reqBody := bytes.NewReader([]byte("invalid json"))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/purchaseOrders", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-	// Call handler
-	handler.Create()(w, req)
+		expected := `{
+			"message":"Invalid JSON format", "status":"Bad Request"
+		}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+	})
 
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
+	t.Run("create_fail duplicate order_number", func(t *testing.T) {
+		mockService := new(purchase_order.MockPurchaseOrderService)
 
-func TestPurchaseOrderCreateMissingOrderDate(t *testing.T) {
-	handler, _ := setupPurchaseOrderTestHandler()
+		input := models.PurchaseOrder{
+			PurchaseOrderAttributes: models.PurchaseOrderAttributes{
+				OrderNumber:     "order#1",
+				OrderDate:       "2021-04-05",
+				TrackingCode:    "xyz789",
+				BuyerID:         1,
+				ProductRecordID: 2,
+			},
+		}
 
-	// Create request body with missing order_date
-	purchaseOrderData := map[string]interface{}{
-		"order_number":      "order#2",
-		"tracking_code":     "xyz789",
-		"buyer_id":          1,
-		"product_record_id": 2,
-	}
-	body, _ := json.Marshal(purchaseOrderData)
+		mockService.On("Create", input).Return(models.PurchaseOrder{}, pkg.ServiceErrors[pkg.ErrBadRequest])
 
-	// Create request
-	req := httptest.NewRequest("POST", "/purchaseOrders", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+		hd := NewPurchaseOrderHandler(mockService)
+		body := `{
+			"order_number": "order#1",
+			"order_date": "2021-04-05",
+			"tracking_code": "xyz789",
+			"buyer_id": 1,
+			"product_record_id": 2
+		}`
 
-	// Call handler
-	handler.Create()(w, req)
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/purchaseOrders", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
+		expected := `{
+			"message":"Bad request", "status":"Bad Request"
+		}`
+		expectedCode := 400
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+		mockService.AssertExpectations(t)
+	})
 
-func TestPurchaseOrderCreateMissingTrackingCode(t *testing.T) {
-	handler, _ := setupPurchaseOrderTestHandler()
+	t.Run("create_fail service error", func(t *testing.T) {
+		mockService := new(purchase_order.MockPurchaseOrderService)
 
-	// Create request body with missing tracking_code
-	purchaseOrderData := map[string]interface{}{
-		"order_number":      "order#2",
-		"order_date":        "2021-04-05",
-		"buyer_id":          1,
-		"product_record_id": 2,
-	}
-	body, _ := json.Marshal(purchaseOrderData)
+		input := models.PurchaseOrder{
+			PurchaseOrderAttributes: models.PurchaseOrderAttributes{
+				OrderNumber:     "order#2",
+				OrderDate:       "2021-04-05",
+				TrackingCode:    "xyz789",
+				BuyerID:         1,
+				ProductRecordID: 2,
+			},
+		}
 
-	// Create request
-	req := httptest.NewRequest("POST", "/purchaseOrders", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+		mockService.On("Create", input).Return(models.PurchaseOrder{}, pkg.ServiceErrors[pkg.ErrInternalServer])
 
-	// Call handler
-	handler.Create()(w, req)
+		hd := NewPurchaseOrderHandler(mockService)
+		body := `{
+			"order_number": "order#2",
+			"order_date": "2021-04-05",
+			"tracking_code": "xyz789",
+			"buyer_id": 1,
+			"product_record_id": 2
+		}`
 
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
+		reqBody := bytes.NewReader([]byte(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/purchaseOrders", reqBody)
+		res := httptest.NewRecorder()
+		hd.Create()(res, req)
 
-func TestPurchaseOrderCreateMissingBuyerID(t *testing.T) {
-	handler, _ := setupPurchaseOrderTestHandler()
-
-	// Create request body with missing buyer_id
-	purchaseOrderData := map[string]interface{}{
-		"order_number":      "order#2",
-		"order_date":        "2021-04-05",
-		"tracking_code":     "xyz789",
-		"product_record_id": 2,
-	}
-	body, _ := json.Marshal(purchaseOrderData)
-
-	// Create request
-	req := httptest.NewRequest("POST", "/purchaseOrders", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Call handler
-	handler.Create()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestPurchaseOrderCreateMissingProductRecordID(t *testing.T) {
-	handler, _ := setupPurchaseOrderTestHandler()
-
-	// Create request body with missing product_record_id
-	purchaseOrderData := map[string]interface{}{
-		"order_number":  "order#2",
-		"order_date":    "2021-04-05",
-		"tracking_code": "xyz789",
-		"buyer_id":      1,
-	}
-	body, _ := json.Marshal(purchaseOrderData)
-
-	// Create request
-	req := httptest.NewRequest("POST", "/purchaseOrders", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Call handler
-	handler.Create()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestPurchaseOrderCreateInvalidJSON(t *testing.T) {
-	handler, _ := setupPurchaseOrderTestHandler()
-
-	// Create invalid JSON
-	body := bytes.NewBuffer([]byte("invalid json"))
-
-	// Create request
-	req := httptest.NewRequest("POST", "/purchaseOrders", body)
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Call handler
-	handler.Create()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestPurchaseOrderCreateDuplicateOrderNumber(t *testing.T) {
-	handler, mockService := setupPurchaseOrderTestHandler()
-
-	inputPurchaseOrder := models.PurchaseOrder{
-		PurchaseOrderAttributes: models.PurchaseOrderAttributes{
-			OrderNumber:     "order#1",
-			OrderDate:       "2021-04-05",
-			TrackingCode:    "xyz789",
-			BuyerID:         1,
-			ProductRecordID: 2,
-		},
-	}
-
-	mockService.On("Create", inputPurchaseOrder).Return(models.PurchaseOrder{}, pkg.ServiceErrors[pkg.ErrBadRequest])
-
-	// Create request body with duplicate order_number
-	purchaseOrderData := map[string]interface{}{
-		"order_number":      "order#1",
-		"order_date":        "2021-04-05",
-		"tracking_code":     "xyz789",
-		"buyer_id":          1,
-		"product_record_id": 2,
-	}
-	body, _ := json.Marshal(purchaseOrderData)
-
-	// Create request
-	req := httptest.NewRequest("POST", "/purchaseOrders", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Call handler
-	handler.Create()(w, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	mockService.AssertExpectations(t)
+		expected := `{
+			"message":"Internal server error", "status":"Internal Server Error"
+		}`
+		expectedCode := 500
+		require.Equal(t, expectedCode, res.Code)
+		require.JSONEq(t, expected, res.Body.String())
+		mockService.AssertExpectations(t)
+	})
 }

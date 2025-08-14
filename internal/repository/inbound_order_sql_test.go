@@ -4,221 +4,265 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"database/sql"
-	"fmt"
-	"os"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/DATA-DOG/go-txdb"
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/go-sql-driver/mysql"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
-
-// Variables para controlar el registro del driver txdb para inbound order tests
-var (
-	inboundOrderTxdbRegistered bool = false
-	inboundOrderTxdbMutex      sync.Mutex
-)
-
-// Estructura para leer la configuración de la base de datos desde config.yml
-type InboundOrderConfig struct {
-	Database struct {
-		User     string `yaml:"user"`
-		Password string `yaml:"password"`
-		Host     string `yaml:"host"`
-		Port     string `yaml:"port"`
-		Name     string `yaml:"name"`
-	} `yaml:"database"`
-}
-
-// Configurar la base de datos para pruebas de inbound order
-func setupInboundOrderTxDB() string {
-	// Usar un mutex para evitar condiciones de carrera al registrar el driver
-	inboundOrderTxdbMutex.Lock()
-	defer inboundOrderTxdbMutex.Unlock()
-
-	// Evitar registrar el driver más de una vez
-	if !inboundOrderTxdbRegistered {
-		// Leer la configuración desde config.yml
-		config := loadInboundOrderConfig()
-
-		// Configurar la conexión MySQL usando los valores del config.yml
-		cfg := mysql.Config{
-			User:                 config.Database.User,
-			Passwd:               config.Database.Password,
-			Net:                  "tcp",
-			Addr:                 fmt.Sprintf("%s:%s", config.Database.Host, config.Database.Port),
-			DBName:               config.Database.Name,
-			ParseTime:            true,
-			AllowNativePasswords: true,
-		}
-
-		// Verificar si el driver ya está registrado
-		for _, driver := range sql.Drivers() {
-			if driver == "inbound_order_txdb" {
-				// El driver ya está registrado, no necesitamos registrarlo de nuevo
-				inboundOrderTxdbRegistered = true
-				return "inbound_order_txdb"
-			}
-		}
-
-		// Registrar el driver si no está registrado
-		txdb.Register("inbound_order_txdb", "mysql", cfg.FormatDSN())
-		inboundOrderTxdbRegistered = true
-	}
-
-	return "inbound_order_txdb"
-}
-
-// Cargar la configuración desde config.yml para inbound order tests
-func loadInboundOrderConfig() InboundOrderConfig {
-	var config InboundOrderConfig
-
-	// Intentar leer el archivo de configuración
-	data, err := os.ReadFile("../../config.yml")
-	if err != nil {
-		// Si hay un error, mostrar un mensaje y terminar el test
-		panic(fmt.Sprintf("Error al leer el archivo config.yml: %v\nAsegúrate de que el archivo config.yml existe en la raíz del proyecto", err))
-	}
-
-	// Parsear el archivo YAML
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		// Si hay un error al parsear el YAML, mostrar un mensaje y terminar el test
-		panic(fmt.Sprintf("Error al parsear el archivo config.yml: %v\nVerifica que el formato del archivo sea correcto", err))
-	}
-
-	// Verificar que la configuración de la base de datos esté completa
-	if config.Database.User == "" || config.Database.Host == "" || config.Database.Port == "" || config.Database.Name == "" {
-		panic("La configuración de la base de datos en config.yml está incompleta")
-	}
-
-	return config
-}
-
-// Configurar la base de datos de prueba para cada test de inbound order
-func setupInboundOrderTestDB(t *testing.T) (*InboundOrderSQL, *sql.DB) {
-	// Usar un nombre único para cada conexión de test
-	driver := setupInboundOrderTxDB()
-	db, err := sql.Open(driver, fmt.Sprintf("inbound_order_test_%s", t.Name()))
-	require.NoError(t, err)
-
-	// Verificar que la conexión funciona
-	err = db.Ping()
-	if err != nil {
-		t.Fatalf("Error al conectar con la base de datos: %v", err)
-	}
-
-	return &InboundOrderSQL{db: db}, db
-}
-
-// Crear una inbound order completa para pruebas
-func createTestInboundOrder() models.InboundOrder {
-	// Usar timestamp para generar un order number único
-	timestamp := time.Now().UnixNano()
-	orderNumber := fmt.Sprintf("ORD-TEST-%d", timestamp)
-
-	return models.InboundOrder{
-		OrderDate:      time.Now(),
-		OrderNumber:    orderNumber,
-		EmployeeID:     1, // Usar un employee_id válido según el script de base de datos
-		ProductBatchID: 1, // Usar un product_batch_id válido según el script de base de datos
-		WarehouseID:    1, // Usar un warehouse_id válido según el script de base de datos
-	}
-}
 
 func TestInboundOrderSQL_Create(t *testing.T) {
-	t.Run("create new inbound order successfully", func(t *testing.T) {
-		repo, db := setupInboundOrderTestDB(t)
-		defer db.Close()
-
+	t.Run("success", func(t *testing.T) {
 		// Arrange
-		newInboundOrder := createTestInboundOrder()
-
-		// Act
-		createdInboundOrder, err := repo.Create(newInboundOrder)
-
-		// Assert
-		assert.NoError(t, err)
-		assert.NotEmpty(t, createdInboundOrder)
-		assert.Equal(t, newInboundOrder.OrderNumber, createdInboundOrder.OrderNumber)
-		assert.Equal(t, newInboundOrder.EmployeeID, createdInboundOrder.EmployeeID)
-		assert.Equal(t, newInboundOrder.ProductBatchID, createdInboundOrder.ProductBatchID)
-		assert.Equal(t, newInboundOrder.WarehouseID, createdInboundOrder.WarehouseID)
-		// La fecha debería ser similar (permitir algunos segundos de diferencia)
-		assert.WithinDuration(t, newInboundOrder.OrderDate, createdInboundOrder.OrderDate, 5*time.Second)
-	})
-
-	t.Run("create inbound order with invalid employee id", func(t *testing.T) {
-		repo, db := setupInboundOrderTestDB(t)
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
 		defer db.Close()
 
-		// Arrange - Crear una inbound order con un employee_id inválido
-		invalidInboundOrder := createTestInboundOrder()
-		invalidInboundOrder.EmployeeID = 999 // ID que no existe
+		orderDate := time.Now()
+		inboundOrder := models.InboundOrder{
+			OrderDate:      orderDate,
+			OrderNumber:    "IO001",
+			EmployeeID:     1,
+			ProductBatchID: 1,
+			WarehouseID:    1,
+		}
+
+		mock.ExpectExec("INSERT INTO inbound_orders").WithArgs(
+			inboundOrder.OrderDate,
+			inboundOrder.OrderNumber,
+			inboundOrder.EmployeeID,
+			inboundOrder.ProductBatchID,
+			inboundOrder.WarehouseID,
+		).WillReturnResult(sqlmock.NewResult(1, 1))
+
+		repo := NewInboundOrderSQL(db)
 
 		// Act
-		createdInboundOrder, err := repo.Create(invalidInboundOrder)
+		createdOrder, err := repo.Create(inboundOrder)
 
 		// Assert
-		assert.Error(t, err)
-		assert.Equal(t, models.InboundOrder{}, createdInboundOrder)
-		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, err.(pkg.ServiceError).Code)
+		require.NoError(t, err)
+		require.NotNil(t, createdOrder)
+		require.Equal(t, inboundOrder.OrderNumber, createdOrder.OrderNumber)
+		require.Equal(t, inboundOrder.EmployeeID, createdOrder.EmployeeID)
+		require.Equal(t, inboundOrder.ProductBatchID, createdOrder.ProductBatchID)
+		require.Equal(t, inboundOrder.WarehouseID, createdOrder.WarehouseID)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
-	t.Run("create inbound order with invalid product batch id", func(t *testing.T) {
-		repo, db := setupInboundOrderTestDB(t)
+	t.Run("invalid_employee_id", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
 		defer db.Close()
 
-		// Arrange - Crear una inbound order con un product_batch_id inválido
-		invalidInboundOrder := createTestInboundOrder()
-		invalidInboundOrder.ProductBatchID = 999 // ID que no existe
+		orderDate := time.Now()
+		inboundOrder := models.InboundOrder{
+			OrderDate:      orderDate,
+			OrderNumber:    "IO001",
+			EmployeeID:     999, // Invalid employee ID
+			ProductBatchID: 1,
+			WarehouseID:    1,
+		}
+
+		mysqlErr := &mysql.MySQLError{
+			Number:  1452,
+			Message: "Cannot add or update a child row: a foreign key constraint fails (`frescos`.`inbound_orders`, CONSTRAINT `fk_inbound_orders_employee_id` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`))",
+		}
+
+		mock.ExpectExec("INSERT INTO inbound_orders").WithArgs(
+			inboundOrder.OrderDate,
+			inboundOrder.OrderNumber,
+			inboundOrder.EmployeeID,
+			inboundOrder.ProductBatchID,
+			inboundOrder.WarehouseID,
+		).WillReturnError(mysqlErr)
+
+		repo := NewInboundOrderSQL(db)
 
 		// Act
-		createdInboundOrder, err := repo.Create(invalidInboundOrder)
+		createdOrder, err := repo.Create(inboundOrder)
 
 		// Assert
-		assert.Error(t, err)
-		assert.Equal(t, models.InboundOrder{}, createdInboundOrder)
-		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, err.(pkg.ServiceError).Code)
+		require.Error(t, err)
+		require.Equal(t, models.InboundOrder{}, createdOrder)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, serviceErr.Code)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
-	t.Run("create inbound order with invalid warehouse id", func(t *testing.T) {
-		repo, db := setupInboundOrderTestDB(t)
+	t.Run("invalid_product_batch_id", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
 		defer db.Close()
 
-		// Arrange - Crear una inbound order con un warehouse_id inválido
-		invalidInboundOrder := createTestInboundOrder()
-		invalidInboundOrder.WarehouseID = 999 // ID que no existe
+		orderDate := time.Now()
+		inboundOrder := models.InboundOrder{
+			OrderDate:      orderDate,
+			OrderNumber:    "IO001",
+			EmployeeID:     1,
+			ProductBatchID: 999, // Invalid product batch ID
+			WarehouseID:    1,
+		}
+
+		mysqlErr := &mysql.MySQLError{
+			Number:  1452,
+			Message: "Cannot add or update a child row: a foreign key constraint fails (`frescos`.`inbound_orders`, CONSTRAINT `fk_inbound_orders_product_batch_id` FOREIGN KEY (`product_batch_id`) REFERENCES `product_batches` (`id`))",
+		}
+
+		mock.ExpectExec("INSERT INTO inbound_orders").WithArgs(
+			inboundOrder.OrderDate,
+			inboundOrder.OrderNumber,
+			inboundOrder.EmployeeID,
+			inboundOrder.ProductBatchID,
+			inboundOrder.WarehouseID,
+		).WillReturnError(mysqlErr)
+
+		repo := NewInboundOrderSQL(db)
 
 		// Act
-		createdInboundOrder, err := repo.Create(invalidInboundOrder)
+		createdOrder, err := repo.Create(inboundOrder)
 
 		// Assert
-		assert.Error(t, err)
-		assert.Equal(t, models.InboundOrder{}, createdInboundOrder)
-		assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, err.(pkg.ServiceError).Code)
+		require.Error(t, err)
+		require.Equal(t, models.InboundOrder{}, createdOrder)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, serviceErr.Code)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
-	t.Run("create inbound order with empty order number", func(t *testing.T) {
-		repo, db := setupInboundOrderTestDB(t)
+	t.Run("invalid_warehouse_id", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
 		defer db.Close()
 
-		// Arrange - Crear una inbound order con order_number vacío
-		invalidInboundOrder := createTestInboundOrder()
-		invalidInboundOrder.OrderNumber = "" // Order number vacío
+		orderDate := time.Now()
+		inboundOrder := models.InboundOrder{
+			OrderDate:      orderDate,
+			OrderNumber:    "IO001",
+			EmployeeID:     1,
+			ProductBatchID: 1,
+			WarehouseID:    999, // Invalid warehouse ID
+		}
+
+		mysqlErr := &mysql.MySQLError{
+			Number:  1452,
+			Message: "Cannot add or update a child row: a foreign key constraint fails (`frescos`.`inbound_orders`, CONSTRAINT `fk_inbound_orders_warehouse_id` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`id`))",
+		}
+
+		mock.ExpectExec("INSERT INTO inbound_orders").WithArgs(
+			inboundOrder.OrderDate,
+			inboundOrder.OrderNumber,
+			inboundOrder.EmployeeID,
+			inboundOrder.ProductBatchID,
+			inboundOrder.WarehouseID,
+		).WillReturnError(mysqlErr)
+
+		repo := NewInboundOrderSQL(db)
 
 		// Act
-		createdInboundOrder, err := repo.Create(invalidInboundOrder)
+		createdOrder, err := repo.Create(inboundOrder)
 
 		// Assert
-		// La base de datos permite order_number vacío (NOT NULL pero acepta strings vacíos)
-		// Por lo tanto, este test verifica que se puede crear correctamente
-		assert.NoError(t, err)
-		assert.NotEmpty(t, createdInboundOrder)
-		assert.Equal(t, "", createdInboundOrder.OrderNumber)
+		require.Error(t, err)
+		require.Equal(t, models.InboundOrder{}, createdOrder)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound].Code, serviceErr.Code)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("duplicate_order_number", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		orderDate := time.Now()
+		inboundOrder := models.InboundOrder{
+			OrderDate:      orderDate,
+			OrderNumber:    "IO001", // Duplicate order number
+			EmployeeID:     1,
+			ProductBatchID: 1,
+			WarehouseID:    1,
+		}
+
+		mysqlErr := &mysql.MySQLError{
+			Number:  1062,
+			Message: "Duplicate entry 'IO001' for key 'order_number'",
+		}
+
+		mock.ExpectExec("INSERT INTO inbound_orders").WithArgs(
+			inboundOrder.OrderDate,
+			inboundOrder.OrderNumber,
+			inboundOrder.EmployeeID,
+			inboundOrder.ProductBatchID,
+			inboundOrder.WarehouseID,
+		).WillReturnError(mysqlErr)
+
+		repo := NewInboundOrderSQL(db)
+
+		// Act
+		createdOrder, err := repo.Create(inboundOrder)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.InboundOrder{}, createdOrder)
+		serviceErr, ok := err.(pkg.ServiceError)
+		require.True(t, ok)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrConflict].Code, serviceErr.Code)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("database_error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		orderDate := time.Now()
+		inboundOrder := models.InboundOrder{
+			OrderDate:      orderDate,
+			OrderNumber:    "IO001",
+			EmployeeID:     1,
+			ProductBatchID: 1,
+			WarehouseID:    1,
+		}
+
+		mock.ExpectExec("INSERT INTO inbound_orders").WithArgs(
+			inboundOrder.OrderDate,
+			inboundOrder.OrderNumber,
+			inboundOrder.EmployeeID,
+			inboundOrder.ProductBatchID,
+			inboundOrder.WarehouseID,
+		).WillReturnError(sql.ErrConnDone)
+
+		repo := NewInboundOrderSQL(db)
+
+		// Act
+		createdOrder, err := repo.Create(inboundOrder)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.InboundOrder{}, createdOrder)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrInternalServer], err)
+
+		// Ensure all expectations were met
+		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }

@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 )
 
 // SellerSql is a repository for managing seller data with SQL database
@@ -25,7 +24,13 @@ const (
 	queryInsertSeller = `INSERT INTO sellers (cid, company_name, address, telephone, locality_id) VALUES (?, ?, ?, ?, ?)`
 
 	// UPDATE queries
-	queryUpdateSellerBase = `UPDATE sellers SET %s WHERE id = ?`
+	queryUpdateSeller = `UPDATE sellers SET 
+		cid = COALESCE(?, cid),
+		company_name = COALESCE(?, company_name),
+		address = COALESCE(?, address),
+		telephone = COALESCE(?, telephone),
+		locality_id = COALESCE(?, locality_id)
+		WHERE id = ?`
 
 	// DELETE queries
 	queryDeleteSeller = `DELETE FROM sellers WHERE id = ?`
@@ -122,46 +127,27 @@ func (r *SellerSql) UpdateFields(id int, data models.SellerCreateRequest) (model
 		return models.Seller{}, err
 	}
 
-	// Build dynamic update query
-	setParts := []string{}
-	args := []any{}
-
-	if data.CId != nil {
-		setParts = append(setParts, "cid = ?")
-		args = append(args, *data.CId)
-	}
-	if data.CompanyName != nil {
-		setParts = append(setParts, "company_name = ?")
-		args = append(args, *data.CompanyName)
-	}
-	if data.Address != nil {
-		setParts = append(setParts, "address = ?")
-		args = append(args, *data.Address)
-	}
-	if data.Telephone != nil {
-		setParts = append(setParts, "telephone = ?")
-		args = append(args, *data.Telephone)
-	}
-	if data.LocalityID != nil {
-		setParts = append(setParts, "locality_id = ?")
-		args = append(args, *data.LocalityID)
-	}
-
-	if len(setParts) == 0 {
-		// No fields to update, return current seller
-		return r.GetById(id)
-	}
-
-	// Add id to args for WHERE clause
-	args = append(args, id)
-
-	// Build the update query properly
-	updateQuery := fmt.Sprintf(queryUpdateSellerBase, strings.Join(setParts, ", "))
-
-	// Execute update
-	_, err = r.db.Exec(updateQuery, args...)
+	// Execute update using COALESCE pattern
+	result, err := r.db.Exec(queryUpdateSeller,
+		data.CId,
+		data.CompanyName,
+		data.Address,
+		data.Telephone,
+		data.LocalityID,
+		id,
+	)
 	if err != nil {
 		return models.Seller{}, fmt.Errorf("failed to update seller: %w", err)
+	}
+
+	// Check if any rows were affected
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return models.Seller{}, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return models.Seller{}, pkg.ServiceErrors[pkg.ErrNotFound]
 	}
 
 	// Return updated seller

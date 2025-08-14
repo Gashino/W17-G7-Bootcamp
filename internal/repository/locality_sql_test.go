@@ -4,368 +4,294 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"database/sql"
-	"fmt"
-	"os"
-	"sync"
 	"testing"
-	"time"
 
-	"github.com/DATA-DOG/go-txdb"
-	"github.com/go-sql-driver/mysql"
-	"github.com/stretchr/testify/assert"
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
 
-// Variables para controlar el registro del driver txdb para locality tests
-var (
-	localityTxdbRegistered bool = false
-	localityTxdbMutex      sync.Mutex
-)
+func TestLocalityRepository_GetById(t *testing.T) {
+	t.Run("Cuando encuentra la locality retorna los datos correctamente", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-// Estructura para leer la configuración de la base de datos desde config.yml
-type LocalityConfig struct {
-	Database struct {
-		User     string `yaml:"user"`
-		Password string `yaml:"password"`
-		Host     string `yaml:"host"`
-		Port     string `yaml:"port"`
-		Name     string `yaml:"name"`
-	} `yaml:"database"`
+		rows := sqlmock.NewRows([]string{
+			"id", "locality_name", "province_name", "country_name",
+		}).AddRow(1, "Buenos Aires", "Buenos Aires", "Argentina")
+
+		mock.ExpectQuery("SELECT id, locality_name, province_name, country_name FROM localities WHERE id = \\?").
+			WithArgs(1).
+			WillReturnRows(rows)
+
+		repo := NewLocalitySql(db)
+
+		// Act
+		result, err := repo.GetById(1)
+
+		// Assert
+		require.NoError(t, err)
+		require.Equal(t, 1, result.ID)
+		require.Equal(t, "Buenos Aires", result.LocalityName)
+		require.Equal(t, "Buenos Aires", result.ProvinceName)
+		require.Equal(t, "Argentina", result.CountryName)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando no encuentra la locality retorna error not found", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery("SELECT id, locality_name, province_name, country_name FROM localities WHERE id = \\?").
+			WithArgs(999).
+			WillReturnError(sql.ErrNoRows)
+
+		repo := NewLocalitySql(db)
+
+		// Act
+		result, err := repo.GetById(999)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Locality{}, result)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando hay error de base de datos retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery("SELECT id, locality_name, province_name, country_name FROM localities WHERE id = \\?").
+			WithArgs(1).
+			WillReturnError(sql.ErrConnDone)
+
+		repo := NewLocalitySql(db)
+
+		// Act
+		result, err := repo.GetById(1)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Locality{}, result)
+		require.Equal(t, sql.ErrConnDone, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-// Configurar la base de datos para pruebas de locality
-func setupLocalityTxDB() string {
-	// Usar un mutex para evitar condiciones de carrera al registrar el driver
-	localityTxdbMutex.Lock()
-	defer localityTxdbMutex.Unlock()
+func TestLocalityRepository_Create(t *testing.T) {
+	t.Run("Cuando los datos son válidos crea la locality exitosamente", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	// Evitar registrar el driver más de una vez
-	if !localityTxdbRegistered {
-		// Leer la configuración desde config.yml
-		config := loadLocalityConfig()
-
-		// Configurar la conexión MySQL usando los valores del config.yml
-		cfg := mysql.Config{
-			User:                 config.Database.User,
-			Passwd:               config.Database.Password,
-			Net:                  "tcp",
-			Addr:                 fmt.Sprintf("%s:%s", config.Database.Host, config.Database.Port),
-			DBName:               config.Database.Name,
-			ParseTime:            true,
-			AllowNativePasswords: true,
+		inputLocality := models.Locality{
+			LocalitiesAttributes: models.LocalitiesAttributes{
+				LocalityName: "Córdoba",
+				ProvinceName: "Córdoba",
+				CountryName:  "Argentina",
+			},
 		}
 
-		// Registrar el driver txdb
-		txdb.Register("txdb_locality", "mysql", cfg.FormatDSN())
-		localityTxdbRegistered = true
-	}
+		// Mock para verificar que no existe locality con el mismo nombre
+		mock.ExpectQuery("SELECT id FROM localities WHERE locality_name = \\?").
+			WithArgs("Córdoba").
+			WillReturnError(sql.ErrNoRows)
 
-	return "txdb_locality"
-}
+		// Mock para la inserción
+		mock.ExpectExec("INSERT INTO localities \\(locality_name, province_name, country_name\\) VALUES \\(\\?, \\?, \\?\\)").
+			WithArgs("Córdoba", "Córdoba", "Argentina").
+			WillReturnResult(sqlmock.NewResult(1, 1))
 
-// Cargar la configuración desde config.yml
-func loadLocalityConfig() LocalityConfig {
-	var config LocalityConfig
+		repo := NewLocalitySql(db)
 
-	// Intentar leer el archivo de configuración
-	data, err := os.ReadFile("../../config.yml")
-	if err != nil {
-		// Si hay un error, mostrar un mensaje y terminar el test
-		panic(fmt.Sprintf("Error al leer el archivo config.yml: %v\nAsegúrate de que el archivo config.yml existe en la raíz del proyecto", err))
-	}
+		// Act
+		result, err := repo.Create(inputLocality)
 
-	// Parsear el archivo YAML
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		// Si hay un error al parsear el YAML, mostrar un mensaje y terminar el test
-		panic(fmt.Sprintf("Error al parsear el archivo config.yml: %v", err))
-	}
-
-	return config
-}
-
-// Función helper para crear una base de datos de prueba
-func createTestLocalityDB() *sql.DB {
-	driverName := setupLocalityTxDB()
-	db, err := sql.Open(driverName, fmt.Sprintf("locality_test_%d", time.Now().UnixNano()))
-	if err != nil {
-		panic(fmt.Sprintf("Error al conectar a la base de datos: %v", err))
-	}
-	return db
-}
-
-// Test para Create - Caso exitoso
-func TestLocalitySql_Create_Success(t *testing.T) {
-	db := createTestLocalityDB()
-	defer db.Close()
-
-	repo := NewLocalitySql(db)
-
-	// Crear una locality de prueba
-	locality := models.Locality{
-		LocalitiesAttributes: models.LocalitiesAttributes{
-			LocalityName: "Buenos Aires",
-			ProvinceName: "Buenos Aires",
-			CountryName:  "Argentina",
-		},
-	}
-
-	// Ejecutar el test
-	result, err := repo.Create(locality)
-
-	// Verificar resultado
-	assert.NoError(t, err)
-	assert.NotZero(t, result.ID)
-	assert.Equal(t, locality.LocalityName, result.LocalityName)
-	assert.Equal(t, locality.ProvinceName, result.ProvinceName)
-	assert.Equal(t, locality.CountryName, result.CountryName)
-}
-
-// Test para Create - Caso de nombre duplicado
-func TestLocalitySql_Create_DuplicateName(t *testing.T) {
-	db := createTestLocalityDB()
-	defer db.Close()
-
-	repo := NewLocalitySql(db)
-
-	// Crear la primera locality
-	locality1 := models.Locality{
-		LocalitiesAttributes: models.LocalitiesAttributes{
-			LocalityName: "Buenos Aires",
-			ProvinceName: "Buenos Aires",
-			CountryName:  "Argentina",
-		},
-	}
-
-	_, err := repo.Create(locality1)
-	require.NoError(t, err)
-
-	// Intentar crear otra locality con el mismo nombre
-	locality2 := models.Locality{
-		LocalitiesAttributes: models.LocalitiesAttributes{
-			LocalityName: "Buenos Aires", // Nombre duplicado
-			ProvinceName: "CABA",
-			CountryName:  "Argentina",
-		},
-	}
-
-	// Ejecutar el test
-	_, err = repo.Create(locality2)
-
-	// Verificar que se devuelve un error de conflicto
-	assert.Error(t, err)
-	assert.Equal(t, pkg.ServiceErrors[pkg.ErrConflict], err)
-}
-
-// Test para GetById - Caso exitoso
-func TestLocalitySql_GetById_Success(t *testing.T) {
-	db := createTestLocalityDB()
-	defer db.Close()
-
-	repo := NewLocalitySql(db)
-
-	// Crear una locality de prueba
-	locality := models.Locality{
-		LocalitiesAttributes: models.LocalitiesAttributes{
-			LocalityName: "Buenos Aires",
-			ProvinceName: "Buenos Aires",
-			CountryName:  "Argentina",
-		},
-	}
-
-	created, err := repo.Create(locality)
-	require.NoError(t, err)
-
-	// Ejecutar el test
-	result, err := repo.GetById(created.ID)
-
-	// Verificar resultado
-	assert.NoError(t, err)
-	assert.Equal(t, created.ID, result.ID)
-	assert.Equal(t, created.LocalityName, result.LocalityName)
-	assert.Equal(t, created.ProvinceName, result.ProvinceName)
-	assert.Equal(t, created.CountryName, result.CountryName)
-}
-
-// Test para GetById - Caso de locality no encontrada
-func TestLocalitySql_GetById_NotFound(t *testing.T) {
-	db := createTestLocalityDB()
-	defer db.Close()
-
-	repo := NewLocalitySql(db)
-
-	// Ejecutar el test con un ID que no existe
-	_, err := repo.GetById(999)
-
-	// Verificar que se devuelve un error de no encontrado
-	assert.Error(t, err)
-	assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
-}
-
-// Test para GetCantSellersByLocality - Caso exitoso con sellers
-func TestLocalitySql_GetCantSellersByLocality_Success(t *testing.T) {
-	db := createTestLocalityDB()
-	defer db.Close()
-
-	repo := NewLocalitySql(db)
-	sellerRepo := NewSellerSql(db)
-
-	// Crear una locality de prueba
-	locality := models.Locality{
-		LocalitiesAttributes: models.LocalitiesAttributes{
-			LocalityName: "Buenos Aires",
-			ProvinceName: "Buenos Aires",
-			CountryName:  "Argentina",
-		},
-	}
-
-	createdLocality, err := repo.Create(locality)
-	require.NoError(t, err)
-
-	// Crear algunos sellers asociados a la locality
-	sellers := []models.Seller{
-		{
-			SellerAttributes: models.SellerAttributes{
-				CId:         "S001",
-				CompanyName: "Test Company 1",
-				Address:     "123 Test St",
-				Telephone:   "123-456-7890",
-				LocalityID:  createdLocality.ID,
-			},
-		},
-		{
-			SellerAttributes: models.SellerAttributes{
-				CId:         "S002",
-				CompanyName: "Test Company 2",
-				Address:     "456 Test Ave",
-				Telephone:   "987-654-3210",
-				LocalityID:  createdLocality.ID,
-			},
-		},
-	}
-
-	// Crear los sellers
-	for _, seller := range sellers {
-		_, err := sellerRepo.Create(seller)
+		// Assert
 		require.NoError(t, err)
-	}
+		require.Equal(t, 1, result.ID)
+		require.Equal(t, "Córdoba", result.LocalityName)
+		require.Equal(t, "Córdoba", result.ProvinceName)
+		require.Equal(t, "Argentina", result.CountryName)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	// Ejecutar el test
-	result, err := repo.GetCantSellersByLocality(createdLocality.ID)
+	t.Run("Cuando la locality ya existe retorna error de conflicto", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	// Verificar resultado
-	assert.NoError(t, err)
-	assert.Equal(t, createdLocality.ID, result.ID)
-	assert.Equal(t, createdLocality.LocalityName, *result.LocalityName)
-	assert.Equal(t, "2", *result.SellerCount)
+		inputLocality := models.Locality{
+			LocalitiesAttributes: models.LocalitiesAttributes{
+				LocalityName: "Buenos Aires",
+				ProvinceName: "Buenos Aires",
+				CountryName:  "Argentina",
+			},
+		}
+
+		// Mock para verificar que existe locality con el mismo nombre
+		rows := sqlmock.NewRows([]string{"id"}).AddRow(1)
+		mock.ExpectQuery("SELECT id FROM localities WHERE locality_name = \\?").
+			WithArgs("Buenos Aires").
+			WillReturnRows(rows)
+
+		repo := NewLocalitySql(db)
+
+		// Act
+		result, err := repo.Create(inputLocality)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Locality{}, result)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrConflict], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando hay error en la inserción retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		inputLocality := models.Locality{
+			LocalitiesAttributes: models.LocalitiesAttributes{
+				LocalityName: "Mendoza",
+				ProvinceName: "Mendoza",
+				CountryName:  "Argentina",
+			},
+		}
+
+		// Mock para verificar que no existe locality con el mismo nombre
+		mock.ExpectQuery("SELECT id FROM localities WHERE locality_name = \\?").
+			WithArgs("Mendoza").
+			WillReturnError(sql.ErrNoRows)
+
+		// Mock para la inserción con error
+		mock.ExpectExec("INSERT INTO localities \\(locality_name, province_name, country_name\\) VALUES \\(\\?, \\?, \\?\\)").
+			WithArgs("Mendoza", "Mendoza", "Argentina").
+			WillReturnError(sql.ErrConnDone)
+
+		repo := NewLocalitySql(db)
+
+		// Act
+		result, err := repo.Create(inputLocality)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Locality{}, result)
+		require.Contains(t, err.Error(), "failed to create Locality")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-// Test para GetCantSellersByLocality - Caso sin sellers
-func TestLocalitySql_GetCantSellersByLocality_NoSellers(t *testing.T) {
-	db := createTestLocalityDB()
-	defer db.Close()
+func TestLocalityRepository_GetCantSellersByLocality(t *testing.T) {
+	t.Run("Cuando encuentra la locality con sellers retorna el reporte correctamente", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	repo := NewLocalitySql(db)
+		rows := sqlmock.NewRows([]string{
+			"idLocalidad", "nombreLocalidad", "cantidadSellers",
+		}).AddRow(1, "Buenos Aires", "5")
 
-	// Crear una locality de prueba
-	locality := models.Locality{
-		LocalitiesAttributes: models.LocalitiesAttributes{
-			LocalityName: "Buenos Aires",
-			ProvinceName: "Buenos Aires",
-			CountryName:  "Argentina",
-		},
-	}
+		mock.ExpectQuery("SELECT l.id AS idLocalidad, l.locality_name AS nombreLocalidad, COUNT\\(s.id\\) AS cantidadSellers").
+			WithArgs(1).
+			WillReturnRows(rows)
 
-	createdLocality, err := repo.Create(locality)
-	require.NoError(t, err)
+		repo := NewLocalitySql(db)
 
-	// Ejecutar el test sin crear sellers
-	result, err := repo.GetCantSellersByLocality(createdLocality.ID)
+		// Act
+		result, err := repo.GetCantSellersByLocality(1)
 
-	// Verificar resultado
-	assert.NoError(t, err)
-	assert.Equal(t, createdLocality.ID, result.ID)
-	assert.Equal(t, createdLocality.LocalityName, *result.LocalityName)
-	assert.Equal(t, "0", *result.SellerCount)
-}
+		// Assert
+		require.NoError(t, err)
+		require.Equal(t, 1, result.ID)
+		require.NotNil(t, result.LocalityName)
+		require.Equal(t, "Buenos Aires", *result.LocalityName)
+		require.NotNil(t, result.SellerCount)
+		require.Equal(t, "5", *result.SellerCount)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 
-// Test para GetCantSellersByLocality - Caso de locality no encontrada
-func TestLocalitySql_GetCantSellersByLocality_NotFound(t *testing.T) {
-	db := createTestLocalityDB()
-	defer db.Close()
+	t.Run("Cuando la locality no existe retorna error not found", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	repo := NewLocalitySql(db)
+		mock.ExpectQuery("SELECT l.id AS idLocalidad, l.locality_name AS nombreLocalidad, COUNT\\(s.id\\) AS cantidadSellers").
+			WithArgs(999).
+			WillReturnError(sql.ErrNoRows)
 
-	// Ejecutar el test con un ID que no existe
-	_, err := repo.GetCantSellersByLocality(999)
+		repo := NewLocalitySql(db)
 
-	// Verificar que se devuelve un error de no encontrado
-	assert.Error(t, err)
-	assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
-}
+		// Act
+		result, err := repo.GetCantSellersByLocality(999)
 
-// Test para verificar integridad referencial - Crear seller con locality inexistente
-func TestLocalitySql_ReferentialIntegrity_SellerWithoutLocality(t *testing.T) {
-	db := createTestLocalityDB()
-	defer db.Close()
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.LocalityBySellerResponse{}, result)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	sellerRepo := NewSellerSql(db)
+	t.Run("Cuando hay error de base de datos retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	// Intentar crear un seller con una locality_id que no existe
-	seller := models.Seller{
-		SellerAttributes: models.SellerAttributes{
-			CId:         "S001",
-			CompanyName: "Test Company",
-			Address:     "123 Test St",
-			Telephone:   "123-456-7890",
-			LocalityID:  999, // ID que no existe
-		},
-	}
+		mock.ExpectQuery("SELECT l.id AS idLocalidad, l.locality_name AS nombreLocalidad, COUNT\\(s.id\\) AS cantidadSellers").
+			WithArgs(1).
+			WillReturnError(sql.ErrConnDone)
 
-	// Ejecutar el test
-	_, err := sellerRepo.Create(seller)
+		repo := NewLocalitySql(db)
 
-	// Verificar que se devuelve un error debido a la restricción de clave foránea
-	assert.Error(t, err)
-}
+		// Act
+		result, err := repo.GetCantSellersByLocality(1)
 
-// Test para verificar que se puede crear un seller con locality existente
-func TestLocalitySql_ReferentialIntegrity_SellerWithExistingLocality(t *testing.T) {
-	db := createTestLocalityDB()
-	defer db.Close()
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.LocalityBySellerResponse{}, result)
+		require.Equal(t, sql.ErrConnDone, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	repo := NewLocalitySql(db)
-	sellerRepo := NewSellerSql(db)
+	t.Run("Cuando la locality existe pero no tiene sellers retorna cero", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	// Crear una locality
-	locality := models.Locality{
-		LocalitiesAttributes: models.LocalitiesAttributes{
-			LocalityName: "Buenos Aires",
-			ProvinceName: "Buenos Aires",
-			CountryName:  "Argentina",
-		},
-	}
+		rows := sqlmock.NewRows([]string{
+			"idLocalidad", "nombreLocalidad", "cantidadSellers",
+		}).AddRow(1, "Tucumán", "0")
 
-	createdLocality, err := repo.Create(locality)
-	require.NoError(t, err)
+		mock.ExpectQuery("SELECT l.id AS idLocalidad, l.locality_name AS nombreLocalidad, COUNT\\(s.id\\) AS cantidadSellers").
+			WithArgs(1).
+			WillReturnRows(rows)
 
-	// Crear un seller con la locality existente
-	seller := models.Seller{
-		SellerAttributes: models.SellerAttributes{
-			CId:         "S001",
-			CompanyName: "Test Company",
-			Address:     "123 Test St",
-			Telephone:   "123-456-7890",
-			LocalityID:  createdLocality.ID,
-		},
-	}
+		repo := NewLocalitySql(db)
 
-	// Ejecutar el test
-	result, err := sellerRepo.Create(seller)
+		// Act
+		result, err := repo.GetCantSellersByLocality(1)
 
-	// Verificar resultado
-	assert.NoError(t, err)
-	assert.NotZero(t, result.ID)
-	assert.Equal(t, seller.LocalityID, result.LocalityID)
+		// Assert
+		require.NoError(t, err)
+		require.Equal(t, 1, result.ID)
+		require.NotNil(t, result.LocalityName)
+		require.Equal(t, "Tucumán", *result.LocalityName)
+		require.NotNil(t, result.SellerCount)
+		require.Equal(t, "0", *result.SellerCount)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }

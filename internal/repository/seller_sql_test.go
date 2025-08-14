@@ -4,384 +4,417 @@ import (
 	"app/pkg"
 	"app/pkg/models"
 	"database/sql"
-	"fmt"
-	"os"
-	"sync"
 	"testing"
-	"time"
 
-	"github.com/DATA-DOG/go-txdb"
-	"github.com/go-sql-driver/mysql"
-	"github.com/stretchr/testify/assert"
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
 
-// Variables para controlar el registro del driver txdb para seller tests
-var (
-	sellerTxdbRegistered bool = false
-	sellerTxdbMutex      sync.Mutex
-)
+func TestSellerRepository_FindAll(t *testing.T) {
+	t.Run("Devuelve todos los sellers correctamente", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-// Estructura para leer la configuración de la base de datos desde config.yml
-type SellerConfig struct {
-	Database struct {
-		User     string `yaml:"user"`
-		Password string `yaml:"password"`
-		Host     string `yaml:"host"`
-		Port     string `yaml:"port"`
-		Name     string `yaml:"name"`
-	} `yaml:"database"`
+		rows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).
+			AddRow(1, "12345", "Company One", "Address One", "123456789", 1).
+			AddRow(2, "67890", "Company Two", "Address Two", "987654321", 2)
+
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers").
+			WillReturnRows(rows)
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.FindAll()
+
+		// Assert
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+		require.Equal(t, "12345", result[1].CId)
+		require.Equal(t, "Company One", result[1].CompanyName)
+		require.Equal(t, "67890", result[2].CId)
+		require.Equal(t, "Company Two", result[2].CompanyName)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando hay error de base de datos retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers").
+			WillReturnError(sql.ErrConnDone)
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.FindAll()
+
+		// Assert
+		require.Error(t, err)
+		require.Nil(t, result)
+		require.Equal(t, sql.ErrConnDone, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-// Configurar la base de datos para pruebas de seller
-func setupSellerTxDB() string {
-	// Usar un mutex para evitar condiciones de carrera al registrar el driver
-	sellerTxdbMutex.Lock()
-	defer sellerTxdbMutex.Unlock()
+func TestSellerRepository_GetById(t *testing.T) {
+	t.Run("Cuando encuentra el seller retorna los datos correctamente", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	// Evitar registrar el driver más de una vez
-	if !sellerTxdbRegistered {
-		// Leer la configuración desde config.yml
-		config := loadSellerConfig()
+		rows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).AddRow(1, "12345", "Test Company", "Test Address", "123456789", 1)
 
-		// Configurar la conexión MySQL usando los valores del config.yml
-		cfg := mysql.Config{
-			User:                 config.Database.User,
-			Passwd:               config.Database.Password,
-			Net:                  "tcp",
-			Addr:                 fmt.Sprintf("%s:%s", config.Database.Host, config.Database.Port),
-			DBName:               config.Database.Name,
-			ParseTime:            true,
-			AllowNativePasswords: true,
-		}
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnRows(rows)
 
-		// Registrar el driver txdb
-		txdb.Register("txdb_seller", "mysql", cfg.FormatDSN())
-		sellerTxdbRegistered = true
-	}
+		repo := NewSellerSql(db)
 
-	return "txdb_seller"
+		// Act
+		result, err := repo.GetById(1)
+
+		// Assert
+		require.NoError(t, err)
+		require.Equal(t, 1, result.ID)
+		require.Equal(t, "12345", result.CId)
+		require.Equal(t, "Test Company", result.CompanyName)
+		require.Equal(t, "Test Address", result.Address)
+		require.Equal(t, "123456789", result.Telephone)
+		require.Equal(t, 1, result.LocalityID)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando no encuentra el seller retorna error not found", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(999).
+			WillReturnError(sql.ErrNoRows)
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.GetById(999)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Seller{}, result)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando hay error de base de datos retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnError(sql.ErrConnDone)
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.GetById(1)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Seller{}, result)
+		require.Equal(t, sql.ErrConnDone, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-// Cargar la configuración desde config.yml
-func loadSellerConfig() SellerConfig {
-	var config SellerConfig
+func TestSellerRepository_Create(t *testing.T) {
+	t.Run("Cuando los datos son válidos crea el seller exitosamente", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	// Intentar leer el archivo de configuración
-	data, err := os.ReadFile("../../config.yml")
-	if err != nil {
-		// Si hay un error, mostrar un mensaje y terminar el test
-		panic(fmt.Sprintf("Error al leer el archivo config.yml: %v\nAsegúrate de que el archivo config.yml existe en la raíz del proyecto", err))
-	}
-
-	// Parsear el archivo YAML
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		// Si hay un error al parsear el YAML, mostrar un mensaje y terminar el test
-		panic(fmt.Sprintf("Error al parsear el archivo config.yml: %v", err))
-	}
-
-	return config
-}
-
-// Función helper para crear una base de datos de prueba
-func createTestSellerDB() *sql.DB {
-	driverName := setupSellerTxDB()
-	db, err := sql.Open(driverName, fmt.Sprintf("seller_test_%d", time.Now().UnixNano()))
-	if err != nil {
-		panic(fmt.Sprintf("Error al conectar a la base de datos: %v", err))
-	}
-	return db
-}
-
-// Test para Create - Caso exitoso
-func TestSellerSql_Create_Success(t *testing.T) {
-	db := createTestSellerDB()
-	defer db.Close()
-
-	repo := NewSellerSql(db)
-
-	// Crear un seller de prueba
-	seller := models.Seller{
-		SellerAttributes: models.SellerAttributes{
-			CId:         "S001",
-			CompanyName: "Test Company",
-			Address:     "123 Test St",
-			Telephone:   "123-456-7890",
-			LocalityID:  1,
-		},
-	}
-
-	// Ejecutar el test
-	result, err := repo.Create(seller)
-
-	// Verificar resultado
-	assert.NoError(t, err)
-	assert.NotZero(t, result.ID)
-	assert.Equal(t, seller.CId, result.CId)
-	assert.Equal(t, seller.CompanyName, result.CompanyName)
-	assert.Equal(t, seller.Address, result.Address)
-	assert.Equal(t, seller.Telephone, result.Telephone)
-	assert.Equal(t, seller.LocalityID, result.LocalityID)
-}
-
-// Test para Create - Caso de CId duplicado
-func TestSellerSql_Create_DuplicateCId(t *testing.T) {
-	db := createTestSellerDB()
-	defer db.Close()
-
-	repo := NewSellerSql(db)
-
-	// Crear el primer seller
-	seller1 := models.Seller{
-		SellerAttributes: models.SellerAttributes{
-			CId:         "S001",
-			CompanyName: "Test Company 1",
-			Address:     "123 Test St",
-			Telephone:   "123-456-7890",
-			LocalityID:  1,
-		},
-	}
-
-	_, err := repo.Create(seller1)
-	require.NoError(t, err)
-
-	// Intentar crear otro seller con el mismo CId
-	seller2 := models.Seller{
-		SellerAttributes: models.SellerAttributes{
-			CId:         "S001", // CId duplicado
-			CompanyName: "Test Company 2",
-			Address:     "456 Test Ave",
-			Telephone:   "987-654-3210",
-			LocalityID:  1,
-		},
-	}
-
-	// Ejecutar el test
-	_, err = repo.Create(seller2)
-
-	// Verificar que se devuelve un error de conflicto
-	assert.Error(t, err)
-	assert.Equal(t, pkg.ServiceErrors[pkg.ErrConflict], err)
-}
-
-// Test para GetById - Caso exitoso
-func TestSellerSql_GetById_Success(t *testing.T) {
-	db := createTestSellerDB()
-	defer db.Close()
-
-	repo := NewSellerSql(db)
-
-	// Crear un seller de prueba
-	seller := models.Seller{
-		SellerAttributes: models.SellerAttributes{
-			CId:         "S001",
-			CompanyName: "Test Company",
-			Address:     "123 Test St",
-			Telephone:   "123-456-7890",
-			LocalityID:  1,
-		},
-	}
-
-	created, err := repo.Create(seller)
-	require.NoError(t, err)
-
-	// Ejecutar el test
-	result, err := repo.GetById(created.ID)
-
-	// Verificar resultado
-	assert.NoError(t, err)
-	assert.Equal(t, created.ID, result.ID)
-	assert.Equal(t, created.CId, result.CId)
-	assert.Equal(t, created.CompanyName, result.CompanyName)
-	assert.Equal(t, created.Address, result.Address)
-	assert.Equal(t, created.Telephone, result.Telephone)
-	assert.Equal(t, created.LocalityID, result.LocalityID)
-}
-
-// Test para GetById - Caso de seller no encontrado
-func TestSellerSql_GetById_NotFound(t *testing.T) {
-	db := createTestSellerDB()
-	defer db.Close()
-
-	repo := NewSellerSql(db)
-
-	// Ejecutar el test con un ID que no existe
-	_, err := repo.GetById(999)
-
-	// Verificar que se devuelve un error de no encontrado
-	assert.Error(t, err)
-	assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
-}
-
-// Test para FindAll - Caso exitoso
-func TestSellerSql_FindAll_Success(t *testing.T) {
-	db := createTestSellerDB()
-	defer db.Close()
-
-	repo := NewSellerSql(db)
-
-	// Crear varios sellers de prueba
-	sellers := []models.Seller{
-		{
+		inputSeller := models.Seller{
 			SellerAttributes: models.SellerAttributes{
-				CId:         "S001",
-				CompanyName: "Test Company 1",
-				Address:     "123 Test St",
-				Telephone:   "123-456-7890",
+				CId:         "12345",
+				CompanyName: "New Company",
+				Address:     "New Address",
+				Telephone:   "123456789",
 				LocalityID:  1,
 			},
-		},
-		{
-			SellerAttributes: models.SellerAttributes{
-				CId:         "S002",
-				CompanyName: "Test Company 2",
-				Address:     "456 Test Ave",
-				Telephone:   "987-654-3210",
-				LocalityID:  2,
-			},
-		},
-	}
+		}
 
-	// Crear los sellers
-	for _, seller := range sellers {
-		_, err := repo.Create(seller)
+		// Mock para verificar que no existe seller con el mismo CId
+		mock.ExpectQuery("SELECT id FROM sellers WHERE cid = \\?").
+			WithArgs("12345").
+			WillReturnError(sql.ErrNoRows)
+
+		// Mock para la inserción
+		mock.ExpectExec("INSERT INTO sellers \\(cid, company_name, address, telephone, locality_id\\) VALUES \\(\\?, \\?, \\?, \\?, \\?\\)").
+			WithArgs("12345", "New Company", "New Address", "123456789", 1).
+			WillReturnResult(sqlmock.NewResult(1, 1))
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.Create(inputSeller)
+
+		// Assert
 		require.NoError(t, err)
-	}
+		require.Equal(t, 1, result.ID)
+		require.Equal(t, "12345", result.CId)
+		require.Equal(t, "New Company", result.CompanyName)
+		require.Equal(t, "New Address", result.Address)
+		require.Equal(t, "123456789", result.Telephone)
+		require.Equal(t, 1, result.LocalityID)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	// Ejecutar el test
-	result, err := repo.FindAll()
+	t.Run("Cuando el CId ya existe retorna error de conflicto", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	// Verificar resultado
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.GreaterOrEqual(t, len(result), 2) // At least 2 records (may have seeded data)
-
-	// Check that our test records are in the result
-	foundSeller1 := false
-	foundSeller2 := false
-	for _, seller := range result {
-		if seller.CId == sellers[0].CId {
-			foundSeller1 = true
+		inputSeller := models.Seller{
+			SellerAttributes: models.SellerAttributes{
+				CId:         "12345",
+				CompanyName: "Duplicate Company",
+				Address:     "Some Address",
+				Telephone:   "123456789",
+				LocalityID:  1,
+			},
 		}
-		if seller.CId == sellers[1].CId {
-			foundSeller2 = true
+
+		// Mock para verificar que existe seller con el mismo CId
+		rows := sqlmock.NewRows([]string{"id"}).AddRow(1)
+		mock.ExpectQuery("SELECT id FROM sellers WHERE cid = \\?").
+			WithArgs("12345").
+			WillReturnRows(rows)
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.Create(inputSeller)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Seller{}, result)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrConflict], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando hay error en la inserción retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		inputSeller := models.Seller{
+			SellerAttributes: models.SellerAttributes{
+				CId:         "54321",
+				CompanyName: "Test Company",
+				Address:     "Test Address",
+				Telephone:   "987654321",
+				LocalityID:  1,
+			},
 		}
-	}
-	assert.True(t, foundSeller1, "Seller 1 should be found in results")
-	assert.True(t, foundSeller2, "Seller 2 should be found in results")
+
+		// Mock para verificar que no existe seller con el mismo CId
+		mock.ExpectQuery("SELECT id FROM sellers WHERE cid = \\?").
+			WithArgs("54321").
+			WillReturnError(sql.ErrNoRows)
+
+		// Mock para la inserción con error
+		mock.ExpectExec("INSERT INTO sellers \\(cid, company_name, address, telephone, locality_id\\) VALUES \\(\\?, \\?, \\?, \\?, \\?\\)").
+			WithArgs("54321", "Test Company", "Test Address", "987654321", 1).
+			WillReturnError(sql.ErrConnDone)
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.Create(inputSeller)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Seller{}, result)
+		require.Contains(t, err.Error(), "failed to create seller")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-// Test para UpdateFields - Caso exitoso
-func TestSellerSql_UpdateFields_Success(t *testing.T) {
-	db := createTestSellerDB()
-	defer db.Close()
+func TestSellerRepository_UpdateFields(t *testing.T) {
+	t.Run("Cuando el seller existe actualiza los campos exitosamente", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	repo := NewSellerSql(db)
+		updateData := models.SellerCreateRequest{
+			CompanyName: models.StringPtr("Updated Company"),
+			Address:     models.StringPtr("Updated Address"),
+		}
 
-	// Crear un seller de prueba
-	seller := models.Seller{
-		SellerAttributes: models.SellerAttributes{
-			CId:         "S001",
-			CompanyName: "Test Company",
-			Address:     "123 Test St",
-			Telephone:   "123-456-7890",
-			LocalityID:  1,
-		},
-	}
+		// Mock para GetById inicial (verificar que existe)
+		existingRows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).AddRow(1, "12345", "Old Company", "Old Address", "123456789", 1)
 
-	created, err := repo.Create(seller)
-	require.NoError(t, err)
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnRows(existingRows)
 
-	// Preparar datos para actualización
-	updateData := models.SellerCreateRequest{
-		CompanyName: stringPtr("Updated Company"),
-		Address:     stringPtr("Updated Address"),
-		Telephone:   stringPtr("555-123-4567"),
-	}
+		// Mock para la actualización
+		mock.ExpectExec("UPDATE sellers SET").
+			WithArgs(nil, "Updated Company", "Updated Address", nil, nil, 1).
+			WillReturnResult(sqlmock.NewResult(0, 1))
 
-	// Ejecutar el test
-	result, err := repo.UpdateFields(created.ID, updateData)
+		// Mock para GetById final (retornar seller actualizado)
+		updatedRows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).AddRow(1, "12345", "Updated Company", "Updated Address", "123456789", 1)
 
-	// Verificar resultado
-	assert.NoError(t, err)
-	assert.Equal(t, created.ID, result.ID)
-	assert.Equal(t, created.CId, result.CId) // CId no debería cambiar
-	assert.Equal(t, *updateData.CompanyName, result.CompanyName)
-	assert.Equal(t, *updateData.Address, result.Address)
-	assert.Equal(t, *updateData.Telephone, result.Telephone)
-	assert.Equal(t, created.LocalityID, result.LocalityID) // LocalityID no debería cambiar
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnRows(updatedRows)
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.UpdateFields(1, updateData)
+
+		// Assert
+		require.NoError(t, err)
+		require.Equal(t, 1, result.ID)
+		require.Equal(t, "12345", result.CId)
+		require.Equal(t, "Updated Company", result.CompanyName)
+		require.Equal(t, "Updated Address", result.Address)
+		require.Equal(t, "123456789", result.Telephone)
+		require.Equal(t, 1, result.LocalityID)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando el seller no existe retorna error not found", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		updateData := models.SellerCreateRequest{
+			CompanyName: models.StringPtr("Updated Company"),
+		}
+
+		// Mock para GetById (seller no existe)
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(999).
+			WillReturnError(sql.ErrNoRows)
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.UpdateFields(999, updateData)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Seller{}, result)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-// Test para UpdateFields - Caso de seller no encontrado
-func TestSellerSql_UpdateFields_NotFound(t *testing.T) {
-	db := createTestSellerDB()
-	defer db.Close()
+func TestSellerRepository_DeleteSeller(t *testing.T) {
+	t.Run("Cuando el seller existe lo elimina exitosamente", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	repo := NewSellerSql(db)
+		// Mock para GetById (verificar que existe)
+		existingRows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).AddRow(1, "12345", "Test Company", "Test Address", "123456789", 1)
 
-	updateData := models.SellerCreateRequest{
-		CompanyName: stringPtr("Updated Company"),
-	}
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnRows(existingRows)
 
-	// Ejecutar el test con un ID que no existe
-	_, err := repo.UpdateFields(999, updateData)
+		// Mock para la eliminación
+		mock.ExpectExec("DELETE FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnResult(sqlmock.NewResult(0, 1))
 
-	// Verificar que se devuelve un error de no encontrado
-	assert.Error(t, err)
-	assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
-}
+		repo := NewSellerSql(db)
 
-// Test para DeleteSeller - Caso exitoso
-func TestSellerSql_DeleteSeller_Success(t *testing.T) {
-	db := createTestSellerDB()
-	defer db.Close()
+		// Act
+		err = repo.DeleteSeller(1)
 
-	repo := NewSellerSql(db)
+		// Assert
+		require.NoError(t, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	// Crear un seller de prueba
-	seller := models.Seller{
-		SellerAttributes: models.SellerAttributes{
-			CId:         "S001",
-			CompanyName: "Test Company",
-			Address:     "123 Test St",
-			Telephone:   "123-456-7890",
-			LocalityID:  1,
-		},
-	}
+	t.Run("Cuando el seller no existe retorna error not found", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	created, err := repo.Create(seller)
-	require.NoError(t, err)
+		// Mock para GetById (seller no existe)
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(999).
+			WillReturnError(sql.ErrNoRows)
 
-	// Ejecutar el test
-	err = repo.DeleteSeller(created.ID)
+		repo := NewSellerSql(db)
 
-	// Verificar resultado
-	assert.NoError(t, err)
+		// Act
+		err = repo.DeleteSeller(999)
 
-	// Verificar que el seller ya no existe
-	_, err = repo.GetById(created.ID)
-	assert.Error(t, err)
-	assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
-}
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 
-// Test para DeleteSeller - Caso de seller no encontrado
-func TestSellerSql_DeleteSeller_NotFound(t *testing.T) {
-	db := createTestSellerDB()
-	defer db.Close()
+	t.Run("Cuando hay error en la eliminación retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
 
-	repo := NewSellerSql(db)
+		// Mock para GetById (verificar que existe)
+		existingRows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).AddRow(1, "12345", "Test Company", "Test Address", "123456789", 1)
 
-	// Ejecutar el test con un ID que no existe
-	err := repo.DeleteSeller(999)
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnRows(existingRows)
 
-	// Verificar que se devuelve un error de no encontrado
-	assert.Error(t, err)
-	assert.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
-}
+		// Mock para la eliminación con error
+		mock.ExpectExec("DELETE FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnError(sql.ErrConnDone)
 
-// Helper function para crear punteros a string
-func stringPtr(s string) *string {
-	return &s
+		repo := NewSellerSql(db)
+
+		// Act
+		err = repo.DeleteSeller(1)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, sql.ErrConnDone, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
