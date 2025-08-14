@@ -61,6 +61,31 @@ func TestSellerRepository_FindAll(t *testing.T) {
 		require.Equal(t, sql.ErrConnDone, err)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
+
+	t.Run("Cuando hay error en el scan de filas retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		// Crear filas con datos incompatibles para causar error en Scan
+		rows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).AddRow("invalid_id", "12345", "Company One", "Address One", "123456789", 1)
+
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers").
+			WillReturnRows(rows)
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.FindAll()
+
+		// Assert
+		require.Error(t, err)
+		require.Nil(t, result)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestSellerRepository_GetById(t *testing.T) {
@@ -253,6 +278,77 @@ func TestSellerRepository_Create(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to create seller")
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
+
+	t.Run("Cuando hay error de base de datos en verificación de CId retorna error not found", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		inputSeller := models.Seller{
+			SellerAttributes: models.SellerAttributes{
+				CId:         "12345",
+				CompanyName: "Test Company",
+				Address:     "Test Address",
+				Telephone:   "123456789",
+				LocalityID:  1,
+			},
+		}
+
+		// Mock para verificar CId con error de conexión (no sql.ErrNoRows)
+		mock.ExpectQuery("SELECT id FROM sellers WHERE cid = \\?").
+			WithArgs("12345").
+			WillReturnError(sql.ErrConnDone)
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.Create(inputSeller)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Seller{}, result)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando hay error al obtener LastInsertId retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		inputSeller := models.Seller{
+			SellerAttributes: models.SellerAttributes{
+				CId:         "99999",
+				CompanyName: "Test Company",
+				Address:     "Test Address",
+				Telephone:   "123456789",
+				LocalityID:  1,
+			},
+		}
+
+		// Mock para verificar que no existe seller con el mismo CId
+		mock.ExpectQuery("SELECT id FROM sellers WHERE cid = \\?").
+			WithArgs("99999").
+			WillReturnError(sql.ErrNoRows)
+
+		// Mock para la inserción exitosa pero con error en LastInsertId
+		mock.ExpectExec("INSERT INTO sellers \\(cid, company_name, address, telephone, locality_id\\) VALUES \\(\\?, \\?, \\?, \\?, \\?\\)").
+			WithArgs("99999", "Test Company", "Test Address", "123456789", 1).
+			WillReturnResult(sqlmock.NewErrorResult(sql.ErrConnDone))
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.Create(inputSeller)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Seller{}, result)
+		require.Contains(t, err.Error(), "failed to get last insert id")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestSellerRepository_UpdateFields(t *testing.T) {
@@ -325,6 +421,114 @@ func TestSellerRepository_UpdateFields(t *testing.T) {
 
 		// Act
 		result, err := repo.UpdateFields(999, updateData)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Seller{}, result)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando hay error en la actualización retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		updateData := models.SellerCreateRequest{
+			CompanyName: models.StringPtr("Updated Company"),
+		}
+
+		// Mock para GetById inicial (verificar que existe)
+		existingRows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).AddRow(1, "12345", "Old Company", "Old Address", "123456789", 1)
+
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnRows(existingRows)
+
+		// Mock para la actualización con error
+		mock.ExpectExec("UPDATE sellers SET").
+			WithArgs(nil, "Updated Company", nil, nil, nil, 1).
+			WillReturnError(sql.ErrConnDone)
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.UpdateFields(1, updateData)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Seller{}, result)
+		require.Contains(t, err.Error(), "failed to update seller")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando hay error al obtener RowsAffected retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		updateData := models.SellerCreateRequest{
+			CompanyName: models.StringPtr("Updated Company"),
+		}
+
+		// Mock para GetById inicial (verificar que existe)
+		existingRows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).AddRow(1, "12345", "Old Company", "Old Address", "123456789", 1)
+
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnRows(existingRows)
+
+		// Mock para la actualización con error en RowsAffected
+		mock.ExpectExec("UPDATE sellers SET").
+			WithArgs(nil, "Updated Company", nil, nil, nil, 1).
+			WillReturnResult(sqlmock.NewErrorResult(sql.ErrConnDone))
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.UpdateFields(1, updateData)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, models.Seller{}, result)
+		require.Contains(t, err.Error(), "failed to get rows affected")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando no se afectan filas retorna error not found", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		updateData := models.SellerCreateRequest{
+			CompanyName: models.StringPtr("Updated Company"),
+		}
+
+		// Mock para GetById inicial (verificar que existe)
+		existingRows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).AddRow(1, "12345", "Old Company", "Old Address", "123456789", 1)
+
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnRows(existingRows)
+
+		// Mock para la actualización sin afectar filas
+		mock.ExpectExec("UPDATE sellers SET").
+			WithArgs(nil, "Updated Company", nil, nil, nil, 1).
+			WillReturnResult(sqlmock.NewResult(0, 0))
+
+		repo := NewSellerSql(db)
+
+		// Act
+		result, err := repo.UpdateFields(1, updateData)
 
 		// Assert
 		require.Error(t, err)
@@ -415,6 +619,68 @@ func TestSellerRepository_DeleteSeller(t *testing.T) {
 		// Assert
 		require.Error(t, err)
 		require.Equal(t, sql.ErrConnDone, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando hay error al obtener RowsAffected retorna el error", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		// Mock para GetById (verificar que existe)
+		existingRows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).AddRow(1, "12345", "Test Company", "Test Address", "123456789", 1)
+
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnRows(existingRows)
+
+		// Mock para la eliminación con error en RowsAffected
+		mock.ExpectExec("DELETE FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnResult(sqlmock.NewErrorResult(sql.ErrConnDone))
+
+		repo := NewSellerSql(db)
+
+		// Act
+		err = repo.DeleteSeller(1)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, sql.ErrConnDone, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Cuando no se afectan filas retorna error not found", func(t *testing.T) {
+		// Arrange
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		// Mock para GetById (verificar que existe)
+		existingRows := sqlmock.NewRows([]string{
+			"id", "cid", "company_name", "address", "telephone", "locality_id",
+		}).AddRow(1, "12345", "Test Company", "Test Address", "123456789", 1)
+
+		mock.ExpectQuery("SELECT id, cid, company_name, address, telephone, locality_id FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnRows(existingRows)
+
+		// Mock para la eliminación sin afectar filas
+		mock.ExpectExec("DELETE FROM sellers WHERE id = \\?").
+			WithArgs(1).
+			WillReturnResult(sqlmock.NewResult(0, 0))
+
+		repo := NewSellerSql(db)
+
+		// Act
+		err = repo.DeleteSeller(1)
+
+		// Assert
+		require.Error(t, err)
+		require.Equal(t, pkg.ServiceErrors[pkg.ErrNotFound], err)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }
